@@ -1,61 +1,62 @@
 // app/layout.tsx
 import "./globals.css";
 import type { Metadata } from "next";
-import Script from "next/script";
-import { Playfair_Display, Inter } from "next/font/google";
-
-const display = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-display",
-});
-const body = Inter({
-  subsets: ["latin"],
-  variable: "--font-body",
-});
+import { ReactNode } from "react";
+import { JsonLd } from "@/components/Seo";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://runwaytwin.vercel.app"),
-  title: "RunwayTwin – Celebrity Stylist AI",
+  title: "RunwayTwin — Your Personal Celebrity Stylist",
   description:
-    "Be Their Runway Twin ✨ — AI celebrity stylist with live shoppable links and affiliate-ready redirects.",
+    "AI celebrity stylist that curates shoppable outfits inspired by your favorite stars. Upload a celeb photo or name, set your budget, and shop instantly.",
+  keywords: [
+    "celebrity stylist",
+    "AI fashion",
+    "shoppable outfits",
+    "celebrity inspired fashion",
+    "RunwayTwin"
+  ],
   openGraph: {
-    title: "RunwayTwin – Celebrity Stylist AI",
+    title: "RunwayTwin — Your Personal Celebrity Stylist",
     description:
-      "Upload a celeb name or photo, set your budget, and shop a curated look instantly.",
-    url: "https://runwaytwin.vercel.app",
+      "Upload a celebrity photo or name, set your budget, and shop curated outfits with working affiliate links.",
+    url: "https://runwaytwin.com",
     siteName: "RunwayTwin",
-    images: [{ url: "/og.jpg", width: 1200, height: 630 }],
+    images: [
+      {
+        url: "/hero.jpg",
+        width: 1200,
+        height: 630,
+        alt: "RunwayTwin AI Celebrity Stylist"
+      }
+    ],
     locale: "en_US",
-    type: "website",
-  },
-  robots: { index: true, follow: true },
-  alternates: { canonical: "https://runwaytwin.vercel.app" },
+    type: "website"
+  }
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const orgJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "RunwayTwin",
-    url: "https://runwaytwin.vercel.app",
-    logo: "https://runwaytwin.vercel.app/og.jpg",
-    sameAs: [
-      "https://instagram.com/runwaytwin",
-      "https://www.tiktok.com/@runwaytwin",
-    ],
-  };
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en">
       <head>
-        {/* Performance: warm the LCP hero image */}
-        <link rel="preload" as="image" href="/hero.jpg" imagesrcset="/hero.jpg" />
+        {/* Preload hero image for faster LCP */}
+        <link rel="preload" as="image" href="/hero.jpg" />
       </head>
-      <body className="min-h-screen bg-rt-ivory text-rt-black font-body">
-        {/* Global JSON-LD via next/script */}
-        <Script id="org-schema" type="application/ld+json" strategy="afterInteractive">
-          {JSON.stringify(orgJsonLd)}
-        </Script>
+      <body className="min-h-screen bg-rt-ivory text-rt-black font-body antialiased">
+        {/* Global SEO JSON-LD */}
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "RunwayTwin",
+            url: "https://runwaytwin.com",
+            description:
+              "AI celebrity stylist for instantly shoppable outfits inspired by your favorite stars.",
+            publisher: {
+              "@type": "Organization",
+              name: "RunwayTwin"
+            }
+          }}
+        />
         {children}
       </body>
     </html>
