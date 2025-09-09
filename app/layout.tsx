@@ -34,6 +34,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body className="min-h-screen bg-rt-ivory text-rt-black font-body">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "RunwayTwin",
+              url: "https://runwaytwin.vercel.app",
+              logo: "https://runwaytwin.vercel.app/og.jpg",
+              sameAs: [
+                "https://instagram.com/runwaytwin",
+                "https://www.tiktok.com/@runwaytwin"
+              ]
+            }),
+          }}
+        />
+        {children}
+      </body>
         {children}
       </body>
     </html>
