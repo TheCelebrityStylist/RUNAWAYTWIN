@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Brand surface & typography */
+:root {
+  --bg: #FAFAF8; /* rt.ivory */
+  --ink: #0A0A0A; /* rt.black */
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  @apply font-body;
+}
+
+/* Luxury button */
+.btn {
+  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition;
+  @apply bg-rt-black text-white hover:opacity-90;
+}
+
+.btn-outline {
+  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition;
+  @apply border border-rt-black text-rt-black hover:bg-rt-black hover:text-white;
+}
+
+/* Card */
+.card {
+  @apply rounded-2xl border bg-white/80 backdrop-blur shadow-soft;
+}
+
+/* Section title */
+.section-title {
+  @apply text-xl font-semibold tracking-tight;
+}
+
+/* Subtle gold hover links */
+a:hover {
+  color: #D4AF37;
+}
