@@ -1,11 +1,14 @@
+// app/layout.tsx
 import "./globals.css";
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Playfair_Display, Inter } from "next/font/google";
 
 const display = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-display",
 });
+
 const body = Inter({
   subsets: ["latin"],
   variable: "--font-body",
@@ -31,27 +34,25 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const orgJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "RunwayTwin",
+    url: "https://runwaytwin.vercel.app",
+    logo: "https://runwaytwin.vercel.app/og.jpg",
+    sameAs: [
+      "https://instagram.com/runwaytwin",
+      "https://www.tiktok.com/@runwaytwin",
+    ],
+  };
+
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body className="min-h-screen bg-rt-ivory text-rt-black font-body">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              name: "RunwayTwin",
-              url: "https://runwaytwin.vercel.app",
-              logo: "https://runwaytwin.vercel.app/og.jpg",
-              sameAs: [
-                "https://instagram.com/runwaytwin",
-                "https://www.tiktok.com/@runwaytwin"
-              ]
-            }),
-          }}
-        />
-        {children}
-      </body>
+        {/* Global JSON-LD (safe on Vercel via next/script) */}
+        <Script id="org-schema" type="application/ld+json" strategy="afterInteractive">
+          {JSON.stringify(orgJsonLd)}
+        </Script>
         {children}
       </body>
     </html>
