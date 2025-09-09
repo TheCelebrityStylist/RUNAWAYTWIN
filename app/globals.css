@@ -1,44 +1,52 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* --- RunwayTwin UI primitives --- */
+:root{
+  --rt-black:#0e0e0e;
+  --rt-ivory:#fbfaf7;
+  --rt-charcoal:#444;
+  --rt-gold:#c9a860;
+}
+body{background:var(--rt-ivory);color:var(--rt-black);}
 
-/* Brand surface & typography */
-:root {
-  --bg: #FAFAF8; /* rt.ivory */
-  --ink: #0A0A0A; /* rt.black */
+.font-body{font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";}
+.font-display{font-family: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:40px;padding:0 16px;border-radius:9999px;
+  background:var(--rt-black);color:white;font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+  transition:transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(0,0,0,.16);}
+.btn:active{transform:translateY(0);}
+
+.btn-outline{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:40px;padding:0 16px;border-radius:9999px;
+  border:1px solid #ddd;background:white;color:var(--rt-black);font-weight:600;
+  transition:background .2s ease, border-color .2s ease, transform .2s ease;
+}
+.btn-outline:hover{background:#fffdf7;border-color:#ccc;transform:translateY(-1px);}
+
+.badge{display:inline-flex;gap:6px;align-items:center;border:1px solid #e9e6df;border-radius:9999px;padding:6px 10px;font-size:12px;color:#666;background:rgba(255,255,255,.7);backdrop-filter:saturate(140%) blur(6px);}
+
+.card{
+  border:1px solid #eee;border-radius:20px;background:rgba(255,255,255,.75);
+  backdrop-filter:saturate(140%) blur(6px);box-shadow:0 8px 40px rgba(10,10,10,.04);
+}
+.card:hover{box-shadow:0 10px 48px rgba(10,10,10,.06);}
+
+.shadow-soft{box-shadow:0 10px 40px rgba(10,10,10,.05);}
+
+.gradient-text{
+  background:linear-gradient(180deg, #101010 0%, #101010 40%, var(--rt-gold) 40.2%, #b08c43 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
-html, body {
-  background: var(--bg);
-  color: var(--ink);
+.hero-wrap{
+  position:relative;border-radius:28px;overflow:hidden;
+  background:radial-gradient(1200px 400px at 20% 0%, rgba(201,168,96,.18) 0%, rgba(201,168,96,0) 60%),
+             linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.3) 100%);
 }
-
-body {
-  @apply font-body;
-}
-
-/* Luxury button */
-.btn {
-  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition;
-  @apply bg-rt-black text-white hover:opacity-90;
-}
-
-.btn-outline {
-  @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition;
-  @apply border border-rt-black text-rt-black hover:bg-rt-black hover:text-white;
-}
-
-/* Card */
-.card {
-  @apply rounded-2xl border bg-white/80 backdrop-blur shadow-soft;
-}
-
-/* Section title */
-.section-title {
-  @apply text-xl font-semibold tracking-tight;
-}
-
-/* Subtle gold hover links */
-a:hover {
-  color: #D4AF37;
-}
+.hero-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.15;transform:scale(1.02);}
+.hero-content{position:relative;padding:64px 24px;}
