@@ -1,4 +1,4 @@
-"use client";
+// app/pricing/page.tsx
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -69,9 +69,7 @@ export default function PricingPage() {
               <li>Live feeds + affiliate analytics</li>
               <li>Email support</li>
             </ul>
-            <a className="btn mt-6 inline-block" href="/upgrade">
-              Go Premium
-            </a>
+            <a className="btn mt-6 inline-block" href="/upgrade">Go Premium</a>
           </div>
 
           <div className="card p-6">
@@ -82,9 +80,7 @@ export default function PricingPage() {
               <li>Working product links</li>
               <li>No subscription</li>
             </ul>
-            <a className="btn-outline mt-6 inline-block" href="/stylist">
-              Try One-Off
-            </a>
+            <a className="btn-outline mt-6 inline-block" href="/stylist">Try One-Off</a>
           </div>
         </div>
 
@@ -109,3 +105,4 @@ export default function PricingPage() {
     </main>
   );
 }
+
