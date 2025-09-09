@@ -8,7 +8,6 @@ const display = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-display",
 });
-
 const body = Inter({
   subsets: ["latin"],
   variable: "--font-body",
@@ -48,8 +47,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
+      <head>
+        {/* Performance: warm the LCP hero image */}
+        <link rel="preload" as="image" href="/hero.jpg" imagesrcset="/hero.jpg" />
+      </head>
       <body className="min-h-screen bg-rt-ivory text-rt-black font-body">
-        {/* Global JSON-LD (safe on Vercel via next/script) */}
+        {/* Global JSON-LD via next/script */}
         <Script id="org-schema" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify(orgJsonLd)}
         </Script>
@@ -58,3 +61,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+
