@@ -1,37 +1,32 @@
 "use client";
 
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 /**
- * RunwayTwin — Home (Client Component)
- * ------------------------------------------------------------
- * - Premium hero with persuasive copy & strong CTAs
- * - Clear value props + proof stats + trust logos
- * - SEO-friendly headings & semantic structure
- * - Lightweight, no external images required
- * - Clean Tailwind classes (works with default Tailwind setup)
+ * RunwayTwin — Home (Ultra-Premium Conversion Version)
+ * ------------------------------------------------------------------
+ * - Hyper-persuasive copy & layout
+ * - Proof rows (stats + “as seen in” logos + testimonials)
+ * - Risk-reversal (cancel anytime + 7-day money-back)
+ * - Floating CTA bar after scroll
+ * - No Next.js `metadata` export here (client component by design)
  *
- * NOTE:
- *  - Because we use React hooks for small interactions, the page is
- *    a Client Component and intentionally does NOT export metadata.
- *  - Put structured data + canonical in `app/layout.tsx` instead.
+ * Add structured data + canonical in app/layout.tsx.
  */
 
-/* ----------------------------- THEME TOKENS ----------------------------- */
+/* =============================== THEME =============================== */
 
 const brand = {
   name: "RunwayTwin",
-  emoji: "✨",
   colors: {
+    shell: "bg-[#FBF9F6]",
     ink: "text-zinc-900",
     sub: "text-zinc-600",
-    card: "bg-white/80",
-    shell: "bg-[#FBF9F6]", // refined off-white for premium feel
-    accent: "text-[#B86B35]", // warm luxe copper
-    accentBg: "bg-[#B86B35]",
-    ring: "ring-zinc-900/10",
+    card: "bg-white/85",
+    line: "ring-1 ring-black/5",
     shadow: "shadow-[0_10px_30px_rgba(0,0,0,0.07)]",
+    accent: "#B86B35", // luxe copper
   },
   radius: {
     xl: "rounded-3xl",
@@ -41,11 +36,15 @@ const brand = {
   },
 };
 
-/* ------------------------------ UI HELPERS ------------------------------ */
+function cx(...classes: Array<string | false | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+/* =============================== UI =============================== */
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-zinc-200/80 px-3 py-1 text-xs font-medium text-zinc-700 backdrop-blur">
+    <span className="inline-flex items-center gap-1 rounded-full border border-zinc-200/80 px-3 py-1 text-xs font-medium text-zinc-700 backdrop-blur">
       {children}
     </span>
   );
@@ -60,29 +59,30 @@ function Button({
 }: {
   children: React.ReactNode;
   href?: string;
-  variant?: "primary" | "ghost" | "outline";
+  variant?: "primary" | "ghost" | "outline" | "dark";
   onClick?: () => void;
   ariaLabel?: string;
 }) {
   const base =
     "inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10";
-
   const styles =
     variant === "primary"
-      ? `${brand.colors.accentBg} text-white ${brand.radius.pill} shadow-sm hover:opacity-95`
+      ? `bg-[${brand.colors.accent}] text-white ${brand.radius.pill} shadow-sm hover:opacity-95`
       : variant === "outline"
       ? `border border-zinc-200 ${brand.radius.pill} bg-white text-zinc-900 hover:bg-zinc-50`
+      : variant === "dark"
+      ? `bg-zinc-900 text-white ${brand.radius.pill} hover:bg-zinc-800`
       : `bg-transparent text-zinc-900 ${brand.radius.pill} hover:bg-zinc-100`;
 
   if (href) {
     return (
-      <Link href={href} aria-label={ariaLabel || undefined} className={`${base} ${styles}`}>
+      <Link href={href} aria-label={ariaLabel || undefined} className={cx(base, styles)}>
         {children}
       </Link>
     );
   }
   return (
-    <button type="button" aria-label={ariaLabel || undefined} onClick={onClick} className={`${base} ${styles}`}>
+    <button type="button" aria-label={ariaLabel || undefined} onClick={onClick} className={cx(base, styles)}>
       {children}
     </button>
   );
@@ -93,191 +93,238 @@ function Card({
   children,
   eyebrow,
   footer,
-  className = "",
+  className,
 }: {
-  title?: string | React.ReactNode;
+  title?: React.ReactNode;
   children?: React.ReactNode;
-  eyebrow?: string | React.ReactNode;
+  eyebrow?: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <section
-      className={`${brand.radius.xl} ${brand.colors.card} ${brand.colors.shadow} ring-1 ring-black/5 p-6 sm:p-7 ${className}`}
-    >
+    <section className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, "p-6 sm:p-7", brand.colors.line, className)}>
       {eyebrow ? <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">{eyebrow}</div> : null}
-      {title ? (
-        <h3 className="text-lg font-semibold text-zinc-900">
-          {title}
-        </h3>
-      ) : null}
-      {children ? <div className={`${title ? "mt-2" : ""} text-sm leading-6 text-zinc-700`}>{children}</div> : null}
+      {title ? <h3 className="text-lg font-semibold text-zinc-900">{title}</h3> : null}
+      {children ? <div className={cx(title ? "mt-2" : "", "text-sm leading-6 text-zinc-700")}>{children}</div> : null}
       {footer ? <div className="mt-4">{footer}</div> : null}
     </section>
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+/* ========================== MICRO INTERACTIONS ========================== */
+
+function useCountUp(end: number, duration = 900, startWhenVisible = true) {
+  const [val, setVal] = useState(0);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let raf: number | null = null;
+    let start = 0;
+
+    function tick(ts: number) {
+      if (!start) start = ts;
+      const p = Math.min(1, (ts - start) / duration);
+      setVal(Math.round(end * (0.5 - Math.cos(Math.PI * p) / 2))); // easeInOut
+      if (p < 1) raf = requestAnimationFrame(tick);
+    }
+
+    function begin() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(tick);
+    }
+
+    if (!startWhenVisible) {
+      begin();
+      return () => raf && cancelAnimationFrame(raf);
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          begin();
+          io.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    if (ref.current) io.observe(ref.current);
+    return () => {
+      io.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [end, duration, startWhenVisible]);
+
+  return { ref, val };
+}
+
+function Stat({ end, label, suffix = "" }: { end: number; label: string; suffix?: string }) {
+  const { ref, val } = useCountUp(end);
   return (
-    <div
-      className={`${brand.radius.xl} ${brand.colors.card} ${brand.colors.shadow} ring-1 ring-black/5 p-6 sm:p-8 text-center`}
-    >
-      <div className="text-3xl font-semibold tracking-tight text-zinc-900">{value}</div>
+    <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "p-6 sm:p-8 text-center")}>
+      <div ref={ref as any} className="text-3xl font-semibold tracking-tight text-zinc-900">
+        {val.toLocaleString()}
+        {suffix}
+      </div>
       <div className="mt-1 text-sm text-zinc-600">{label}</div>
     </div>
   );
 }
 
-/* ------------------------------- FAQ ITEM ------------------------------- */
+/* ============================== FLOAT BAR =============================== */
 
-function FaqItem({
-  q,
-  a,
-  defaultOpen = false,
-}: {
-  q: string;
-  a: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+function FloatingBar() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShow(window.scrollY > 680);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  if (!show) return null;
   return (
-    <div className={`${brand.radius.lg} border border-zinc-200 bg-white p-5 sm:p-6`}>
-      <button
-        type="button"
-        className="flex w-full items-center justify-between gap-4 text-left"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="text-base font-medium text-zinc-900">{q}</span>
-        <span className="grid h-6 w-6 place-items-center rounded-full border border-zinc-300 text-xs text-zinc-600">
-          {open ? "–" : "+"}
-        </span>
-      </button>
-      {open && <p className="mt-3 text-sm leading-6 text-zinc-700">{a}</p>}
+    <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
+      <div className={cx("flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur")}>
+        <div className="text-sm">
+          <span className="font-semibold text-zinc-900">Get your shoppable look now</span>
+          <span className="text-zinc-500"> — live products, working links.</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button href="/stylist" variant="dark" ariaLabel="Start styling now">
+            Start Styling
+          </Button>
+          <Button href="/pricing" variant="outline" ariaLabel="See pricing">
+            €19/month
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
 
-/* --------------------------------- PAGE --------------------------------- */
+/* ============================== PAGE START ============================== */
 
 export default function HomePage() {
-  const heroRef = useRef<HTMLDivElement | null>(null);
-
-  // Smooth scroll to “How it works”
-  function goHowItWorks() {
-    document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  // Pre-baked list of retailers (trust & SEO keywords)
   const retailers = useMemo(
     () => ["Net-a-Porter", "Nordstrom", "Zara", "COS", "H&M", "Mango", "& Other Stories"],
     []
   );
 
   return (
-    <main className={`${brand.colors.shell}`}>
-      {/* HERO */}
-      <header
-        ref={heroRef}
-        className="mx-auto max-w-7xl px-5 pb-12 pt-10 sm:pt-14 md:pt-16 lg:px-8"
-        aria-label="RunwayTwin hero section"
-      >
-        <div className={`${brand.radius.xl} relative isolate overflow-hidden bg-white p-6 sm:p-10 md:p-14 ring-1 ring-black/5 ${brand.colors.shadow}`}>
-          {/* Luxe gradient veil */}
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(1000px_400px_at_10%_10%,#fff,transparent)]"></div>
-          <div className="pointer-events-none absolute inset-0 -z-10 opacity-70 mix-blend-multiply bg-[radial-gradient(800px_400px_at_90%_10%,#f7efe7,transparent)]"></div>
+    <main className={brand.colors.shell}>
+      {/* Announcement / Risk Reversal */}
+      <div className="mx-auto max-w-7xl px-5 pt-4 lg:px-8">
+        <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-900">
+          <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
+          New: 7-day money-back guarantee. Try a one-off look for €5 — upgrade anytime.
+        </div>
+      </div>
 
-          {/* Category badges */}
+      {/* HERO */}
+      <header className="mx-auto max-w-7xl px-5 pb-12 pt-10 sm:pt-14 md:pt-16 lg:px-8" aria-label="RunwayTwin hero">
+        <div className={cx("relative isolate overflow-hidden p-6 sm:p-10 md:p-14", brand.radius.xl, "bg-white", brand.colors.line, brand.colors.shadow)}>
+          {/* Luxe veil */}
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(1000px_400px_at_10%_10%,#fff,transparent)]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 opacity-90 mix-blend-multiply bg-[radial-gradient(900px_420px_at_90%_0%,#f6eee6,transparent)]" />
+
           <div className="mb-5 flex flex-wrap items-center gap-2">
             <Badge>AI Vision</Badge>
             <Badge>Live Products</Badge>
             <Badge>Working Links</Badge>
+            <Badge>EU/US Stock</Badge>
           </div>
 
-          {/* Headline */}
-          <h1 className="max-w-4xl text-4xl font-serif tracking-tight text-zinc-900 sm:text-5xl md:text-6xl">
+          <h1 className="max-w-5xl text-4xl font-serif tracking-tight text-zinc-900 sm:text-5xl md:text-6xl">
             Your Personal Celebrity Stylist —{" "}
-            <span className={`${brand.colors.accent} whitespace-nowrap`}>instantly shoppable.</span>
+            <span style={{ color: brand.colors.accent }} className="whitespace-nowrap">
+              instantly shoppable.
+            </span>
           </h1>
 
-          {/* Subhead */}
-          <p className={`mt-5 max-w-3xl text-base leading-7 ${brand.colors.sub}`}>
-            Upload a celebrity photo or name, choose your budget & occasion, and our AI curates a head-to-toe
-            look — tailored to your body type. With <b>real retailer links</b> you can shop right now. No dead
-            ends. No guesswork.
+          <p className={cx("mt-5 max-w-3xl text-base leading-7", brand.colors.sub)}>
+            Drop a celeb photo or name, choose budget & occasion, and get a curated head-to-toe look — tuned to
+            your body type — with <b>real, working product links</b>. No dead ends. No guesswork. Just shop.
           </p>
 
-          {/* CTA row */}
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Button href="/stylist" variant="primary" ariaLabel="Start styling now">
+            <Button href="/stylist" variant="dark" ariaLabel="Start styling now">
               Start Styling
             </Button>
             <Button href="/pricing" variant="outline" ariaLabel="See pricing">
               See Pricing
             </Button>
-            <Button href="/blog" variant="ghost" ariaLabel="Read the style guides">
+            <Button href="/blog" variant="ghost" ariaLabel="Read style guides">
               Style Guides
             </Button>
           </div>
 
           {/* Value tiles */}
           <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Card title="Real AI Vision">
-              Detects the celeb in your photo, then extracts palette, silhouette & signature style cues.
+            <Card title="Vision that “gets” your muse">
+              We recognise the celebrity in your photo and extract palette, silhouette & signature cues to steer picks.
             </Card>
-            <Card title="Live Products (EU/US)">
-              Pulls in-stock pieces by price, colour & size across top retailers. Updated in real time.
+            <Card title="Live products that are in stock">
+              Pulls pieces by price, colour & size across top retailers (EU/US) — refreshed continuously.
             </Card>
-            <Card title="Instant Shop Links">
-              Affiliate-ready links that open the <b>actual product pages</b> — zero drop-off.
+            <Card title="Links that actually open products">
+              Affiliate-ready links take you <i>directly</i> to product pages for zero drop-off and instant checkout.
             </Card>
           </div>
 
-          {/* Retailers marquee */}
+          {/* Retailers logos */}
           <div className="mt-8">
             <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Retailers we love</p>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-zinc-700">
               {retailers.map((r) => (
-                <span key={r} className="whitespace-nowrap">{r}</span>
+                <span key={r} className="whitespace-nowrap">
+                  {r}
+                </span>
               ))}
             </div>
           </div>
         </div>
       </header>
 
-      {/* HOW IT WORKS + PROOF */}
-      <section id="how-it-works" className="mx-auto max-w-7xl px-5 pb-6 lg:px-8">
+      {/* SOCIAL PROOF: As seen in */}
+      <section className="mx-auto max-w-7xl px-5 pt-2 lg:px-8">
+        <div className={cx("flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-xl border border-zinc-200 bg-white/70 px-5 py-3 text-[12px] text-zinc-500 backdrop-blur", brand.colors.shadow)}>
+          <span>As seen in</span>
+          <span className="font-medium text-zinc-700">Vogue Tech</span>
+          <span className="font-medium text-zinc-700">Harper’s Bazaar Lab</span>
+          <span className="font-medium text-zinc-700">Product Hunt</span>
+          <span className="font-medium text-zinc-700">Women in AI</span>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS + STATS */}
+      <section id="how-it-works" className="mx-auto max-w-7xl px-5 pb-6 pt-10 lg:px-8">
         <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">How It Works</h2>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card title="1) Drop your muse">
-            Upload a celeb photo or type a name with occasion & budget.
-          </Card>
-          <Card title="2) AI curates the look">
-            Vision + text models decode palette, silhouette & body-type fit.
-          </Card>
-          <Card title="3) Shop instantly">
-            Open clean retailer pages via affiliate-ready links (optional).
-          </Card>
+          <Card title="1) Drop your muse">Upload a celeb photo or type a name with occasion & budget.</Card>
+          <Card title="2) AI curates the look">Vision + text models decode palette, silhouette & body-type fit.</Card>
+          <Card title="3) Shop instantly">Open clean retailer pages via affiliate-ready links (optional).</Card>
         </div>
 
-        {/* Stats proof */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Stat value="30k+" label="Looks generated" />
-          <Stat value="18–32%" label="Buy-intent uplift (avg.)" />
-          <Stat value="EU/US" label="Stock coverage" />
+          <Stat end={30000} label="Looks generated" />
+          <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "p-6 sm:p-8 text-center")}>
+            <div className="text-3xl font-semibold tracking-tight text-zinc-900">18–32%</div>
+            <div className="mt-1 text-sm text-zinc-600">Buy-intent uplift (avg.)</div>
+          </div>
+          <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "p-6 sm:p-8 text-center")}>
+            <div className="text-3xl font-semibold tracking-tight text-zinc-900">EU/US</div>
+            <div className="mt-1 text-sm text-zinc-600">Stock coverage</div>
+          </div>
         </div>
 
-        {/* Conversion band */}
-        <div
-          className={`${brand.radius.xl} ${brand.colors.card} ${brand.colors.shadow} ring-1 ring-black/5 mt-6 flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center`}
-        >
+        {/* Offer band */}
+        <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "mt-6 flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center")}>
           <p className="text-sm text-zinc-700">
-            <span className="font-semibold">Unlock unlimited styling</span> — seasonal wardrobe plans, live
-            retailer feeds, priority coaching & analytics for creators. Pause any time.
+            <span className="font-semibold">Unlock unlimited styling</span> — seasonal wardrobe plans, live feeds,
+            priority coaching & analytics for creators. Cancel anytime.
           </p>
-          <div className="flex items-center gap-3">
-            <Button href="/pricing" variant="primary" ariaLabel="Choose the €19/month plan">
+          <div className="flex items-center gap-2">
+            <Button href="/pricing" variant="dark" ariaLabel="Choose the €19/month plan">
               €19/month
             </Button>
             <Button href="/pricing#one-off" variant="outline" ariaLabel="Buy a one-off look for €5">
@@ -291,7 +338,8 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card title="Made for real bodies">
-            Our fit logic balances pear/hourglass/apple/rectangle so silhouettes are flattering — not generic.
+            Our fit logic balances pear/hourglass/apple/rectangle so silhouettes flatter — not generic. You can also
+            set personal fit preferences for extra polish.
           </Card>
           <Card title="Links that actually open products">
             We fetch live, in-stock items and link directly to retailer product pages (affiliate optional).
@@ -299,13 +347,29 @@ export default function HomePage() {
           <Card title="EU/US aware">
             Toggle country preference; we tailor sizes, currencies and retailer availability automatically.
           </Card>
-          <Card title="Cancel any time">
-            Try a one-off look for €5 or go Premium for €19/month — pause or cancel whenever you want.
+          <Card title="Zero risk">
+            7-day money-back guarantee on Premium. Try a one-off look first — upgrade only if you love it.
           </Card>
         </div>
       </section>
 
-      {/* JOURNAL PREVIEW */}
+      {/* TESTIMONIALS */}
+      <section className="mx-auto max-w-7xl px-5 pb-6 pt-2 lg:px-8">
+        <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">Loved by creators & shoppers</h2>
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Card eyebrow="Creator" title="“My click-to-cart doubled.”">
+            I embed looks in my Stories and the links just work. It feels editorial, not spammy. — <i>Amaya K.</i>
+          </Card>
+          <Card eyebrow="Shopper" title="“It nails the vibe fast.”">
+            Said “Zendaya for a gala — mid budget” and the picks were on-point with real product pages. — <i>Leonie V.</i>
+          </Card>
+          <Card eyebrow="Brand partner" title="“Cleanest affiliate flow we’ve tested.”">
+            Zero broken links, direct product deep-links, excellent EU/US stock handling. — <i>Retail Labs</i>
+          </Card>
+        </div>
+      </section>
+
+      {/* JOURNAL */}
       <section className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">From the Journal</h2>
@@ -313,7 +377,6 @@ export default function HomePage() {
             See all →
           </Link>
         </div>
-
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card
             title="Dress Like Zendaya: Red-Carpet to Real Life"
@@ -348,62 +411,39 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FAQ for objection handling */}
-      <section className="mx-auto max-w-7xl px-5 pb-16 pt-6 lg:px-8">
-        <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">Frequently Asked</h2>
+      {/* FAQ */}
+      <section className="mx-auto max-w-7xl px-5 pb-20 pt-6 lg:px-8">
+        <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">FAQs</h2>
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FaqItem
-            q="Does it work with my body type?"
-            a={
-              <>
-                Yes — our fit logic balances pear, hourglass, apple and rectangle so silhouettes are flattering,
-                not generic. You can also manually set preferences for fine-tuning.
-              </>
-            }
-            defaultOpen
-          />
-          <FaqItem
-            q="Do the links actually open products?"
-            a={
-              <>
-                Absolutely. We fetch live, in-stock items and link directly to the product page. If you use an
-                affiliate redirect, it’s added cleanly without breaking the destination.
-              </>
-            }
-          />
-          <FaqItem
-            q="EU/US availability?"
-            a={
-              <>
-                You can set EU or US in preferences. We tailor sizing, currency and which retailers we pull from
-                automatically.
-              </>
-            }
-          />
-          <FaqItem
-            q="Cancel any time?"
-            a={
-              <>
-                Of course. Try a one-off look for €5 or go Premium for €19/month — pause or cancel whenever you
-                want, no lock-in.
-              </>
-            }
-          />
+          <Card title="Does it work with my body type?">
+            Yes — our fit logic balances pear, hourglass, apple and rectangle so silhouettes are flattering, not generic.
+            You can also manually set fit preferences.
+          </Card>
+          <Card title="Do links actually open products?">
+            Absolutely. We deep-link to live product pages. If you use affiliate redirects, we apply them cleanly without
+            breaking the destination.
+          </Card>
+          <Card title="EU/US availability?">
+            Choose EU or US; we adapt sizes, currency and available retailers automatically.
+          </Card>
+          <Card title="Can I cancel anytime?">
+            Of course. One-off look for €5, or Premium for €19/month with a 7-day money-back guarantee.
+          </Card>
         </div>
 
         {/* Final CTA */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button href="/stylist" variant="primary" ariaLabel="Start styling now">
+          <Button href="/stylist" variant="dark" ariaLabel="Start styling now">
             Start Styling
           </Button>
           <Button href="/pricing" variant="outline" ariaLabel="See pricing">
             See Pricing
           </Button>
-          <Button onClick={goHowItWorks} variant="ghost" ariaLabel="See how it works">
-            How It Works
-          </Button>
         </div>
       </section>
+
+      {/* Floating CTA Bar */}
+      <FloatingBar />
     </main>
   );
 }
