@@ -2,92 +2,75 @@
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "RunwayTwin Journal – Celebrity Style Guides",
   description:
-    "Editorial guides on Zendaya, Rihanna, Jennifer Lawrence and more — with instantly shoppable links. Celebrity style decoded, simplified, and made yours.",
+    "Editorial guides on Zendaya, Rihanna, Jennifer Lawrence and more — decoded and instantly shoppable.",
   alternates: { canonical: "https://runwaytwin.vercel.app/blog" },
   openGraph: {
     title: "RunwayTwin Journal – Celebrity Style Guides",
     description:
-      "Editorial guides on Zendaya, Rihanna, Jennifer Lawrence and more — with instantly shoppable links.",
+      "Editorial guides on Zendaya, Rihanna, Jennifer Lawrence and more — decoded and instantly shoppable.",
     url: "https://runwaytwin.vercel.app/blog",
     images: [{ url: "/og-blog.jpg", width: 1200, height: 630 }],
   },
 };
 
-export default function BlogPage() {
+const posts = [
+  {
+    slug: "zendaya-evening-glam",
+    title: "Zendaya Evening Glam",
+    excerpt:
+      "Red-carpet elegance translated for real life — with shoppable links.",
+    image: "/blog/zendaya.jpg",
+  },
+  {
+    slug: "rihanna-street-luxe",
+    title: "Rihanna Street Luxe",
+    excerpt:
+      "Oversized silhouettes + luxe details. The exact vibe, linked.",
+    image: "/blog/rihanna.jpg",
+  },
+  {
+    slug: "jlaw-off-duty",
+    title: "Jennifer Lawrence Off-Duty",
+    excerpt:
+      "Casual chic you can wear every day — minimal, polished, effortless.",
+    image: "/blog/jlaw.jpg",
+  },
+];
+
+export default function BlogIndexPage() {
   return (
     <main className="min-h-screen">
       <Header />
 
-      <section className="mx-auto max-w-6xl px-6 py-14">
-        <h1 className="text-4xl font-bold mb-6">RunwayTwin Journal</h1>
-        <p className="text-lg text-gray-600 mb-10">
-          Editorial celebrity style breakdowns — curated with modern AI and
-          instantly shoppable links. Learn how to translate the world’s most
-          iconic looks into everyday outfits.
+      <section className="mx-auto max-w-7xl px-6 py-14">
+        <h1 className="font-display text-3xl tracking-tight">
+          RunwayTwin Journal
+        </h1>
+        <p className="mt-2 text-sm text-zinc-600">
+          Celebrity style decoded into wearable looks with live product links.
         </p>
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {/* Example Post Preview */}
-          <article className="card hover:shadow-lg transition">
-            <img
-              src="/blog/zendaya.jpg"
-              alt="Zendaya style guide"
-              className="rounded-t-xl"
-              loading="lazy"
-            />
-            <div className="p-5">
-              <h2 className="text-xl font-semibold">Zendaya Evening Glam</h2>
-              <p className="text-sm text-gray-600 mt-2">
-                How to get Zendaya’s red carpet elegance on a mid-budget — full
-                look with shoppable links.
-              </p>
-              <a href="/blog/zendaya-evening-glam" className="btn-link mt-4 inline-block">
-                Read Guide →
-              </a>
-            </div>
-          </article>
-
-          <article className="card hover:shadow-lg transition">
-            <img
-              src="/blog/rihanna.jpg"
-              alt="Rihanna style guide"
-              className="rounded-t-xl"
-              loading="lazy"
-            />
-            <div className="p-5">
-              <h2 className="text-xl font-semibold">Rihanna Street Luxe</h2>
-              <p className="text-sm text-gray-600 mt-2">
-                Streetwear meets luxury — Rihanna’s signature vibe decoded and
-                shoppable.
-              </p>
-              <a href="/blog/rihanna-street-luxe" className="btn-link mt-4 inline-block">
-                Read Guide →
-              </a>
-            </div>
-          </article>
-
-          <article className="card hover:shadow-lg transition">
-            <img
-              src="/blog/jlaw.jpg"
-              alt="Jennifer Lawrence style guide"
-              className="rounded-t-xl"
-              loading="lazy"
-            />
-            <div className="p-5">
-              <h2 className="text-xl font-semibold">Jennifer Lawrence Off-Duty</h2>
-              <p className="text-sm text-gray-600 mt-2">
-                Casual chic from Jennifer Lawrence — outfits you can actually
-                wear day-to-day.
-              </p>
-              <a href="/blog/jlaw-off-duty" className="btn-link mt-4 inline-block">
-                Read Guide →
-              </a>
-            </div>
-          </article>
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((p) => (
+            <Link key={p.slug} href={`/blog/${p.slug}`} className="card hover:shadow-soft overflow-hidden">
+              <img
+                src={p.image}
+                alt={p.title}
+                className="w-full h-48 object-cover"
+                loading="lazy"
+              />
+              <div className="p-5">
+                <div className="text-lg font-semibold">{p.title}</div>
+                <p className="text-sm text-zinc-600 mt-2">{p.excerpt}</p>
+                <div className="mt-3 text-xs text-zinc-500">Read guide →</div>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -95,4 +78,5 @@ export default function BlogPage() {
     </main>
   );
 }
+
 
