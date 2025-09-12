@@ -1,90 +1,82 @@
-"use client";
-
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 
-/**
- * RunwayTwin — Home (Ultra-Premium Conversion Version)
- * ------------------------------------------------------------------
- * - Hyper-persuasive copy & layout
- * - Proof rows (stats + “as seen in” logos + testimonials)
- * - Risk-reversal (cancel anytime + 7-day money-back)
- * - Floating CTA bar after scroll
- * - No Next.js `metadata` export here (client component by design)
- *
- * Add structured data + canonical in app/layout.tsx.
- */
+/* =========================================================================
+   RunwayTwin — Ultimate Homepage (Server Component, SEO + Conversion)
+   - Luxury, editorial design with Tailwind
+   - Persuasive copywriting focused on outcomes & proof
+   - Rich SEO (metadata + JSON-LD for WebSite, Product, FAQ, Organization)
+   - No client hooks -> safe on Vercel
+   ========================================================================= */
 
-/* =============================== THEME =============================== */
-
-const brand = {
-  name: "RunwayTwin",
-  colors: {
-    shell: "bg-[#FBF9F6]",
-    ink: "text-zinc-900",
-    sub: "text-zinc-600",
-    card: "bg-white/85",
-    line: "ring-1 ring-black/5",
-    shadow: "shadow-[0_10px_30px_rgba(0,0,0,0.07)]",
-    accent: "#B86B35", // luxe copper
+export const metadata: Metadata = {
+  title:
+    "RunwayTwin — AI Celebrity Stylist • Curated, Body-Type Flattering Looks with Real Shop Links",
+  description:
+    "Drop a celeb photo or name, pick your budget & occasion, and get a shoppable outfit that flatters your body type. EU/US stock, affiliate-ready links, zero dead ends.",
+  alternates: { canonical: "https://runwaytwin.vercel.app/" },
+  keywords: [
+    "AI stylist",
+    "celebrity outfits",
+    "dress like zendaya",
+    "rihanna outfit",
+    "jennifer lawrence style",
+    "personal stylist AI",
+    "shoppable outfits",
+    "outfit generator",
+    "body type styling",
+  ],
+  openGraph: {
+    title:
+      "RunwayTwin — AI Celebrity Stylist • Curated Looks with Real Shop Links",
+    description:
+      "Turn celebrity inspiration into outfits you actually buy. Live products, body-type aware, affiliate-ready links.",
+    url: "https://runwaytwin.vercel.app/",
+    siteName: "RunwayTwin",
+    type: "website",
   },
-  radius: {
-    xl: "rounded-3xl",
-    lg: "rounded-2xl",
-    md: "rounded-xl",
-    pill: "rounded-full",
+  twitter: {
+    card: "summary_large_image",
+    title:
+      "RunwayTwin — AI Celebrity Stylist • Curated Looks with Real Shop Links",
+    description:
+      "Drop a celeb, pick budget, shop the look. Real links. No dead ends.",
   },
 };
 
-function cx(...classes: Array<string | false | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
-/* =============================== UI =============================== */
+/* --------------------------------- UI bits -------------------------------- */
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-zinc-200/80 px-3 py-1 text-xs font-medium text-zinc-700 backdrop-blur">
+    <span className="inline-flex items-center rounded-full border border-neutral-200/70 bg-white/70 px-3 py-1 text-[11px] font-medium text-neutral-700 shadow-sm">
       {children}
     </span>
   );
 }
 
-function Button({
-  children,
+function CTA({
   href,
-  variant = "primary",
-  onClick,
-  ariaLabel,
+  children,
+  variant = "dark",
+  aria,
 }: {
+  href: string;
   children: React.ReactNode;
-  href?: string;
-  variant?: "primary" | "ghost" | "outline" | "dark";
-  onClick?: () => void;
-  ariaLabel?: string;
+  variant?: "dark" | "light" | "ghost";
+  aria?: string;
 }) {
   const base =
-    "inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10";
-  const styles =
-    variant === "primary"
-      ? `bg-[${brand.colors.accent}] text-white ${brand.radius.pill} shadow-sm hover:opacity-95`
-      : variant === "outline"
-      ? `border border-zinc-200 ${brand.radius.pill} bg-white text-zinc-900 hover:bg-zinc-50`
-      : variant === "dark"
-      ? `bg-zinc-900 text-white ${brand.radius.pill} hover:bg-zinc-800`
-      : `bg-transparent text-zinc-900 ${brand.radius.pill} hover:bg-zinc-100`;
-
-  if (href) {
-    return (
-      <Link href={href} aria-label={ariaLabel || undefined} className={cx(base, styles)}>
-        {children}
-      </Link>
-    );
-  }
+    "inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition";
+  const style =
+    variant === "dark"
+      ? "bg-black text-white hover:opacity-90"
+      : variant === "light"
+      ? "border border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50"
+      : "text-neutral-900 hover:underline";
   return (
-    <button type="button" aria-label={ariaLabel || undefined} onClick={onClick} className={cx(base, styles)}>
+    <Link href={href} aria-label={aria} className={`${base} ${style}`}>
       {children}
-    </button>
+    </Link>
   );
 }
 
@@ -92,358 +84,520 @@ function Card({
   title,
   children,
   eyebrow,
-  footer,
-  className,
 }: {
-  title?: React.ReactNode;
-  children?: React.ReactNode;
-  eyebrow?: React.ReactNode;
-  footer?: React.ReactNode;
-  className?: string;
+  title: string;
+  children: React.ReactNode;
+  eyebrow?: string;
 }) {
   return (
-    <section className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, "p-6 sm:p-7", brand.colors.line, className)}>
-      {eyebrow ? <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">{eyebrow}</div> : null}
-      {title ? <h3 className="text-lg font-semibold text-zinc-900">{title}</h3> : null}
-      {children ? <div className={cx(title ? "mt-2" : "", "text-sm leading-6 text-zinc-700")}>{children}</div> : null}
-      {footer ? <div className="mt-4">{footer}</div> : null}
-    </section>
-  );
-}
-
-/* ========================== MICRO INTERACTIONS ========================== */
-
-function useCountUp(end: number, duration = 900, startWhenVisible = true) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let raf: number | null = null;
-    let start = 0;
-
-    function tick(ts: number) {
-      if (!start) start = ts;
-      const p = Math.min(1, (ts - start) / duration);
-      setVal(Math.round(end * (0.5 - Math.cos(Math.PI * p) / 2))); // easeInOut
-      if (p < 1) raf = requestAnimationFrame(tick);
-    }
-
-    function begin() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(tick);
-    }
-
-    if (!startWhenVisible) {
-      begin();
-      return () => raf && cancelAnimationFrame(raf);
-    }
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          begin();
-          io.disconnect();
-        }
-      },
-      { threshold: 0.5 }
-    );
-    if (ref.current) io.observe(ref.current);
-    return () => {
-      io.disconnect();
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [end, duration, startWhenVisible]);
-
-  return { ref, val };
-}
-
-function Stat({ end, label, suffix = "" }: { end: number; label: string; suffix?: string }) {
-  const { ref, val } = useCountUp(end);
-  return (
-    <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "p-6 sm:p-8 text-center")}>
-      <div ref={ref as any} className="text-3xl font-semibold tracking-tight text-zinc-900">
-        {val.toLocaleString()}
-        {suffix}
-      </div>
-      <div className="mt-1 text-sm text-zinc-600">{label}</div>
+    <div className="rounded-2xl border border-neutral-200/70 bg-white p-6 shadow-sm">
+      {eyebrow ? (
+        <div className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">
+          {eyebrow}
+        </div>
+      ) : null}
+      <h3 className="mt-1 text-base font-semibold text-neutral-900">{title}</h3>
+      <div className="mt-2 text-sm leading-6 text-neutral-700">{children}</div>
     </div>
   );
 }
 
-/* ============================== FLOAT BAR =============================== */
-
-function FloatingBar() {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setShow(window.scrollY > 680);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  if (!show) return null;
+function Stat({
+  value,
+  label,
+  footnote,
+}: {
+  value: React.ReactNode;
+  label: string;
+  footnote?: string;
+}) {
   return (
-    <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
-      <div className={cx("flex w-full max-w-3xl items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur")}>
-        <div className="text-sm">
-          <span className="font-semibold text-zinc-900">Get your shoppable look now</span>
-          <span className="text-zinc-500"> — live products, working links.</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button href="/stylist" variant="dark" ariaLabel="Start styling now">
-            Start Styling
-          </Button>
-          <Button href="/pricing" variant="outline" ariaLabel="See pricing">
-            €19/month
-          </Button>
-        </div>
+    <div className="rounded-2xl border border-neutral-200/70 bg-white p-6 text-center shadow-sm">
+      <div className="text-3xl font-semibold tracking-tight text-neutral-900">
+        {value}
       </div>
+      <div className="mt-1 text-sm text-neutral-600">{label}</div>
+      {footnote ? (
+        <div className="mt-1 text-[11px] text-neutral-500">{footnote}</div>
+      ) : null}
     </div>
   );
 }
 
-/* ============================== PAGE START ============================== */
+/* --------------------------------- Page ---------------------------------- */
 
-export default function HomePage() {
-  const retailers = useMemo(
-    () => ["Net-a-Porter", "Nordstrom", "Zara", "COS", "H&M", "Mango", "& Other Stories"],
-    []
-  );
-
+export default function Page() {
   return (
-    <main className={brand.colors.shell}>
-      {/* Announcement / Risk Reversal */}
-      <div className="mx-auto max-w-7xl px-5 pt-4 lg:px-8">
+    <main className="min-h-screen bg-[#FAF9F6] text-neutral-900 antialiased">
+      {/* ===================== Structured Data for rich results ===================== */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "RunwayTwin",
+            url: "https://runwaytwin.vercel.app/",
+            potentialAction: {
+              "@type": "SearchAction",
+              target:
+                "https://runwaytwin.vercel.app/stylist?q={search_term_string}",
+              "query-input": "required name=search_term_string",
+            },
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: "RunwayTwin Premium Stylist",
+            description:
+              "Unlimited AI stylings, wardrobe plans, and live product feeds with affiliate-ready links.",
+            brand: { "@type": "Brand", name: "RunwayTwin" },
+            offers: [
+              {
+                "@type": "Offer",
+                price: "19",
+                priceCurrency: "EUR",
+                url: "https://runwaytwin.vercel.app/pricing",
+              },
+              {
+                "@type": "Offer",
+                price: "5",
+                priceCurrency: "EUR",
+                url: "https://runwaytwin.vercel.app/pricing#one-off",
+              },
+            ],
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "RunwayTwin",
+            url: "https://runwaytwin.vercel.app/",
+            sameAs: [
+              "https://www.instagram.com/yourhandle",
+              "https://www.tiktok.com/@yourhandle",
+            ],
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: [
+              {
+                "@type": "Question",
+                name: "Do links open real product pages?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Yes — we fetch live, in-stock items and deep-link to retailer product pages.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "Will it suit my body type?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "We balance pear/hourglass/apple/rectangle for flattering silhouettes.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "EU/US availability?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Country toggle adapts sizes, currencies, and retailer coverage.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "Can I cancel any time?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Yes. One-off €5 or Premium €19/month — pause or cancel whenever.",
+                },
+              },
+            ],
+          }),
+        }}
+      />
+
+      {/* =============================== Announcement =============================== */}
+      <div className="mx-auto max-w-6xl px-6 pt-4">
         <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-900">
           <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
-          New: 7-day money-back guarantee. Try a one-off look for €5 — upgrade anytime.
+          7-day money-back on Premium. Try a one-off look for €5 — upgrade anytime.
         </div>
       </div>
 
-      {/* HERO */}
-      <header className="mx-auto max-w-7xl px-5 pb-12 pt-10 sm:pt-14 md:pt-16 lg:px-8" aria-label="RunwayTwin hero">
-        <div className={cx("relative isolate overflow-hidden p-6 sm:p-10 md:p-14", brand.radius.xl, "bg-white", brand.colors.line, brand.colors.shadow)}>
-          {/* Luxe veil */}
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(1000px_400px_at_10%_10%,#fff,transparent)]" />
-          <div className="pointer-events-none absolute inset-0 -z-10 opacity-90 mix-blend-multiply bg-[radial-gradient(900px_420px_at_90%_0%,#f6eee6,transparent)]" />
-
-          <div className="mb-5 flex flex-wrap items-center gap-2">
+      {/* ================================== HERO =================================== */}
+      <section className="relative">
+        {/* soft editorial veils */}
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_20%_0%,#fff,transparent),radial-gradient(60%_60%_at_80%_0%,#fff,transparent)]" />
+        <div className="mx-auto max-w-6xl px-6 pt-14 pb-10">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <Badge>AI Vision</Badge>
             <Badge>Live Products</Badge>
             <Badge>Working Links</Badge>
             <Badge>EU/US Stock</Badge>
           </div>
 
-          <h1 className="max-w-5xl text-4xl font-serif tracking-tight text-zinc-900 sm:text-5xl md:text-6xl">
+          <h1 className="font-serif text-5xl leading-[1.08] tracking-tight sm:text-6xl">
             Your Personal Celebrity Stylist —{" "}
-            <span style={{ color: brand.colors.accent }} className="whitespace-nowrap">
-              instantly shoppable.
-            </span>
+            <span className="text-[hsl(27_65%_42%)]">instantly shoppable.</span>
           </h1>
 
-          <p className={cx("mt-5 max-w-3xl text-base leading-7", brand.colors.sub)}>
-            Drop a celeb photo or name, choose budget & occasion, and get a curated head-to-toe look — tuned to
-            your body type — with <b>real, working product links</b>. No dead ends. No guesswork. Just shop.
+          <p className="mt-5 max-w-3xl text-[15px] leading-7 text-neutral-700">
+            Drop a celebrity photo or name, choose budget & occasion, and get a
+            curated outfit that flatters your body type. With{" "}
+            <span className="font-medium">real product links</span> from
+            in-stock EU/US retailers. No dead ends. No guesswork. Just shop.
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Button href="/stylist" variant="dark" ariaLabel="Start styling now">
+            <CTA href="/stylist" aria="Start styling now">
               Start Styling
-            </Button>
-            <Button href="/pricing" variant="outline" ariaLabel="See pricing">
+            </CTA>
+            <CTA href="/pricing" variant="light" aria="See pricing">
               See Pricing
-            </Button>
-            <Button href="/blog" variant="ghost" ariaLabel="Read style guides">
+            </CTA>
+            <CTA href="/blog" variant="light" aria="Read the guides">
               Style Guides
-            </Button>
+            </CTA>
           </div>
 
-          {/* Value tiles */}
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {/* mini features */}
+          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
             <Card title="Vision that “gets” your muse">
-              We recognise the celebrity in your photo and extract palette, silhouette & signature cues to steer picks.
+              Recognises the celebrity, then extracts palette, silhouette &
+              signature cues to steer picks.
             </Card>
             <Card title="Live products that are in stock">
-              Pulls pieces by price, colour & size across top retailers (EU/US) — refreshed continuously.
+              Filters by price, colour & size across top retailers (EU/US) —
+              refreshed continuously.
             </Card>
             <Card title="Links that actually open products">
-              Affiliate-ready links take you <i>directly</i> to product pages for zero drop-off and instant checkout.
+              Affiliate-ready deep-links for zero drop-off and instant checkout.
             </Card>
           </div>
 
-          {/* Retailers logos */}
-          <div className="mt-8">
-            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Retailers we love</p>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-zinc-700">
-              {retailers.map((r) => (
-                <span key={r} className="whitespace-nowrap">
-                  {r}
-                </span>
-              ))}
+          {/* retailer strip */}
+          <div className="mt-8 rounded-2xl border border-neutral-200/70 bg-white/70 p-4 text-xs shadow-sm">
+            <div className="text-neutral-500">Retailers we love:</div>
+            <div className="mt-2 flex flex-wrap gap-4 text-neutral-700">
+              <span>Net-a-Porter</span>
+              <span>Nordstrom</span>
+              <span>Zara</span>
+              <span>COS</span>
+              <span>H&M</span>
+              <span>Mango</span>
+              <span>&amp; Other Stories</span>
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
-      {/* SOCIAL PROOF: As seen in */}
-      <section className="mx-auto max-w-7xl px-5 pt-2 lg:px-8">
-        <div className={cx("flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-xl border border-zinc-200 bg-white/70 px-5 py-3 text-[12px] text-zinc-500 backdrop-blur", brand.colors.shadow)}>
+      {/* =============================== Social Proof =============================== */}
+      <section className="mx-auto max-w-6xl px-6">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-xl border border-neutral-200 bg-white/70 px-5 py-3 text-[12px] text-neutral-500 shadow-sm">
           <span>As seen in</span>
-          <span className="font-medium text-zinc-700">Vogue Tech</span>
-          <span className="font-medium text-zinc-700">Harper’s Bazaar Lab</span>
-          <span className="font-medium text-zinc-700">Product Hunt</span>
-          <span className="font-medium text-zinc-700">Women in AI</span>
+          <span className="font-medium text-neutral-700">Vogue Tech</span>
+          <span className="font-medium text-neutral-700">Harper’s Bazaar Lab</span>
+          <span className="font-medium text-neutral-700">Product Hunt</span>
+          <span className="font-medium text-neutral-700">Women in AI</span>
         </div>
       </section>
 
-      {/* HOW IT WORKS + STATS */}
-      <section id="how-it-works" className="mx-auto max-w-7xl px-5 pb-6 pt-10 lg:px-8">
-        <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">How It Works</h2>
-
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card title="1) Drop your muse">Upload a celeb photo or type a name with occasion & budget.</Card>
-          <Card title="2) AI curates the look">Vision + text models decode palette, silhouette & body-type fit.</Card>
-          <Card title="3) Shop instantly">Open clean retailer pages via affiliate-ready links (optional).</Card>
+      {/* =============================== How It Works =============================== */}
+      <section className="mx-auto max-w-6xl px-6 py-14">
+        <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card title="1) Drop your muse">
+            Upload a celeb photo or type a name with occasion & budget.
+          </Card>
+          <Card title="2) AI curates the look">
+            Vision + text models decode palette, silhouette & body-type fit.
+          </Card>
+          <Card title="3) Shop instantly">
+            Clean retailer links with optional affiliate tracking.
+          </Card>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Stat end={30000} label="Looks generated" />
-          <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "p-6 sm:p-8 text-center")}>
-            <div className="text-3xl font-semibold tracking-tight text-zinc-900">18–32%</div>
-            <div className="mt-1 text-sm text-zinc-600">Buy-intent uplift (avg.)</div>
-          </div>
-          <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "p-6 sm:p-8 text-center")}>
-            <div className="text-3xl font-semibold tracking-tight text-zinc-900">EU/US</div>
-            <div className="mt-1 text-sm text-zinc-600">Stock coverage</div>
-          </div>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Stat value="30k+" label="Looks generated" />
+          <Stat value="18–32%" label="Buy-intent uplift (avg.)" />
+          <Stat value="EU/US" label="Stock coverage" />
         </div>
 
-        {/* Offer band */}
-        <div className={cx(brand.radius.xl, brand.colors.card, brand.colors.shadow, brand.colors.line, "mt-6 flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center")}>
-          <p className="text-sm text-zinc-700">
-            <span className="font-semibold">Unlock unlimited styling</span> — seasonal wardrobe plans, live feeds,
-            priority coaching & analytics for creators. Cancel anytime.
-          </p>
-          <div className="flex items-center gap-2">
-            <Button href="/pricing" variant="dark" ariaLabel="Choose the €19/month plan">
-              €19/month
-            </Button>
-            <Button href="/pricing#one-off" variant="outline" ariaLabel="Buy a one-off look for €5">
+        <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
+          <div className="text-sm text-neutral-700">
+            <span className="font-semibold">Unlock unlimited styling</span> — wardrobe plans, live feeds &
+            priority coaching. Cancel anytime.
+          </div>
+          <div className="flex gap-3">
+            <CTA href="/pricing">€19/month</CTA>
+            <CTA href="/pricing#one-off" variant="light">
               One-off look €5
-            </Button>
+            </CTA>
           </div>
         </div>
       </section>
 
-      {/* DIFFERENTIATORS */}
-      <section className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* =============================== Value Props =============================== */}
+      <section className="mx-auto max-w-6xl px-6 pb-14">
+        <h2 className="text-2xl font-semibold tracking-tight">Why RunwayTwin</h2>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card title="Made for real bodies">
-            Our fit logic balances pear/hourglass/apple/rectangle so silhouettes flatter — not generic. You can also
-            set personal fit preferences for extra polish.
+            Our fit logic balances pear/hourglass/apple/rectangle so silhouettes flatter — not generic.
           </Card>
           <Card title="Links that actually open products">
-            We fetch live, in-stock items and link directly to retailer product pages (affiliate optional).
+            We deep-link to live product pages (affiliate optional).
           </Card>
           <Card title="EU/US aware">
-            Toggle country preference; we tailor sizes, currencies and retailer availability automatically.
+            Toggle country; we adapt sizes, currency and retailer coverage.
           </Card>
           <Card title="Zero risk">
-            7-day money-back guarantee on Premium. Try a one-off look first — upgrade only if you love it.
+            7-day money-back on Premium. Try €5 one-off first.
           </Card>
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
-      <section className="mx-auto max-w-7xl px-5 pb-6 pt-2 lg:px-8">
-        <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">Loved by creators & shoppers</h2>
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card eyebrow="Creator" title="“My click-to-cart doubled.”">
-            I embed looks in my Stories and the links just work. It feels editorial, not spammy. — <i>Amaya K.</i>
-          </Card>
-          <Card eyebrow="Shopper" title="“It nails the vibe fast.”">
-            Said “Zendaya for a gala — mid budget” and the picks were on-point with real product pages. — <i>Leonie V.</i>
-          </Card>
-          <Card eyebrow="Brand partner" title="“Cleanest affiliate flow we’ve tested.”">
-            Zero broken links, direct product deep-links, excellent EU/US stock handling. — <i>Retail Labs</i>
-          </Card>
+      {/* =============================== Testimonials =============================== */}
+      <section className="mx-auto max-w-6xl px-6 pb-10">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-semibold">Loved by creators & shoppers</h3>
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
+              “Typed ‘Zendaya, evening, mid budget’ and checked out in five minutes. Links actually worked!”
+              <div className="mt-2 text-xs text-neutral-500">— Elise M.</div>
+            </blockquote>
+            <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
+              “Body-type tips are spot on. Wide-leg + pointed flats = instant polish.”
+              <div className="mt-2 text-xs text-neutral-500">— Tasha K.</div>
+            </blockquote>
+            <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
+              “Cleanest affiliate flow we’ve tested. Zero broken links.”
+              <div className="mt-2 text-xs text-neutral-500">— Retail Labs</div>
+            </blockquote>
+          </div>
         </div>
       </section>
 
-      {/* JOURNAL */}
-      <section className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">From the Journal</h2>
-          <Link href="/blog" className="text-sm font-medium text-zinc-700 hover:underline">
+      {/* =============================== Comparison =============================== */}
+      <section className="mx-auto max-w-6xl px-6 pb-14">
+        <h2 className="text-2xl font-semibold tracking-tight">Why not hire a stylist?</h2>
+        <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3">
+            <div className="p-5 text-sm">
+              <div className="text-neutral-500">Traditional stylist</div>
+              <div className="mt-2 text-neutral-900">€500–€1,000 / look</div>
+              <ul className="mt-2 list-disc pl-5 text-neutral-700">
+                <li>Manual sourcing</li>
+                <li>Inconsistent availability</li>
+                <li>Not scalable</li>
+              </ul>
+            </div>
+            <div className="border-t border-neutral-200 p-5 text-sm md:border-l md:border-t-0">
+              <div className="text-neutral-500">“Inspo” scrolling</div>
+              <div className="mt-2 text-neutral-900">Time-intensive</div>
+              <ul className="mt-2 list-disc pl-5 text-neutral-700">
+                <li>Dead links & dupes</li>
+                <li>No body-type logic</li>
+                <li>Guesswork & returns</li>
+              </ul>
+            </div>
+            <div className="border-t border-neutral-200 bg-neutral-50/60 p-5 text-sm md:border-l md:border-t-0">
+              <div className="font-semibold">RunwayTwin</div>
+              <div className="mt-2 text-neutral-900">€19/month or €5 one-off</div>
+              <ul className="mt-2 list-disc pl-5 text-neutral-700">
+                <li>AI curation from celeb signature</li>
+                <li>Live, in-stock products</li>
+                <li>Clean product deep-links</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <CTA href="/stylist">Try the Stylist</CTA>
+          <CTA href="/pricing" variant="light">
+            Go Premium
+          </CTA>
+        </div>
+      </section>
+
+      {/* =============================== Journal =============================== */}
+      <section className="mx-auto max-w-6xl px-6 pb-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-2xl font-semibold tracking-tight">From the Journal</h2>
+          <Link
+            className="text-sm text-neutral-600 underline underline-offset-4 hover:text-neutral-900"
+            href="/blog"
+          >
             See all →
           </Link>
         </div>
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card
-            title="Dress Like Zendaya: Red-Carpet to Real Life"
-            footer={
-              <Link href="/blog/zendaya-red-carpet" className="text-sm font-medium text-zinc-900 hover:underline">
-                Read guide →
-              </Link>
-            }
-          >
-            Her formula, colours, and shoppable pieces under €100.
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card title="Dress Like Zendaya: Red-Carpet to Real Life">
+            Her formula, colours, and shoppable pieces under €100.{" "}
+            <Link
+              className="text-neutral-900 underline"
+              href="/blog/zendaya-evening-glam"
+            >
+              Read guide →
+            </Link>
           </Card>
-          <Card
-            title="Rihanna Streetwear: The Exact Vibe (and Where to Buy)"
-            footer={
-              <Link href="/blog/rihanna-street-luxe" className="text-sm font-medium text-zinc-900 hover:underline">
-                Read guide →
-              </Link>
-            }
-          >
-            Oversized outerwear, crop+wide leg, bold accessories — linked.
+          <Card title="Rihanna Streetwear: The Exact Vibe (and Where to Buy)">
+            Oversized outerwear, crop+wide leg, bold accessories — linked.{" "}
+            <Link
+              className="text-neutral-900 underline"
+              href="/blog/rihanna-street-luxe"
+            >
+              Read guide →
+            </Link>
           </Card>
-          <Card
-            title="Jennifer Lawrence Minimalism: Workwear Capsule"
-            footer={
-              <Link href="/blog/jennifer-minimal" className="text-sm font-medium text-zinc-900 hover:underline">
-                Read guide →
-              </Link>
-            }
-          >
-            Neutral palette, sleek tailoring, pointed shoes.
+          <Card title="Jennifer Lawrence Minimalism: Workwear Capsule">
+            Neutral palette, sleek tailoring, pointed shoes.{" "}
+            <Link
+              className="text-neutral-900 underline"
+              href="/blog/jennifer-lawrence-off-duty"
+            >
+              Read guide →
+            </Link>
           </Card>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="mx-auto max-w-7xl px-5 pb-20 pt-6 lg:px-8">
-        <h2 className="text-2xl font-serif tracking-tight text-zinc-900 sm:text-3xl">FAQs</h2>
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* =============================== FAQ =============================== */}
+      <section className="mx-auto max-w-6xl px-6 pb-16">
+        <h2 className="text-2xl font-semibold tracking-tight">Frequently asked</h2>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card title="Does it work with my body type?">
-            Yes — our fit logic balances pear, hourglass, apple and rectangle so silhouettes are flattering, not generic.
-            You can also manually set fit preferences.
+            Yes — we balance pear/hourglass/apple/rectangle for flattering silhouettes. You can also set personal fit preferences.
           </Card>
-          <Card title="Do links actually open products?">
-            Absolutely. We deep-link to live product pages. If you use affiliate redirects, we apply them cleanly without
-            breaking the destination.
+          <Card title="Do the links actually open products?">
+            Absolutely. We fetch live, in-stock items and deep-link to the product page (affiliate optional).
           </Card>
           <Card title="EU/US availability?">
             Choose EU or US; we adapt sizes, currency and available retailers automatically.
           </Card>
-          <Card title="Can I cancel anytime?">
+          <Card title="Can I cancel any time?">
             Of course. One-off look for €5, or Premium for €19/month with a 7-day money-back guarantee.
           </Card>
         </div>
+      </section>
 
-        {/* Final CTA */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button href="/stylist" variant="dark" ariaLabel="Start styling now">
-            Start Styling
-          </Button>
-          <Button href="/pricing" variant="outline" ariaLabel="See pricing">
-            See Pricing
-          </Button>
+      {/* =============================== Final CTA =============================== */}
+      <section className="mx-auto max-w-6xl px-6 pb-20">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <div className="text-lg font-semibold">Ready to style smarter?</div>
+              <p className="mt-1 text-sm text-neutral-700">
+                Turn inspiration into outfits you actually love — and actually buy.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <CTA href="/stylist">Start Styling</CTA>
+              <CTA href="/pricing" variant="light">
+                Go Premium
+              </CTA>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Floating CTA Bar */}
-      <FloatingBar />
+      {/* =============================== Footer =============================== */}
+      <footer className="border-t border-neutral-200 bg-[#F6F5F2]">
+        <div className="mx-auto max-w-6xl px-6 py-10">
+          <div className="grid grid-cols-1 gap-8 text-sm text-neutral-700 md:grid-cols-4">
+            <div>
+              <div className="font-semibold">RunwayTwin</div>
+              <p className="mt-2 max-w-xs text-neutral-600">
+                Celebrity stylist AI — curated looks with working shop links.
+              </p>
+              <p className="mt-3 text-xs text-neutral-500">
+                Disclosure: some outbound links are affiliate links; we may earn a
+                commission at no extra cost to you.
+              </p>
+            </div>
+            <div>
+              <div className="font-semibold">Product</div>
+              <ul className="mt-2 space-y-2">
+                <li>
+                  <Link className="hover:underline" href="/stylist">
+                    Stylist
+                  </Link>
+                </li>
+                <li>
+                  <Link className="hover:underline" href="/pricing">
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link className="hover:underline" href="/blog">
+                    Blog
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-semibold">Company</div>
+              <ul className="mt-2 space-y-2">
+                <li>
+                  <Link className="hover:underline" href="/about">
+                    About
+                  </Link>
+                </li>
+                <li>
+                  <Link className="hover:underline" href="/contact">
+                    Contact
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-semibold">Legal</div>
+              <ul className="mt-2 space-y-2">
+                <li>
+                  <Link
+                    className="hover:underline"
+                    href="/affiliate-disclosure"
+                  >
+                    Affiliate Disclosure
+                  </Link>
+                </li>
+                <li>
+                  <Link className="hover:underline" href="/privacy">
+                    Privacy
+                  </Link>
+                </li>
+                <li>
+                  <Link className="hover:underline" href="/terms">
+                    Terms
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-8 text-xs text-neutral-500">
+            © {new Date().getFullYear()} RunwayTwin — All rights reserved.
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
+
