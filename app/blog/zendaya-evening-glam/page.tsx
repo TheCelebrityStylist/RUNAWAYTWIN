@@ -2,35 +2,36 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 /* =========================================================================
-   Blog: Zendaya Evening Glam — Story-Driven Style Guide (SEO + CRO)
-   - Server component (no client hooks)
-   - Rich storytelling with clear sections, scannable H2/H3s, and internal links
-   - JSON-LD Article for rich results
-   - Premium CTA block (tactile, conversion-optimized)
-   - Mobile-first, accessibility-friendly
+   RunwayTwin — Blog Article
+   "Zendaya Evening Glam — the wearable formula"
+   - Server Component (no 'use client')
+   - Premium storytelling + conversion-minded CTA
+   - Fully semantic + accessible + mobile-first
+   - JSON-LD: Article + BreadcrumbList
    ========================================================================= */
 
 export const metadata: Metadata = {
   title:
-    "Zendaya Evening Glam: The Wearable Formula (Colors, Silhouette & Styling) — RunwayTwin",
+    "Zendaya Evening Glam — the wearable formula | RunwayTwin Journal",
   description:
-    "Decode Zendaya’s evening look into a wearable, body-type friendly formula. Learn palettes, silhouettes, and finishing touches you can apply tonight. Editorial guidance by RunwayTwin.",
-  alternates: { canonical: "https://runwaytwin.vercel.app/blog/zendaya-evening-glam" },
+    "Translate Zendaya’s red-carpet signature into a repeatable evening outfit recipe. Palette, silhouette, finishing touches—tailored tips for every body type.",
+  alternates: {
+    canonical: "https://runwaytwin.vercel.app/blog/zendaya-evening-glam",
+  },
   keywords: [
     "Zendaya outfits",
-    "Zendaya evening outfit",
+    "Zendaya evening look",
     "celebrity style guide",
     "how to dress like Zendaya",
+    "red carpet outfit formula",
     "AI stylist",
-    "editorial styling",
-    "capsule wardrobe evening",
-    "body type flattering outfits",
+    "RunwayTwin Journal",
   ],
   openGraph: {
     title:
-      "Zendaya Evening Glam: The Wearable Formula — RunwayTwin Style Guide",
+      "Zendaya Evening Glam — the wearable formula | RunwayTwin Journal",
     description:
-      "From red-carpet atmospherics to real-life elegance: the colors, shapes and finishing touches of Zendaya’s evening glam, translated into pieces you’ll actually wear.",
+      "A precise, repeatable blueprint: palette, silhouette, and finishing touches that turn Zendaya’s glam into your go-to evening look.",
     url: "https://runwaytwin.vercel.app/blog/zendaya-evening-glam",
     siteName: "RunwayTwin",
     type: "article",
@@ -38,316 +39,392 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "Zendaya Evening Glam: The Wearable Formula — RunwayTwin Style Guide",
+      "Zendaya Evening Glam — the wearable formula | RunwayTwin Journal",
     description:
-      "A clear, body-type aware breakdown of Zendaya’s signature evening style, turned into actionable, shoppable rules.",
+      "Turn a red-carpet signature into a wearable evening recipe—editorial, flattering, and easy to repeat.",
   },
 };
 
-/* --------------------------------- Helpers -------------------------------- */
+/* ------------------------------- UI atoms -------------------------------- */
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-medium text-neutral-700 shadow-sm">
+    <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-neutral-600">
       {children}
-    </p>
+    </span>
   );
 }
 
-function Aside({ title, children }: { title: string; children: React.ReactNode }) {
+function Kicker({ children }: { children: React.ReactNode }) {
   return (
-    <aside className="rounded-2xl border border-neutral-200 bg-white p-5 text-sm leading-6 text-neutral-700 shadow-sm">
-      <p className="font-semibold text-neutral-900">{title}</p>
-      <div className="mt-2">{children}</div>
+    <p className="text-[15px] leading-7 text-neutral-700">{children}</p>
+  );
+}
+
+function Note({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <aside
+      aria-label={title}
+      className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm"
+    >
+      <p className="text-sm font-semibold text-neutral-900">{title}</p>
+      <p className="mt-2 text-sm leading-7 text-neutral-700">{children}</p>
     </aside>
   );
 }
 
-/* ---------------------------------- Page ---------------------------------- */
+function CTA({
+  href,
+  children,
+  variant = "primary",
+  aria,
+}: {
+  href: string;
+  children: React.ReactNode;
+  variant?: "primary" | "ghost" | "light";
+  aria?: string;
+}) {
+  const base =
+    "inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15";
+  const cls =
+    variant === "primary"
+      ? "bg-black text-white hover:opacity-90"
+      : variant === "light"
+      ? "border border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50"
+      : "text-neutral-900 hover:underline";
+  return (
+    <Link href={href} aria-label={aria} className={`${base} ${cls}`}>
+      {children}
+    </Link>
+  );
+}
+
+/* --------------------------------- Page ---------------------------------- */
 
 export default function Page() {
+  const url = "https://runwaytwin.vercel.app/blog/zendaya-evening-glam";
+
   return (
     <main className="bg-[#FAF9F6] text-neutral-900 antialiased">
-      {/* JSON-LD Article */}
+      {/* ============================ JSON-LD (rich results) ============================ */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://runwaytwin.vercel.app/",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Blog",
+                item: "https://runwaytwin.vercel.app/blog",
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: "Zendaya Evening Glam — the wearable formula",
+                item: url,
+              },
+            ],
+          }),
+        }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Article",
-            headline:
-              "Zendaya Evening Glam: The Wearable Formula (Colors, Silhouette & Styling)",
+            headline: "Zendaya Evening Glam — the wearable formula",
             description:
-              "Decode Zendaya’s evening look into a wearable, body-type friendly formula. Learn palettes, silhouettes, and finishing touches you can apply tonight.",
-            author: { "@type": "Organization", name: "RunwayTwin" },
+              "A precise, repeatable blueprint: palette, silhouette, and finishing touches that turn Zendaya’s glam into your go-to evening look.",
+            author: [{ "@type": "Organization", name: "RunwayTwin" }],
             publisher: {
               "@type": "Organization",
               name: "RunwayTwin",
               logo: {
                 "@type": "ImageObject",
-                url: "https://runwaytwin.vercel.app/icon.png",
+                url: "https://runwaytwin.vercel.app/og-image.png",
               },
             },
-            mainEntityOfPage:
-              "https://runwaytwin.vercel.app/blog/zendaya-evening-glam",
+            mainEntityOfPage: url,
+            datePublished: "2025-09-12",
+            dateModified: "2025-09-12",
+            articleSection: "Style Guide",
+            keywords:
+              "Zendaya, evening glam, red carpet, celebrity style, RunwayTwin",
           }),
         }}
       />
 
-      {/* Top bar breadcrumb */}
-      <nav
-        aria-label="Breadcrumb"
-        className="mx-auto max-w-3xl px-5 pt-6 text-sm text-neutral-600"
-      >
-        <ol className="flex flex-wrap items-center gap-2">
-          <li>
-            <Link className="hover:underline" href="/">
-              Home
-            </Link>
-          </li>
-          <li aria-hidden>›</li>
-          <li>
-            <Link className="hover:underline" href="/blog">
-              Blog
-            </Link>
-          </li>
-          <li aria-hidden>›</li>
-          <li className="text-neutral-900">Zendaya Evening Glam</li>
-        </ol>
-      </nav>
+      {/* ================================ Article ================================ */}
+      <article className="mx-auto max-w-3xl px-5 py-10 md:py-14">
+        {/* Breadcrumbs (screen-reader friendly) */}
+        <nav aria-label="Breadcrumb" className="mb-6 text-sm">
+          <ol className="flex flex-wrap items-center gap-2 text-neutral-500">
+            <li>
+              <Link href="/" className="hover:text-neutral-900">
+                Home
+              </Link>
+            </li>
+            <li aria-hidden="true">›</li>
+            <li>
+              <Link href="/blog" className="hover:text-neutral-900">
+                Blog
+              </Link>
+            </li>
+            <li aria-hidden="true">›</li>
+            <li className="text-neutral-800">
+              Zendaya Evening Glam — the wearable formula
+            </li>
+          </ol>
+        </nav>
 
-      {/* Hero */}
-      <header className="mx-auto max-w-3xl px-5 pb-4 pt-8">
-        <Eyebrow>Style Guide · Editorial</Eyebrow>
-        <h1 className="font-serif text-4xl leading-[1.08] tracking-tight sm:text-[44px] md:text-[52px]">
-          Zendaya Evening Glam — the wearable formula
-        </h1>
-        <p className="mt-3 max-w-2xl text-[15px] leading-7 text-neutral-700">
-          Zendaya’s red-carpet magic isn’t just the dress; it’s the **structure**:
-          a focused palette, an intentional silhouette, and a few impeccable
-          finishing touches. Below, we translate that signature into a **repeatable
-          outfit recipe** you can use for dinners, dates, premieres, or any
-          night that deserves a little cinema.
-        </p>
-      </header>
+        <div className="mb-4 flex items-center gap-2">
+          <Eyebrow>Style Guide</Eyebrow>
+          <Eyebrow>Editorial</Eyebrow>
+        </div>
 
-      {/* Cover visual placeholder (optional image slot) */}
-      <div className="mx-auto max-w-5xl px-5">
-        <div className="h-56 w-full rounded-2xl border border-neutral-200 bg-gradient-to-br from-white to-neutral-50 shadow-sm sm:h-72 md:h-80" />
-      </div>
+        <header className="mb-6">
+          <h1 className="font-serif text-4xl leading-[1.08] tracking-tight sm:text-[44px]">
+            Zendaya Evening Glam — the wearable formula
+          </h1>
+          <Kicker>
+            Zendaya’s red-carpet magic isn’t about more; it’s about precision.
+            Think focused palette, intentional lines, and a few impeccable
+            finishing touches. Below, we translate that signature into a
+            repeatable outfit recipe you can reuse for dinners, premieres, and
+            any night that deserves a little cinema.
+          </Kicker>
+        </header>
 
-      {/* Article Body */}
-      <article className="mx-auto max-w-3xl px-5 py-10">
-        <section className="prose prose-neutral max-w-none prose-headings:font-serif prose-h2:tracking-tight prose-p:leading-7">
-          <h2>1) The mood: polished ease, not costume</h2>
-          <p>
-            What makes Zendaya feel modern is restraint. Every look has room to
-            breathe: **one statement** at a time, framed by quiet, deliberate
-            choices. You’ll rarely see a clash of focal points. Instead, she
-            chooses a single hero — silhouette, color, or texture — and lets it
-            carry the room.
+        {/* Hero block (image placeholder box to keep layout elegant without assets) */}
+        <figure className="mb-10 rounded-2xl border border-neutral-200 bg-white/60 p-6 shadow-sm">
+          <figcaption className="text-sm text-neutral-600">
+            Imagine: a liquid silk column, warm metal glint, and a pointed shoe
+            that extends the line. The room quiets, the silhouette speaks.
+          </figcaption>
+        </figure>
+
+        {/* 1) Mood */}
+        <section aria-labelledby="mood" className="mb-10">
+          <h2 id="mood" className="font-serif text-2xl tracking-tight">
+            1) The mood: polished ease, not costume
+          </h2>
+          <p className="mt-3 text-[15px] leading-7 text-neutral-700">
+            Zendaya feels modern because her looks breathe. One statement at a
+            time. No clash of focal points. She picks a single hero—silhouette,
+            color, or texture—and lets it carry the room.
           </p>
-          <Aside title="Try this at home">
-            <ul className="list-disc pl-5">
-              <li>Pick a single hero: neckline, fabric, or cut.</li>
+
+          <Note title="Try this at home">
+            <ul className="list-disc pl-5 text-neutral-700">
+              <li>Choose one hero: neckline, fabric, or cut.</li>
               <li>Strip the rest back to clean lines and calm color.</li>
-              <li>Let the tailoring do the talking.</li>
+              <li>Let the tailoring do most of the talking.</li>
             </ul>
-          </Aside>
+          </Note>
+        </section>
 
-          <h2>2) Palette: deep neutrals, wet metallics, candlelit skin</h2>
-          <p>
-            Her evening palette lives between **ink black, tobacco brown,
-            gunmetal, champagne, and bronze** — occasionally punched by a
-            sculptural white or a mood-rich burgundy. Skin reads dewy and
-            luminous, which is why fabrics that catch and release light (satin,
-            liquid silk, polished leather) are so effective.
+        {/* 2) Palette */}
+        <section aria-labelledby="palette" className="mb-10">
+          <h2 id="palette" className="font-serif text-2xl tracking-tight">
+            2) Palette: deep neutrals, wet metallics, candlelit skin
+          </h2>
+          <p className="mt-3 text-[15px] leading-7 text-neutral-700">
+            Evenings live between ink black, tobacco brown, gunmetal,
+            champagne, and bronze—punctuated by sculptural white or a mood-rich
+            burgundy. Fabrics that catch and release light—liquid silk, satin,
+            polished leather—make everything read luminous.
           </p>
-          <ul>
+          <ul className="mt-3 space-y-2 text-[15px] leading-7 text-neutral-700">
             <li>
               <strong>Core neutrals:</strong> black, espresso, bone, slate.
             </li>
             <li>
-              <strong>Metal notes:</strong> brushed gold, old-silver,
-              champagne.
+              <strong>Metal notes:</strong> brushed gold, old-silver, champagne.
             </li>
             <li>
               <strong>Accent (optional):</strong> deep cherry, oxblood,
               night-navy.
             </li>
           </ul>
-
-          <h2>3) Silhouette: long line + decisive structure</h2>
-          <p>
-            Evening Zendaya is **elongated**. Think column dresses, fluid
-            wide-leg trousers with a tucked bodice, or a long pencil skirt with
-            a sharp shoulder. The goal is vertical intent — a line that moves
-            from collarbone to hem with confidence.
-          </p>
-
-          <h3>Body-type notes</h3>
-          <ul>
-            <li>
-              <strong>Pear:</strong> balance the hip with a clean shoulder.
-              Tucked draped blouses and straight maxi skirts work beautifully.
-            </li>
-            <li>
-              <strong>Hourglass:</strong> honor the waist without squeezing:
-              soft corsetry, bias cuts, wrap details.
-            </li>
-            <li>
-              <strong>Apple:</strong> extend the line: V-neck columns, long
-              blazers, minimal waist cinch.
-            </li>
-            <li>
-              <strong>Rectangle:</strong> add dynamic curves via bias, peplum,
-              or an architectural shoulder.
-            </li>
-          </ul>
-
-          <h2>4) The finishing trio: jewelry · bag · shoe</h2>
-          <p>
-            Zendaya’s styling reads like a perfect sentence: **one clause, three
-            words**. Jewelry is structural (a cuff, a clean drop, a sculptural
-            hoop). Bags are compact, almost architectural. Shoes are sleek —
-            point or barely-there sandal — to preserve the line.
-          </p>
-
-          <Aside title="Stylist’s cue">
-            Keep the verbs quiet: polish, taper, elongate. If an accessory
-            shouts, take something else off.
-          </Aside>
-
-          <h2>5) Your evening formula (copy-paste)</h2>
-          <p>
-            Below is a ready recipe you can apply tonight. Adjust color to your
-            palette and swap silhouettes per your body-type notes above.
-          </p>
-          <ol className="list-decimal pl-5">
-            <li>
-              <strong>Top:</strong> sculpted bodice, draped blouse, or liquid
-              knit with a defined neckline.
-            </li>
-            <li>
-              <strong>Bottom:</strong> column skirt, tailored maxi, or fluid
-              wide-leg trouser.
-            </li>
-            <li>
-              <strong>Layer (optional):</strong> long blazer or cropped
-              structured jacket.
-            </li>
-            <li>
-              <strong>Shoe:</strong> pointed pump or minimalist sandal.
-            </li>
-            <li>
-              <strong>Jewelry:</strong> one statement shape; keep metal
-              consistent.
-            </li>
-            <li>
-              <strong>Bag:</strong> compact clutch or micro-top-handle.
-            </li>
-          </ol>
-
-          <h2>6) Make it yours (the RunwayTwin way)</h2>
-          <p>
-            At <Link href="/" className="underline">RunwayTwin</Link>, we built our AI stylist on this idea:
-            decode a celebrity signature into **wearable formulas** that respect
-            **your body type, your budget, and your region (EU/US stock)**.
-            Describe your muse — “Zendaya, evening, mid budget” — and get a
-            complete outfit blueprint in minutes.
-          </p>
         </section>
 
-        {/* —— Upgraded CTA Block (premium + persuasive) —— */}
-        <div className="mt-12 rounded-2xl border border-neutral-200 bg-white p-8 shadow-md sm:p-10">
-          <h3 className="font-serif text-2xl font-semibold tracking-tight text-neutral-900">
-            Want Zendaya-level styling — tailored to you?
-          </h3>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-700">
-            Upload a muse, set your budget, and let our AI craft a complete
-            evening formula in minutes — adjusted to your **body type** and
-            **size**, with EU/US stock awareness. No endless scrolling. No
-            guesswork. Just outfits that feel like you, only elevated.
+        {/* 3) Silhouette */}
+        <section aria-labelledby="silhouette" className="mb-10">
+          <h2 id="silhouette" className="font-serif text-2xl tracking-tight">
+            3) Silhouette: long line with decisive structure
+          </h2>
+          <p className="mt-3 text-[15px] leading-7 text-neutral-700">
+            The message is elongated. Think column dresses, fluid wide-leg
+            trousers with a tucked bodice, or a pencil skirt with a sharp
+            shoulder. The eye travels in one clear direction: down the line.
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-4">
-            <Link
-              href="/stylist"
-              className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
-              aria-label="Try the AI Stylist"
-            >
-              ✨ Try the Stylist
-            </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10"
-              aria-label="See plans and pricing"
-            >
-              See Plans
-            </Link>
+          <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold text-neutral-900">
+              Body-type notes
+            </p>
+            <ul className="mt-3 grid list-disc gap-2 pl-5 text-[15px] leading-7 text-neutral-700">
+              <li>
+                <strong>Pear:</strong> balance the hip with a clean shoulder.
+                Draped blouses, straight maxi skirts, and column dresses work
+                beautifully.
+              </li>
+              <li>
+                <strong>Hourglass:</strong> honor the waist without squeezing.
+                Soft corsetry, bias cuts, and wrap details are effortless.
+              </li>
+              <li>
+                <strong>Apple:</strong> extend the line with V-neck columns and
+                long blazers; skip anything that breaks at the waist.
+              </li>
+              <li>
+                <strong>Rectangle:</strong> add dynamic curves via bias,
+                sculptural peplum, or an architectural shoulder.
+              </li>
+            </ul>
           </div>
+        </section>
 
-          <p className="mt-4 text-xs text-neutral-500">
-            7-day money-back guarantee · Cancel anytime · EU/US coverage
+        {/* 4) Finishing trio */}
+        <section aria-labelledby="finishing" className="mb-10">
+          <h2 id="finishing" className="font-serif text-2xl tracking-tight">
+            4) The finishing trio: jewelry · bag · shoe
+          </h2>
+          <p className="mt-3 text-[15px] leading-7 text-neutral-700">
+            Keep the sentence short: one clause, three words. Jewelry is
+            structural—a cuff, a clean drop, a sculptural hoop. Bags are compact
+            and precise. Shoes are sleek—pointed pump or barely-there sandal—to
+            keep the line uninterrupted.
           </p>
-        </div>
+          <Note title="Stylist’s cue">
+            Keep the verbs quiet: polish, taper, elongate. If one accessory
+            shouts, let another whisper.
+          </Note>
+        </section>
 
-        {/* Related links */}
-        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Link
-            href="/blog/rihanna-street-luxe"
-            className="rounded-2xl border border-neutral-200 bg-white p-5 text-sm shadow-sm transition hover:shadow-md"
-          >
-            <p className="text-xs uppercase tracking-wider text-neutral-500">
-              Next read
-            </p>
-            <p className="mt-1 font-medium text-neutral-900">
-              Rihanna Street Luxe — volume, edge, and easy drama
-            </p>
-            <p className="mt-1 text-neutral-600">
-              How to get the oversized energy without drowning the frame.
-            </p>
-          </Link>
-          <Link
-            href="/blog/jennifer-lawrence-off-duty"
-            className="rounded-2xl border border-neutral-200 bg-white p-5 text-sm shadow-sm transition hover:shadow-md"
-          >
-            <p className="text-xs uppercase tracking-wider text-neutral-500">
-              Minimalism
-            </p>
-            <p className="mt-1 font-medium text-neutral-900">
-              Jennifer Lawrence Off-Duty — sleek, pointed, effortless
-            </p>
-            <p className="mt-1 text-neutral-600">
-              The clean capsule that carries you through the week.
-            </p>
-          </Link>
-        </div>
+        {/* 5) The formula */}
+        <section aria-labelledby="recipe" className="mb-12">
+          <h2 id="recipe" className="font-serif text-2xl tracking-tight">
+            5) Your evening formula (copy-paste)
+          </h2>
+          <ol className="mt-3 list-decimal space-y-2 pl-5 text-[15px] leading-7 text-neutral-700">
+            <li>Top: sculpted bodice, draped blouse, or liquid knit.</li>
+            <li>Bottom: column skirt, tailored maxi, or fluid wide-leg trouser.</li>
+            <li>Layer (optional): long blazer or cropped structured jacket.</li>
+            <li>Shoe: pointed pump or minimalist sandal.</li>
+            <li>Jewelry: one clear shape; keep metals consistent.</li>
+            <li>Bag: compact clutch or micro top-handle.</li>
+          </ol>
+        </section>
 
-        {/* Final nudge */}
-        <div className="mt-12 flex flex-wrap gap-3">
-          <Link
-            href="/stylist"
-            className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
-          >
-            Start Styling
-          </Link>
-          <Link
-            href="/pricing"
-            className="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10"
-          >
+        {/* 6) Brand tie-in */}
+        <section aria-labelledby="make-it-yours" className="mb-12">
+          <h2 id="make-it-yours" className="font-serif text-2xl tracking-tight">
+            6) Make it yours—the RunwayTwin way
+          </h2>
+          <p className="mt-3 text-[15px] leading-7 text-neutral-700">
+            At <Link href="/" className="underline">RunwayTwin</Link>, we built our stylist on a
+            simple idea: decode a celebrity signature into wearable formulas
+            that respect your body type, your size, your budget, and your
+            region. Describe your muse—“Zendaya, evening, mid budget”—and get a
+            complete outfit blueprint in minutes.
+          </p>
+
+          {/* Conversion CTA */}
+          <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-semibold tracking-tight">
+              Want Zendaya-level styling—tailored to you?
+            </h3>
+            <p className="mt-2 text-sm leading-7 text-neutral-700">
+              Upload a muse, set your budget, and let our AI build your evening
+              formula in minutes—adjusted to your body-type and size with EU/US
+              stock awareness. No guesswork. Just outfits that look like you,
+              only elevated.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <CTA href="/stylist" aria="Try the stylist now">
+                ✨ Try the Stylist
+              </CTA>
+              <CTA href="/pricing" variant="light" aria="See pricing plans">
+                See Plans
+              </CTA>
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">
+              7-day money-back on Premium · Cancel anytime · EU/US coverage
+            </p>
+          </div>
+        </section>
+
+        {/* Next reads */}
+        <section aria-labelledby="next-read" className="mb-12">
+          <h2 id="next-read" className="sr-only">
+            Next reads
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                Street Luxe
+              </p>
+              <h3 className="mt-1 text-base font-semibold">
+                <Link
+                  href="/blog/rihanna-street-luxe"
+                  className="hover:underline"
+                >
+                  Rihanna Street Luxe — volume, edge, easy drama
+                </Link>
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-neutral-700">
+                How to get oversized energy without drowning the frame.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                Minimalism
+              </p>
+              <h3 className="mt-1 text-base font-semibold">
+                <Link
+                  href="/blog/jennifer-lawrence-off-duty"
+                  className="hover:underline"
+                >
+                  Jennifer Lawrence Off-Duty — sleek, pointed, effortless
+                </Link>
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-neutral-700">
+                The clean capsule that carries you through the week.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        {/* Final soft CTA */}
+        <div className="flex flex-wrap gap-3 pb-6">
+          <CTA href="/stylist">Start Styling</CTA>
+          <CTA href="/pricing" variant="light">
             Go Premium
-          </Link>
+          </CTA>
         </div>
-      </article>
 
-      {/* Footer callout (simple disclosure) */}
-      <footer className="border-t border-neutral-200 bg-[#F6F5F2]">
-        <div className="mx-auto max-w-6xl px-5 py-10 text-sm text-neutral-600">
-          Some outbound retailer links across the site may be affiliate; we
-          may earn a small commission at no extra cost to you.
-        </div>
-      </footer>
+        <p className="border-t border-neutral-200 pt-6 text-xs text-neutral-500">
+          Disclosure: some outbound retailer links across the site may be
+          affiliate; we may earn a small commission at no extra cost to you.
+        </p>
+      </article>
     </main>
   );
 }
