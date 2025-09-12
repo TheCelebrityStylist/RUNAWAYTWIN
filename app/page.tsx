@@ -2,34 +2,35 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 /* =========================================================================
-   RunwayTwin — Homepage (Premium UX, Shopper-first USPs, SEO + JSON-LD)
-   - Server Component only (build-safe on Vercel)
-   - Copy focused on: speed, fit, budget, live stock, working links
-   - Rich SEO metadata + JSON-LD (WebSite, Product, FAQ, Organization)
+   RunwayTwin — Homepage (Editorial Premium • Shopper-first Value)
+   - Server Component only (no client hooks)
+   - USPs: Editorial taste, body-type flattering, budget-certainty,
+           capsule-friendly, time-saving, EU/US stock
+   - SEO: Rich metadata + JSON-LD (WebSite, Product, FAQ, Organization)
    ========================================================================= */
 
 export const metadata: Metadata = {
   title:
-    "RunwayTwin — AI Celebrity Stylist • Curated Looks, Real Shop Links, Under-Your-Budget Picks",
+    "RunwayTwin — AI Celebrity Stylist • Editorial Looks, Body-Type Flattering, Under-Your-Budget",
   description:
-    "Upload a celeb photo or name, choose budget & occasion, and get a body-flattering outfit in minutes. EU/US stock, live products, deep links that actually open.",
+    "Upload a celeb photo or name, set your budget & occasion, and get an editorial-grade outfit in minutes. Smart fit logic for real bodies. EU/US stock.",
   alternates: { canonical: "https://runwaytwin.vercel.app/" },
   keywords: [
     "AI stylist",
-    "celebrity outfits",
+    "celebrity outfit",
     "dress like zendaya",
-    "rihanna outfit",
-    "jennifer lawrence style",
+    "rihanna streetwear",
     "personal stylist AI",
-    "shoppable outfits",
     "outfit generator",
+    "capsule wardrobe",
     "body type styling",
+    "elevated basics",
   ],
   openGraph: {
     title:
-      "RunwayTwin — AI Celebrity Stylist • Curated Looks, Real Shop Links, Under-Your-Budget Picks",
+      "RunwayTwin — AI Celebrity Stylist • Editorial Looks, Body-Type Flattering, Under-Your-Budget",
     description:
-      "Turn celebrity inspiration into outfits you actually buy. Live EU/US products, body-type aware, deep links that open.",
+      "Turn celebrity inspiration into outfits you actually wear. Editorial taste, live EU/US products, and smart fit for real bodies.",
     url: "https://runwaytwin.vercel.app/",
     siteName: "RunwayTwin",
     type: "website",
@@ -37,9 +38,9 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "RunwayTwin — AI Celebrity Stylist • Curated Looks, Real Shop Links, Under-Your-Budget Picks",
+      "RunwayTwin — AI Celebrity Stylist • Editorial Looks, Body-Type Flattering, Under-Your-Budget",
     description:
-      "Drop a celeb, pick your budget, shop the look. Real product pages, no dead links.",
+      "From celeb to cart in minutes. Capsule-friendly picks, tailored to your body and budget.",
   },
 };
 
@@ -149,7 +150,7 @@ export default function Page() {
             "@type": "Product",
             name: "RunwayTwin Premium Stylist",
             description:
-              "Unlimited AI stylings, wardrobe plans, and live product feeds with affiliate-ready deep links.",
+              "Unlimited AI stylings, capsule planning and live EU/US products — all tailored to your budget and body type.",
             brand: { "@type": "Brand", name: "RunwayTwin" },
             offers: [
               {
@@ -192,34 +193,34 @@ export default function Page() {
             mainEntity: [
               {
                 "@type": "Question",
-                name: "Do links open real product pages?",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "Yes — we fetch live, in-stock items and deep-link to retailer product pages (affiliate optional).",
-                },
-              },
-              {
-                "@type": "Question",
                 name: "Will it suit my body type?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "We balance pear/hourglass/apple/rectangle to propose flattering silhouettes. You can also set personal fit preferences.",
+                  text: "Yes — our fit logic balances pear/hourglass/apple/rectangle for flattering silhouettes. You can set your usual sizes and fit preference.",
                 },
               },
               {
                 "@type": "Question",
-                name: "EU/US availability?",
+                name: "Can I keep to my budget?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Choose EU or US; we adapt sizes, currency and retailer coverage automatically.",
+                  text: "Absolutely. Choose high-street, mid or luxury and we curate picks within that price band — no surprises at checkout.",
                 },
               },
               {
                 "@type": "Question",
-                name: "Can I cancel any time?",
+                name: "Does it support EU/US?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Yes. Try a one-off look for €5 or go Premium for €19/month with a 7-day money-back guarantee.",
+                  text: "Yes. Toggle EU or US; we adapt sizes, currency and retailer availability automatically.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "How do I try it risk-free?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Start with a €5 one-off look, or go Premium for €19/month with a 7-day money-back guarantee.",
                 },
               },
             ],
@@ -231,31 +232,34 @@ export default function Page() {
       <div className="mx-auto max-w-6xl px-6 pt-4">
         <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-900">
           <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
-          7-day money-back on Premium. One-off look €5 — upgrade anytime.
+          Concierge feel, instant results — 7-day money-back on Premium.
         </div>
       </div>
 
       {/* ================================== HERO =================================== */}
       <section className="relative">
+        {/* soft editorial light */}
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_20%_0%,#fff,transparent),radial-gradient(60%_60%_at_80%_0%,#fff,transparent)]" />
         <div className="mx-auto max-w-6xl px-6 pt-14 pb-10">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <Badge>AI Vision</Badge>
-            <Badge>Live Products</Badge>
-            <Badge>Working Links</Badge>
-            <Badge>EU/US Stock</Badge>
+            <Badge>Editorial Taste</Badge>
+            <Badge>Live EU/US Products</Badge>
+            <Badge>Capsule-Friendly</Badge>
           </div>
 
           <h1 className="font-serif text-5xl leading-[1.08] tracking-tight sm:text-6xl">
             Your Personal Celebrity Stylist —{" "}
-            <span className="text-[hsl(27_65%_42%)]">instantly shoppable.</span>
+            <span className="text-[hsl(27_65%_42%)]">instantly elevated.</span>
           </h1>
 
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-neutral-700">
-            Drop a celeb photo or name, choose budget & occasion, and get a
-            curated outfit that flatters your body type — in minutes. With{" "}
-            <span className="font-medium">real product links</span> from
-            in-stock EU/US retailers. No dead ends. No guesswork. Just shop.
+            Drop a celeb photo or name, choose budget & occasion, and receive an{" "}
+            <span className="font-medium">editorial-grade</span> outfit that
+            flatters your body type — in minutes. We keep it{" "}
+            <span className="font-medium">within your budget</span> and{" "}
+            <span className="font-medium">in your size</span>, sourced from live
+            EU/US stock.
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -265,23 +269,25 @@ export default function Page() {
             <CTA href="/pricing" variant="light" aria="See pricing">
               See Pricing
             </CTA>
-            <CTA href="/blog" variant="light" aria="Read the guides">
+            <CTA href="/blog" variant="light" aria="Read the style guides">
               Style Guides
             </CTA>
           </div>
 
-          {/* mini features */}
+          {/* mini features (refined USPs) */}
           <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Card title="Vision that understands your muse">
-              Recognises the celebrity and extracts palette, silhouette &
-              signature cues to steer the look.
+            <Card title="Taste you can trust">
+              Our models are trained on celebrity signature cues, then refined
+              with editorial rules — the difference between “inspired” and
+              “effortless”.
             </Card>
-            <Card title="Live, in-stock products">
-              Filters by price, colour & size across top retailers (EU/US) —
-              refreshed continuously.
+            <Card title="Flattering by design">
+              Body-type logic shapes every suggestion — silhouette, rise, hem,
+              and proportions tuned to you.
             </Card>
-            <Card title="Links that actually open products">
-              Affiliate-ready deep links for zero drop-off and instant checkout.
+            <Card title="Budget certainty">
+              Choose high-street, mid or luxury; we curate within the band so
+              your cart won’t surprise you.
             </Card>
           </div>
 
@@ -301,24 +307,24 @@ export default function Page() {
         </div>
       </section>
 
-      {/* =============================== Shopper-first USPs ======================== */}
+      {/* =============================== Shopper-first Benefits ===================== */}
       <section className="mx-auto max-w-6xl px-6 py-12">
-        <h2 className="text-2xl font-semibold tracking-tight">What you get</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Made for real life</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Pill title="2–5 minute results" body="From celeb to cart, fast." />
-          <Pill title="Under-your-budget picks" body="No surprises at checkout." />
+          <Pill title="2–5 minute results" body="From muse to cart, fast." />
+          <Pill title="Under-your-budget picks" body="High-street, mid or luxury." />
           <Pill title="Body-type flattering" body="Pear, hourglass, apple, rectangle." />
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Pill title="EU/US coverage" body="Sizes, currency, and stock adapted." />
-          <Pill title="Alternates on tap" body="Try-ons per category — tap to swap." />
-          <Pill title="Real product pages" body="Deep links. No dead ends." />
+          <Pill title="EU/US stock" body="Live availability in your currency." />
+          <Pill title="Capsule-friendly" body="Pieces that work hard in your wardrobe." />
+          <Pill title="Occasion ready" body="Everyday, evening, work, travel." />
         </div>
 
         <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
           <div className="text-sm text-neutral-700">
             <span className="font-semibold">Start with a one-off</span> for €5 — upgrade to{" "}
-            <span className="font-semibold">Premium (€19/month)</span> when you love it.
+            <span className="font-semibold">Premium (€19/month)</span> when you love it. 7-day money-back.
           </div>
           <div className="flex gap-3">
             <CTA href="/stylist">Try Now</CTA>
@@ -333,18 +339,17 @@ export default function Page() {
       <section className="mx-auto max-w-6xl px-6 pb-12">
         <h2 className="text-2xl font-semibold tracking-tight">Why RunwayTwin</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card title="Made for real bodies">
-            Our fit logic balances pear/hourglass/apple/rectangle so silhouettes
-            flatter — not generic.
+          <Card title="Editor-level curation">
+            Signature palettes, finishing touches and styling rules that make a look feel intentional — not random.
           </Card>
-          <Card title="Styled for your life">
-            Everyday, evening, work, travel — set the occasion and we bring the right polish.
+          <Card title="Fits your life (and budget)">
+            You set the brief; we deliver cohesive looks that respect your price band and your calendar.
           </Card>
-          <Card title="Works with your closet">
-            Keep your staples; we fill the gaps with pieces that match colour and vibe.
+          <Card title="Capsule-first thinking">
+            Keep your staples. We fill the gaps with pieces that mix & match and get worn on repeat.
           </Card>
-          <Card title="Zero risk">
-            7-day money-back on Premium. Try €5 one-off first.
+          <Card title="Zero fuss guarantee">
+            Try a €5 one-off first. Premium comes with a 7-day money-back promise.
           </Card>
         </div>
       </section>
@@ -352,19 +357,19 @@ export default function Page() {
       {/* =============================== Testimonials ============================= */}
       <section className="mx-auto max-w-6xl px-6 pb-10">
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold">What shoppers say</h3>
+          <h3 className="text-lg font-semibold">What clients say</h3>
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
-              “Typed ‘Zendaya, evening, mid budget’ and checked out in five minutes. Links actually worked.”
+              “From ‘Zendaya, evening, mid budget’ to checkout in minutes. Looked expensive — wasn’t.”
               <div className="mt-2 text-xs text-neutral-500">— Elise M.</div>
             </blockquote>
             <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
-              “Body-type tips were spot on. Wide-leg + pointed flats = instant polish.”
+              “The body-type advice is unreal. I finally understand why certain trousers work on me.”
               <div className="mt-2 text-xs text-neutral-500">— Tasha K.</div>
             </blockquote>
             <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
-              “Cleanest affiliate flow we’ve tested. Zero broken links.”
-              <div className="mt-2 text-xs text-neutral-500">— Retail Labs</div>
+              “I stopped doom-scrolling and actually built a capsule I wear. Worth it.”
+              <div className="mt-2 text-xs text-neutral-500">— Mira S.</div>
             </blockquote>
           </div>
         </div>
@@ -372,34 +377,34 @@ export default function Page() {
 
       {/* =============================== Comparison =============================== */}
       <section className="mx-auto max-w-6xl px-6 pb-14">
-        <h2 className="text-2xl font-semibold tracking-tight">Why not hire a stylist?</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Smarter than scrolling</h2>
         <div className="mt-6 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3">
             <div className="p-5 text-sm">
-              <div className="text-neutral-500">Traditional stylist</div>
-              <div className="mt-2 text-neutral-900">€500–€1,000 / look</div>
+              <div className="text-neutral-500">Endless scrolling</div>
+              <div className="mt-2 text-neutral-900">Time-intensive</div>
               <ul className="mt-2 list-disc pl-5 text-neutral-700">
-                <li>Manual sourcing</li>
-                <li>Inconsistent availability</li>
-                <li>Not scalable</li>
+                <li>Random inspo, no cohesion</li>
+                <li>No body-type logic</li>
+                <li>Returns & regret buys</li>
               </ul>
             </div>
             <div className="border-t border-neutral-200 p-5 text-sm md:border-l md:border-t-0">
-              <div className="text-neutral-500">“Inspo” scrolling</div>
-              <div className="mt-2 text-neutral-900">Time-intensive</div>
+              <div className="text-neutral-500">Personal shoppers</div>
+              <div className="mt-2 text-neutral-900">€500–€1,000 / look</div>
               <ul className="mt-2 list-disc pl-5 text-neutral-700">
-                <li>Dead links & dupes</li>
-                <li>No body-type logic</li>
-                <li>Guesswork & returns</li>
+                <li>Manual sourcing</li>
+                <li>Limited availability</li>
+                <li>High commitment</li>
               </ul>
             </div>
             <div className="border-t border-neutral-200 bg-neutral-50/60 p-5 text-sm md:border-l md:border-t-0">
               <div className="font-semibold">RunwayTwin</div>
               <div className="mt-2 text-neutral-900">€19/month or €5 one-off</div>
               <ul className="mt-2 list-disc pl-5 text-neutral-700">
-                <li>AI curation from celeb signature</li>
-                <li>Live, in-stock products</li>
-                <li>Clean product deep links</li>
+                <li>Editorial curation from celeb signature</li>
+                <li>Live EU/US products in your size</li>
+                <li>Capsule-friendly, budget-true</li>
               </ul>
             </div>
           </div>
@@ -460,17 +465,17 @@ export default function Page() {
       <section className="mx-auto max-w-6xl px-6 pb-16">
         <h2 className="text-2xl font-semibold tracking-tight">Frequently asked</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card title="Does it work with my body type?">
-            Yes — we balance pear/hourglass/apple/rectangle for flattering silhouettes. You can also set fit preferences.
+          <Card title="Will it suit my body type?">
+            Yes — we balance pear/hourglass/apple/rectangle so silhouettes flatter. You can also set fit preferences and usual sizes.
           </Card>
-          <Card title="Do the links actually open products?">
-            Absolutely. We fetch live, in-stock items and deep-link to the product page (affiliate optional).
+          <Card title="Can I keep to my budget?">
+            Choose high-street, mid or luxury; we curate within your band — no surprises.
           </Card>
-          <Card title="EU/US availability?">
-            Choose EU or US; we adapt sizes, currency and available retailers automatically.
+          <Card title="Is stock live for my region?">
+            Yes. EU/US coverage with sizes, currency and retailers adapted automatically.
           </Card>
           <Card title="Can I cancel any time?">
-            Of course. One-off look for €5, or Premium for €19/month with a 7-day money-back guarantee.
+            Of course. Try a €5 one-off, or go Premium for €19/month with a 7-day money-back guarantee.
           </Card>
         </div>
       </section>
@@ -480,9 +485,9 @@ export default function Page() {
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <div className="text-lg font-semibold">Ready to style smarter?</div>
+              <div className="text-lg font-semibold">Look expensive — spend smart.</div>
               <p className="mt-1 text-sm text-neutral-700">
-                Turn inspiration into outfits you actually love — and actually buy.
+                The fastest way from celebrity inspiration to outfits you actually wear.
               </p>
             </div>
             <div className="flex gap-3">
@@ -502,7 +507,7 @@ export default function Page() {
             <div>
               <div className="font-semibold">RunwayTwin</div>
               <p className="mt-2 max-w-xs text-neutral-600">
-                Celebrity stylist AI — curated looks with working shop links.
+                Celebrity stylist AI — editorial looks, budget-true picks, live EU/US stock.
               </p>
               <p className="mt-3 text-xs text-neutral-500">
                 Disclosure: some outbound links are affiliate links; we may earn a
