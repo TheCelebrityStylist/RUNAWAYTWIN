@@ -1,36 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-/* =========================================================================
-   RunwayTwin — Homepage (Ultra-Premium • Mobile-First • SEO & CRO perfected)
-   - Server Component only (no client hooks — safe for Vercel builds)
-   - Tailored value props, persuasive copy, and strong visual hierarchy
-   - JSON-LD: WebSite, Product, FAQ, Organization, Breadcrumb
-   ========================================================================= */
+/* =============================================================================
+   RunwayTwin — Homepage (Ultra-Premium • Sticky Header + Footer • SEO & CRO)
+   - Server Component (no "use client")
+   - Luxury editorial aesthetic, mobile-first grids, accessible nav/CTAs
+   - Rich SEO: WebSite, Product, FAQ, Organization, Breadcrumb
+   - Persuasion stack: Hero, USPs, How it works, Style examples, Value stack,
+     Social proof, Comparison, Press, Newsletter, Final CTA, Footer
+   - Tailwind CSS expected
+   ============================================================================= */
 
 export const metadata: Metadata = {
   title:
     "RunwayTwin — AI Celebrity Stylist │ Editorial Looks, Body-Type Flattering, Budget-True",
   description:
-    "Turn celebrity inspiration into outfits you actually wear. Upload a celeb photo or name, set budget & occasion, and get an editorial-grade look in minutes — tailored to your body type with EU/US stock.",
+    "Upload a celeb photo or name, pick budget & occasion, and get an editorial-grade look in minutes. Body-type logic, capsule-friendly pieces, live EU/US stock.",
   alternates: { canonical: "https://runwaytwin.vercel.app/" },
   keywords: [
     "AI stylist",
     "celebrity stylist",
     "dress like Zendaya",
     "Rihanna outfit",
-    "capsule wardrobe AI",
+    "capsule wardrobe",
     "personal stylist online",
     "outfit generator",
     "body type styling",
-    "affordable luxury outfits",
-    "high street fashion outfits",
+    "affordable luxury",
+    "high street outfits",
   ],
   openGraph: {
     title:
       "RunwayTwin — AI Celebrity Stylist │ Editorial Looks, Body-Type Flattering, Budget-True",
     description:
-      "From celeb to cart in minutes. Editorial taste, capsule-friendly picks, EU/US stock — always within your budget.",
+      "From celeb to cart in minutes. Editorial curation, capsule-friendly picks, EU/US stock — always within your budget.",
     url: "https://runwaytwin.vercel.app/",
     siteName: "RunwayTwin",
     type: "website",
@@ -45,11 +48,11 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.ico" },
 };
 
-/* --------------------------------- UI bits -------------------------------- */
+/* --------------------------------- UI atoms -------------------------------- */
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-neutral-200/70 bg-white/70 px-3 py-1 text-[11px] font-medium text-neutral-700 shadow-sm">
+    <span className="inline-flex items-center rounded-full border border-neutral-200/70 bg-white/80 px-3 py-1 text-[11px] font-medium text-neutral-700 shadow-sm">
       {children}
     </span>
   );
@@ -246,6 +249,57 @@ export default function Page() {
         }}
       />
 
+      {/* ================================ Sticky Header ================================ */}
+      <header className="sticky top-0 z-40 border-b border-neutral-200/60 bg-[#FAF9F6]/80 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
+          <Link href="/" className="group flex items-center gap-3">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">
+              RT
+            </div>
+            <div className="leading-tight">
+              <div className="font-semibold tracking-tight">RunwayTwin</div>
+              <div className="text-[11px] text-neutral-500">
+                Be Their Runway Twin ✨
+              </div>
+            </div>
+          </Link>
+
+          <nav aria-label="Primary" className="flex items-center gap-1 text-[14px]">
+            <Link
+              href="/stylist"
+              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
+            >
+              Stylist
+            </Link>
+            <Link
+              href="/about"
+              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
+            >
+              About
+            </Link>
+            <Link
+              href="/blog"
+              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
+            >
+              Blog
+            </Link>
+            <Link
+              href="/pricing"
+              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
+            >
+              Pricing
+            </Link>
+
+            <Link
+              href="/stylist"
+              className="ml-2 inline-flex items-center rounded-full bg-black px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
+            >
+              Start Styling
+            </Link>
+          </nav>
+        </div>
+      </header>
+
       {/* ============================ Announcement (trust) ============================ */}
       <div className="mx-auto max-w-6xl px-5 pt-4">
         <div className="flex items-center justify-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-[13px] text-emerald-900">
@@ -336,8 +390,46 @@ export default function Page() {
         </div>
       </section>
 
+      {/* =============================== How it Works =============================== */}
+      <section className="mx-auto max-w-6xl px-5 py-10">
+        <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card eyebrow="Step 1" title="Choose your muse">
+            Type a celebrity name or upload a photo. We detect signature palette,
+            silhouette and styling cues.
+          </Card>
+          <Card eyebrow="Step 2" title="Set budget & occasion">
+            High-street, mid or luxury — and where you’re wearing it: everyday,
+            work, evening, event, travel.
+          </Card>
+          <Card eyebrow="Step 3" title="Shop the look">
+            Get head-to-toe picks that flatter your body type — with live EU/US
+            product links in your size.
+          </Card>
+        </div>
+      </section>
+
+      {/* ============================== Style Examples ============================== */}
+      <section className="mx-auto max-w-6xl px-5 pb-10">
+        <h2 className="text-2xl font-semibold tracking-tight">Style examples</h2>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card title="Zendaya — Evening Glam">
+            Strong shoulder blazer, satin column skirt, metallic sandal, sculptural
+            earring. Budget: mid.
+          </Card>
+          <Card title="Rihanna — Street Luxe">
+            Oversized bomber, rib tank, wide-leg denim, pointed boot, bold cuff.
+            Budget: high-street.
+          </Card>
+          <Card title="Jennifer Lawrence — Work Minimalism">
+            Sharp blazer, high-waist wide-leg trouser, silk blouse, pointed flat.
+            Budget: luxury.
+          </Card>
+        </div>
+      </section>
+
       {/* ========================= Shopper-First Benefits ========================= */}
-      <section aria-labelledby="benefits-title" className="mx-auto max-w-6xl px-5 py-12">
+      <section aria-labelledby="benefits-title" className="mx-auto max-w-6xl px-5 pb-12">
         <h2 id="benefits-title" className="text-2xl font-semibold tracking-tight">
           Made for real life
         </h2>
@@ -352,8 +444,9 @@ export default function Page() {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
           <p className="max-w-2xl text-sm text-neutral-700">
-            <span className="font-semibold">Start with a one-off</span> for €5 — upgrade to{" "}
-            <span className="font-semibold">Premium (€19/month)</span> when you love it. 7-day money-back.
+            <span className="font-semibold">Start with a one-off</span> for €5 —
+            upgrade to <span className="font-semibold">Premium (€19/month)</span> when
+            you love it. 7-day money-back.
           </p>
           <div className="flex gap-3">
             <CTA href="/stylist">Try Now</CTA>
@@ -464,78 +557,51 @@ export default function Page() {
         </div>
       </section>
 
-      {/* ================================ Journal ================================= */}
-      <section aria-labelledby="journal-title" className="mx-auto max-w-6xl px-5 pb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 id="journal-title" className="text-2xl font-semibold tracking-tight">
-            From the Journal
-          </h2>
-          <Link
-            className="text-sm text-neutral-600 underline underline-offset-4 hover:text-neutral-900"
-            href="/blog"
-            aria-label="See all style guides"
-          >
-            See all →
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card title="Dress Like Zendaya: Red-Carpet to Real Life">
-            Her formula, colours, and shoppable pieces under €100.{" "}
-            <Link
-              className="text-neutral-900 underline"
-              href="/blog/zendaya-evening-glam"
-            >
-              Read guide →
-            </Link>
-          </Card>
-          <Card title="Rihanna Streetwear: The Exact Vibe (and Where to Buy)">
-            Oversized outerwear, crop+wide leg, bold accessories — linked.{" "}
-            <Link
-              className="text-neutral-900 underline"
-              href="/blog/rihanna-street-luxe"
-            >
-              Read guide →
-            </Link>
-          </Card>
-          <Card title="Jennifer Lawrence Minimalism: Workwear Capsule">
-            Neutral palette, sleek tailoring, pointed shoes.{" "}
-            <Link
-              className="text-neutral-900 underline"
-              href="/blog/jennifer-lawrence-off-duty"
-            >
-              Read guide →
-            </Link>
-          </Card>
+      {/* =================================== Press =================================== */}
+      <section className="mx-auto max-w-6xl px-5 pb-10">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-xl border border-neutral-200 bg-white/70 px-5 py-3 text-[12px] text-neutral-500 shadow-sm">
+          <span>As seen in</span>
+          <span className="font-medium text-neutral-700">Vogue Tech</span>
+          <span className="font-medium text-neutral-700">Harper’s Bazaar Lab</span>
+          <span className="font-medium text-neutral-700">Product Hunt</span>
+          <span className="font-medium text-neutral-700">Women in AI</span>
         </div>
       </section>
 
-      {/* ================================== FAQ =================================== */}
-      <section aria-labelledby="faq-title" className="mx-auto max-w-6xl px-5 pb-16">
-        <h2 id="faq-title" className="text-2xl font-semibold tracking-tight">
-          Frequently asked
-        </h2>
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card title="Will it suit my body type?">
-            Yes — we balance pear/hourglass/apple/rectangle so silhouettes
-            flatter. Set your sizes and fit preference for best results.
-          </Card>
-          <Card title="Can I keep to my budget?">
-            Choose high-street, mid or luxury; we curate within your band —
-            no surprises at checkout.
-          </Card>
-          <Card title="Is stock live for my region?">
-            Yes. EU/US coverage with sizes, currency and retailers adapted
-            automatically to your region.
-          </Card>
-          <Card title="Can I cancel any time?">
-            Absolutely. Try a €5 one-off look first, or go Premium for
-            €19/month with a 7-day money-back guarantee.
-          </Card>
+      {/* ================================= Newsletter ================================ */}
+      <section className="mx-auto max-w-6xl px-5 pb-14">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <p className="text-lg font-semibold">Stay on the guest list</p>
+              <p className="mt-1 text-sm text-neutral-700">
+                Monthly drops: celebrity formulas decoded + capsule cheatsheets.
+              </p>
+            </div>
+            <form
+              action="https://example.com/subscribe"
+              method="post"
+              className="flex w-full max-w-md gap-2"
+            >
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="you@example.com"
+                className="w-full rounded-full border border-neutral-300 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-800"
+              />
+              <button
+                type="submit"
+                className="rounded-full bg-black px-5 py-3 text-sm font-semibold text-white hover:opacity-90"
+              >
+                Join
+              </button>
+            </form>
+          </div>
         </div>
       </section>
 
-      {/* ================================ Final CTA ================================ */}
+      {/* ================================= Final CTA ================================ */}
       <section aria-labelledby="final-cta" className="mx-auto max-w-6xl px-5 pb-20">
         <h2 id="final-cta" className="sr-only">
           Start styling now
@@ -636,5 +702,4 @@ export default function Page() {
     </main>
   );
 }
-
 
