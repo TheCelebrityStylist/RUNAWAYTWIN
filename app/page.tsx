@@ -2,18 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 /* =========================================================================
-   RunwayTwin — Ultimate Homepage (Server Component, SEO + Conversion)
-   - Luxury, editorial design with Tailwind
-   - Persuasive copywriting focused on outcomes & proof
-   - Rich SEO (metadata + JSON-LD for WebSite, Product, FAQ, Organization)
-   - No client hooks -> safe on Vercel
+   RunwayTwin — Homepage (Premium UX, Shopper-first USPs, SEO + JSON-LD)
+   - Server Component only (build-safe on Vercel)
+   - Copy focused on: speed, fit, budget, live stock, working links
+   - Rich SEO metadata + JSON-LD (WebSite, Product, FAQ, Organization)
    ========================================================================= */
 
 export const metadata: Metadata = {
   title:
-    "RunwayTwin — AI Celebrity Stylist • Curated, Body-Type Flattering Looks with Real Shop Links",
+    "RunwayTwin — AI Celebrity Stylist • Curated Looks, Real Shop Links, Under-Your-Budget Picks",
   description:
-    "Drop a celeb photo or name, pick your budget & occasion, and get a shoppable outfit that flatters your body type. EU/US stock, affiliate-ready links, zero dead ends.",
+    "Upload a celeb photo or name, choose budget & occasion, and get a body-flattering outfit in minutes. EU/US stock, live products, deep links that actually open.",
   alternates: { canonical: "https://runwaytwin.vercel.app/" },
   keywords: [
     "AI stylist",
@@ -28,9 +27,9 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "RunwayTwin — AI Celebrity Stylist • Curated Looks with Real Shop Links",
+      "RunwayTwin — AI Celebrity Stylist • Curated Looks, Real Shop Links, Under-Your-Budget Picks",
     description:
-      "Turn celebrity inspiration into outfits you actually buy. Live products, body-type aware, affiliate-ready links.",
+      "Turn celebrity inspiration into outfits you actually buy. Live EU/US products, body-type aware, deep links that open.",
     url: "https://runwaytwin.vercel.app/",
     siteName: "RunwayTwin",
     type: "website",
@@ -38,9 +37,9 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "RunwayTwin — AI Celebrity Stylist • Curated Looks with Real Shop Links",
+      "RunwayTwin — AI Celebrity Stylist • Curated Looks, Real Shop Links, Under-Your-Budget Picks",
     description:
-      "Drop a celeb, pick budget, shop the look. Real links. No dead ends.",
+      "Drop a celeb, pick your budget, shop the look. Real product pages, no dead links.",
   },
 };
 
@@ -102,24 +101,19 @@ function Card({
   );
 }
 
-function Stat({
-  value,
-  label,
-  footnote,
+function Pill({
+  title,
+  body,
 }: {
-  value: React.ReactNode;
-  label: string;
-  footnote?: string;
+  title: string | React.ReactNode;
+  body: string | React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-neutral-200/70 bg-white p-6 text-center shadow-sm">
-      <div className="text-3xl font-semibold tracking-tight text-neutral-900">
-        {value}
+    <div className="rounded-2xl border border-neutral-200/70 bg-white p-6 shadow-sm text-center">
+      <div className="text-xl font-semibold tracking-tight text-neutral-900">
+        {title}
       </div>
-      <div className="mt-1 text-sm text-neutral-600">{label}</div>
-      {footnote ? (
-        <div className="mt-1 text-[11px] text-neutral-500">{footnote}</div>
-      ) : null}
+      <div className="mt-1 text-sm text-neutral-600">{body}</div>
     </div>
   );
 }
@@ -155,7 +149,7 @@ export default function Page() {
             "@type": "Product",
             name: "RunwayTwin Premium Stylist",
             description:
-              "Unlimited AI stylings, wardrobe plans, and live product feeds with affiliate-ready links.",
+              "Unlimited AI stylings, wardrobe plans, and live product feeds with affiliate-ready deep links.",
             brand: { "@type": "Brand", name: "RunwayTwin" },
             offers: [
               {
@@ -201,7 +195,7 @@ export default function Page() {
                 name: "Do links open real product pages?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Yes — we fetch live, in-stock items and deep-link to retailer product pages.",
+                  text: "Yes — we fetch live, in-stock items and deep-link to retailer product pages (affiliate optional).",
                 },
               },
               {
@@ -209,7 +203,7 @@ export default function Page() {
                 name: "Will it suit my body type?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "We balance pear/hourglass/apple/rectangle for flattering silhouettes.",
+                  text: "We balance pear/hourglass/apple/rectangle to propose flattering silhouettes. You can also set personal fit preferences.",
                 },
               },
               {
@@ -217,7 +211,7 @@ export default function Page() {
                 name: "EU/US availability?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Country toggle adapts sizes, currencies, and retailer coverage.",
+                  text: "Choose EU or US; we adapt sizes, currency and retailer coverage automatically.",
                 },
               },
               {
@@ -225,7 +219,7 @@ export default function Page() {
                 name: "Can I cancel any time?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Yes. One-off €5 or Premium €19/month — pause or cancel whenever.",
+                  text: "Yes. Try a one-off look for €5 or go Premium for €19/month with a 7-day money-back guarantee.",
                 },
               },
             ],
@@ -237,13 +231,12 @@ export default function Page() {
       <div className="mx-auto max-w-6xl px-6 pt-4">
         <div className="flex items-center justify-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-900">
           <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
-          7-day money-back on Premium. Try a one-off look for €5 — upgrade anytime.
+          7-day money-back on Premium. One-off look €5 — upgrade anytime.
         </div>
       </div>
 
       {/* ================================== HERO =================================== */}
       <section className="relative">
-        {/* soft editorial veils */}
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_20%_0%,#fff,transparent),radial-gradient(60%_60%_at_80%_0%,#fff,transparent)]" />
         <div className="mx-auto max-w-6xl px-6 pt-14 pb-10">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -259,8 +252,8 @@ export default function Page() {
           </h1>
 
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-neutral-700">
-            Drop a celebrity photo or name, choose budget & occasion, and get a
-            curated outfit that flatters your body type. With{" "}
+            Drop a celeb photo or name, choose budget & occasion, and get a
+            curated outfit that flatters your body type — in minutes. With{" "}
             <span className="font-medium">real product links</span> from
             in-stock EU/US retailers. No dead ends. No guesswork. Just shop.
           </p>
@@ -279,16 +272,16 @@ export default function Page() {
 
           {/* mini features */}
           <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Card title="Vision that “gets” your muse">
-              Recognises the celebrity, then extracts palette, silhouette &
-              signature cues to steer picks.
+            <Card title="Vision that understands your muse">
+              Recognises the celebrity and extracts palette, silhouette &
+              signature cues to steer the look.
             </Card>
-            <Card title="Live products that are in stock">
+            <Card title="Live, in-stock products">
               Filters by price, colour & size across top retailers (EU/US) —
               refreshed continuously.
             </Card>
             <Card title="Links that actually open products">
-              Affiliate-ready deep-links for zero drop-off and instant checkout.
+              Affiliate-ready deep links for zero drop-off and instant checkout.
             </Card>
           </div>
 
@@ -300,7 +293,7 @@ export default function Page() {
               <span>Nordstrom</span>
               <span>Zara</span>
               <span>COS</span>
-              <span>H&M</span>
+              <span>H&amp;M</span>
               <span>Mango</span>
               <span>&amp; Other Stories</span>
             </div>
@@ -308,64 +301,47 @@ export default function Page() {
         </div>
       </section>
 
-      {/* =============================== Social Proof =============================== */}
-      <section className="mx-auto max-w-6xl px-6">
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-xl border border-neutral-200 bg-white/70 px-5 py-3 text-[12px] text-neutral-500 shadow-sm">
-          <span>As seen in</span>
-          <span className="font-medium text-neutral-700">Vogue Tech</span>
-          <span className="font-medium text-neutral-700">Harper’s Bazaar Lab</span>
-          <span className="font-medium text-neutral-700">Product Hunt</span>
-          <span className="font-medium text-neutral-700">Women in AI</span>
-        </div>
-      </section>
-
-      {/* =============================== How It Works =============================== */}
-      <section className="mx-auto max-w-6xl px-6 py-14">
-        <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
+      {/* =============================== Shopper-first USPs ======================== */}
+      <section className="mx-auto max-w-6xl px-6 py-12">
+        <h2 className="text-2xl font-semibold tracking-tight">What you get</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card title="1) Drop your muse">
-            Upload a celeb photo or type a name with occasion & budget.
-          </Card>
-          <Card title="2) AI curates the look">
-            Vision + text models decode palette, silhouette & body-type fit.
-          </Card>
-          <Card title="3) Shop instantly">
-            Clean retailer links with optional affiliate tracking.
-          </Card>
+          <Pill title="2–5 minute results" body="From celeb to cart, fast." />
+          <Pill title="Under-your-budget picks" body="No surprises at checkout." />
+          <Pill title="Body-type flattering" body="Pear, hourglass, apple, rectangle." />
         </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Stat value="30k+" label="Looks generated" />
-          <Stat value="18–32%" label="Buy-intent uplift (avg.)" />
-          <Stat value="EU/US" label="Stock coverage" />
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Pill title="EU/US coverage" body="Sizes, currency, and stock adapted." />
+          <Pill title="Alternates on tap" body="Try-ons per category — tap to swap." />
+          <Pill title="Real product pages" body="Deep links. No dead ends." />
         </div>
 
         <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm md:flex-row md:items-center">
           <div className="text-sm text-neutral-700">
-            <span className="font-semibold">Unlock unlimited styling</span> — wardrobe plans, live feeds &
-            priority coaching. Cancel anytime.
+            <span className="font-semibold">Start with a one-off</span> for €5 — upgrade to{" "}
+            <span className="font-semibold">Premium (€19/month)</span> when you love it.
           </div>
           <div className="flex gap-3">
-            <CTA href="/pricing">€19/month</CTA>
-            <CTA href="/pricing#one-off" variant="light">
-              One-off look €5
+            <CTA href="/stylist">Try Now</CTA>
+            <CTA href="/pricing" variant="light">
+              See Plans
             </CTA>
           </div>
         </div>
       </section>
 
-      {/* =============================== Value Props =============================== */}
-      <section className="mx-auto max-w-6xl px-6 pb-14">
+      {/* =============================== Why RunwayTwin ============================ */}
+      <section className="mx-auto max-w-6xl px-6 pb-12">
         <h2 className="text-2xl font-semibold tracking-tight">Why RunwayTwin</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card title="Made for real bodies">
-            Our fit logic balances pear/hourglass/apple/rectangle so silhouettes flatter — not generic.
+            Our fit logic balances pear/hourglass/apple/rectangle so silhouettes
+            flatter — not generic.
           </Card>
-          <Card title="Links that actually open products">
-            We deep-link to live product pages (affiliate optional).
+          <Card title="Styled for your life">
+            Everyday, evening, work, travel — set the occasion and we bring the right polish.
           </Card>
-          <Card title="EU/US aware">
-            Toggle country; we adapt sizes, currency and retailer coverage.
+          <Card title="Works with your closet">
+            Keep your staples; we fill the gaps with pieces that match colour and vibe.
           </Card>
           <Card title="Zero risk">
             7-day money-back on Premium. Try €5 one-off first.
@@ -373,17 +349,17 @@ export default function Page() {
         </div>
       </section>
 
-      {/* =============================== Testimonials =============================== */}
+      {/* =============================== Testimonials ============================= */}
       <section className="mx-auto max-w-6xl px-6 pb-10">
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold">Loved by creators & shoppers</h3>
+          <h3 className="text-lg font-semibold">What shoppers say</h3>
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
-              “Typed ‘Zendaya, evening, mid budget’ and checked out in five minutes. Links actually worked!”
+              “Typed ‘Zendaya, evening, mid budget’ and checked out in five minutes. Links actually worked.”
               <div className="mt-2 text-xs text-neutral-500">— Elise M.</div>
             </blockquote>
             <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
-              “Body-type tips are spot on. Wide-leg + pointed flats = instant polish.”
+              “Body-type tips were spot on. Wide-leg + pointed flats = instant polish.”
               <div className="mt-2 text-xs text-neutral-500">— Tasha K.</div>
             </blockquote>
             <blockquote className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-700">
@@ -423,7 +399,7 @@ export default function Page() {
               <ul className="mt-2 list-disc pl-5 text-neutral-700">
                 <li>AI curation from celeb signature</li>
                 <li>Live, in-stock products</li>
-                <li>Clean product deep-links</li>
+                <li>Clean product deep links</li>
               </ul>
             </div>
           </div>
@@ -485,7 +461,7 @@ export default function Page() {
         <h2 className="text-2xl font-semibold tracking-tight">Frequently asked</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card title="Does it work with my body type?">
-            Yes — we balance pear/hourglass/apple/rectangle for flattering silhouettes. You can also set personal fit preferences.
+            Yes — we balance pear/hourglass/apple/rectangle for flattering silhouettes. You can also set fit preferences.
           </Card>
           <Card title="Do the links actually open products?">
             Absolutely. We fetch live, in-stock items and deep-link to the product page (affiliate optional).
