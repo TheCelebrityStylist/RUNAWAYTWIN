@@ -3,32 +3,34 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 /* ============================================================================
-   Article — Zendaya Evening Glam (Premium Editorial • SEO Article JSON-LD)
-   - Server Component only (no "use client")
-   - Sticky header + luxury footer (same system)
-   - Table of contents, pull quotes, internal links, product block placeholders
-   - Replace image URLs when you add assets
+   Storytelling Article — Zendaya Evening Glam
+   - Premium editorial tone + SEO keywords in H1/H2
+   - Article & Breadcrumb JSON-LD
+   - Sticky header + luxury footer (no client hooks)
+   - Product blocks use stable search/category URLs (affiliate-ready later)
    ============================================================================ */
 
 export const metadata: Metadata = {
   title:
-    "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine (Shop the Formula) │ RunwayTwin",
+    "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine (Wearable Formula) │ RunwayTwin",
   description:
-    "Decode Zendaya’s evening formula: strong shoulders, column silhouettes, liquid shine. Get shoppable picks for high-street, mid, and luxury—EU/US stock.",
+    "Decode Zendaya’s evening glamour: sculpted shoulders, column silhouettes, liquid shine. Story-driven guide + shoppable picks at high-street, mid and luxury budgets.",
   alternates: { canonical: "https://runwaytwin.vercel.app/blog/zendaya-evening-glam" },
   openGraph: {
-    title: "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine",
+    title:
+      "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine (Wearable Formula)",
     description:
-      "Strong shoulders, column lines, liquid shine—shop the exact vibe at every budget.",
+      "Editorial storytelling meets shoppable styling: the Zendaya look you can actually wear, within your budget.",
     url: "https://runwaytwin.vercel.app/blog/zendaya-evening-glam",
     type: "article",
     siteName: "RunwayTwin",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine",
+    title:
+      "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine (Wearable Formula)",
     description:
-      "Editorial guide with shoppable picks, tuned to your budget and size.",
+      "Sculpted shoulders, column lines and liquid shine — distilled into a real-life outfit with links.",
   },
   icons: { icon: "/favicon.ico" },
 };
@@ -54,7 +56,6 @@ function Figure({
 }) {
   return (
     <figure className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-      {/* Replace with your asset */}
       <img src={src} alt={alt} className="h-auto w-full object-cover" />
       {caption ? (
         <figcaption className="px-4 py-3 text-xs text-neutral-600">
@@ -86,7 +87,7 @@ function ProductRow({
   items,
 }: {
   title: string;
-  items: { name: string; price: string; retailer: string; href: string }[];
+  items: { name: string; priceHint?: string; retailer: string; href: string }[];
 }) {
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
@@ -101,14 +102,16 @@ function ProductRow({
             className="rounded-xl border border-neutral-200 p-3 hover:bg-neutral-50"
           >
             <div className="text-sm font-medium">{p.name}</div>
-            <div className="text-xs text-neutral-600">
-              {p.retailer} • {p.price}
+            <div className="mt-1 text-xs text-neutral-600">
+              {p.retailer}
+              {p.priceHint ? ` • ${p.priceHint}` : ""}
             </div>
           </a>
         ))}
       </div>
       <p className="mt-2 text-[11px] text-neutral-500">
-        Disclosure: some links are affiliate links; we may earn a commission at no extra cost to you.
+        Disclosure: some links may be affiliate; we may earn a commission at no
+        extra cost to you.
       </p>
     </section>
   );
@@ -131,24 +134,11 @@ function Header() {
         </Link>
 
         <nav aria-label="Primary" className="flex items-center gap-1 text-[14px]">
-          <Link href="/stylist" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-            Stylist
-          </Link>
-          <Link href="/about" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-            About
-          </Link>
-          <Link href="/blog" aria-current="page" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-            Blog
-          </Link>
-          <Link href="/pricing" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-            Pricing
-          </Link>
-          <Link
-            href="/stylist"
-            className="ml-2 inline-flex items-center rounded-full bg-black px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
-          >
-            Start Styling
-          </Link>
+          <Link href="/stylist" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">Stylist</Link>
+          <Link href="/about" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">About</Link>
+          <Link href="/blog" aria-current="page" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">Blog</Link>
+          <Link href="/pricing" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">Pricing</Link>
+          <Link href="/stylist" className="ml-2 inline-flex items-center rounded-full bg-black px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90">Start Styling</Link>
         </nav>
       </div>
     </header>
@@ -204,71 +194,74 @@ function Footer() {
 /* --------------------------------- Page ---------------------------------- */
 
 export default function ArticleZendayaPage() {
-  // Replace these with your hosted images
+  // Replace with your hosted assets when ready
   const heroImg =
-    "https://images.unsplash.com/photo-1520975922215-cad47f1fd85b?q=80&w=1600&auto=format&fit=crop"; // placeholder
+    "https://images.unsplash.com/photo-1520975922215-cad47f1fd85b?q=80&w=1600&auto=format&fit=crop";
   const detailImg =
-    "https://images.unsplash.com/photo-1542060748-10c28b62716a?q=80&w=1600&auto=format&fit=crop"; // placeholder
+    "https://images.unsplash.com/photo-1542060748-10c28b62716a?q=80&w=1600&auto=format&fit=crop";
 
-  // Demo product links — replace with real affiliate URLs
+  // WORKING CATEGORY/SEARCH LINKS (stable, not one-off product IDs)
+  // You can later swap to affiliate-deep links programmatically.
   const highStreet = [
     {
-      name: "Strong-Shoulder Satin Top (Black)",
-      price: "€49",
+      name: "Strong-shoulder satin top (black)",
       retailer: "Zara",
-      href: "https://www.zara.com/",
+      priceHint: "€ | search",
+      href: "https://www.zara.com/search?searchTerm=strong%20shoulder%20top",
     },
     {
-      name: "Column Skirt (Bias Satin, Black)",
-      price: "€39",
+      name: "Bias satin midi skirt",
       retailer: "H&M",
-      href: "https://www2.hm.com/",
+      priceHint: "€ | category",
+      href: "https://www2.hm.com/en_eur/ladies/shop-by-product/skirts.html?sort=stock&product-type=ladies_skirt_satin",
     },
     {
-      name: "Strappy Heeled Sandal",
-      price: "€59",
+      name: "Strappy stiletto sandals",
       retailer: "Mango",
-      href: "https://shop.mango.com/",
+      priceHint: "€ | search",
+      href: "https://shop.mango.com/gb/women/search?q=strappy%20sandal",
     },
   ];
+
   const mid = [
     {
-      name: "Architectural-Shoulder Blazer",
-      price: "€179",
+      name: "Architectural-shoulder blazer",
       retailer: "& Other Stories",
-      href: "https://www.stories.com/",
+      priceHint: "€€ | category",
+      href: "https://www.stories.com/en_eur/clothing/blazers.html",
     },
     {
-      name: "Liquid-Satin Column Dress",
-      price: "€220",
+      name: "Liquid satin column dress",
       retailer: "Reformation",
-      href: "https://www.reformation.com/",
+      priceHint: "€€ | evening",
+      href: "https://www.thereformation.com/categories/dresses?srule=PriceLowToHigh&prefn1=occasion&prefv1=occasion_evening",
     },
     {
-      name: "Sculptural Cuff Bracelet (Gold-Tone)",
-      price: "€95",
+      name: "Sculptural gold cuff",
       retailer: "Mejuri",
-      href: "https://mejuri.com/",
+      priceHint: "€€ | bracelets",
+      href: "https://mejuri.com/shop/collections/bracelets",
     },
   ];
+
   const luxury = [
     {
-      name: "Sculpted-Shoulder Wool Blazer",
-      price: "€1,250",
-      retailer: "Net-a-Porter",
-      href: "https://www.net-a-porter.com/",
+      name: "Sculpted-shoulder wool blazer",
+      retailer: "NET-A-PORTER",
+      priceHint: "€€€ | search",
+      href: "https://www.net-a-porter.com/en-nl/shop/search?searchTerm=shoulder%20blazer%20women",
     },
     {
-      name: "Liquid-Lamé Gown (Black)",
-      price: "€2,100",
-      retailer: "Matches",
-      href: "https://www.matchesfashion.com/",
+      name: "Metallic/lamé evening gown",
+      retailer: "MATCHES",
+      priceHint: "€€€ | evening",
+      href: "https://www.matchesfashion.com/womens/clothing/evening-dresses",
     },
     {
-      name: "Mirror-Shine Sandal",
-      price: "€790",
+      name: "Mirror-shine heeled sandal",
       retailer: "Mytheresa",
-      href: "https://www.mytheresa.com/",
+      priceHint: "€€€ | sandals",
+      href: "https://www.mytheresa.com/en-nl/shoes/women/sandals.html?prefn1=heel_type&prefv1=stiletto",
     },
   ];
 
@@ -282,9 +275,9 @@ export default function ArticleZendayaPage() {
             "@context": "https://schema.org",
             "@type": "Article",
             headline:
-              "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine (Shop the Formula)",
+              "Zendaya Evening Glam — Sculpted Shoulders & Liquid Shine (Wearable Formula)",
             description:
-              "Strong shoulders, column silhouettes and liquid shine—how to translate Zendaya’s red-carpet formula for real life.",
+              "A story-driven breakdown of Zendaya’s red-carpet signature — and how to translate it into real outfits.",
             author: { "@type": "Person", name: "RunwayTwin Editors" },
             publisher: { "@type": "Organization", name: "RunwayTwin" },
             mainEntityOfPage:
@@ -337,16 +330,14 @@ export default function ArticleZendayaPage() {
           <h1 className="mt-1 font-serif text-4xl leading-[1.08] tracking-tight">
             Zendaya Evening Glam: Sculpted Shoulders, Liquid Shine
           </h1>
-          <p className="mt-3 text-sm text-neutral-600">
-            6 min read • Updated 2025
-          </p>
+          <p className="mt-3 text-sm text-neutral-600">6 min read • Updated 2025</p>
         </div>
 
         <div className="mx-auto max-w-5xl px-5 pb-8">
           <Figure
             src={heroImg}
             alt="Sleek black evening look with sculpted shoulders and liquid shine"
-            caption="Sculpted shoulders + column lines + liquid shine — the Zendaya evening trifecta."
+            caption="Column line + structured shoulders + a single plane of shine — the Zendaya trifecta."
           />
         </div>
       </section>
@@ -359,26 +350,11 @@ export default function ArticleZendayaPage() {
             <div className="text-sm font-semibold">In this guide</div>
             <nav className="mt-3 text-sm">
               <ol className="space-y-2 text-neutral-700">
-                <li>
-                  <a href="#formula" className="hover:underline">
-                    The Formula
-                  </a>
-                </li>
-                <li>
-                  <a href="#shop" className="hover:underline">
-                    Shop the Look (Budgets)
-                  </a>
-                </li>
-                <li>
-                  <a href="#fit" className="hover:underline">
-                    Fit & Body Type
-                  </a>
-                </li>
-                <li>
-                  <a href="#finish" className="hover:underline">
-                    Finishing Touches
-                  </a>
-                </li>
+                <li><a href="#story" className="hover:underline">The Story</a></li>
+                <li><a href="#formula" className="hover:underline">The Formula</a></li>
+                <li><a href="#shop" className="hover:underline">Shop by Budget</a></li>
+                <li><a href="#fit" className="hover:underline">Fit & Body Type</a></li>
+                <li><a href="#finish" className="hover:underline">Finishing Touches</a></li>
               </ol>
             </nav>
           </div>
@@ -387,71 +363,96 @@ export default function ArticleZendayaPage() {
         {/* Content */}
         <div className="md:col-span-8">
           <Prose>
-            <section id="formula">
-              <h2>The Formula</h2>
+            <section id="story">
+              <h2>Why this look works (the story)</h2>
               <p>
-                Zendaya’s evening signature combines{" "}
-                <strong>sculpted shoulders</strong>,{" "}
-                <strong>column silhouettes</strong> and{" "}
-                <strong>liquid shine</strong>. Keep the lines long and
-                uninterrupted; anchor everything with sharp footwear.
+                Zendaya’s evening glamour reads modern because it resists excess.
+                Red carpet moments lean on <strong>architectural shoulders</strong>,
+                <strong> uninterrupted column lines</strong> and a controlled hit of{" "}
+                <strong>liquid shine</strong>. The silhouette does the talking; the
+                texture does the whispering. That restraint is why the look adapts so
+                well to real life — you can recreate the message without needing couture.
               </p>
-              <Figure
-                src={detailImg}
-                alt="Close-up of satin column dress with structured shoulder"
-                caption="Column line with shoulder structure: the fastest route to ‘expensive’."
-              />
               <PullQuote>
-                You don’t need sequins everywhere—just one surface of shine in a
-                clean silhouette reads modern and luxe.
+                Modern glam is confidence in clean geometry — one great line, one quiet
+                shimmer, zero fuss.
               </PullQuote>
             </section>
 
+            <section id="formula">
+              <h2>The formula (wearable version)</h2>
+              <ul>
+                <li>
+                  <strong>Top/Outer:</strong> structure at the shoulder (light padding or
+                  sharp blazer).
+                </li>
+                <li>
+                  <strong>Body:</strong> a column (bias skirt or straight dress) to keep
+                  the line long.
+                </li>
+                <li>
+                  <strong>Surface:</strong> one plane of shine — satin, lamé, patent, or
+                  polished metal.
+                </li>
+                <li>
+                  <strong>Shoe:</strong> pointed and sleek to anchor the geometry.
+                </li>
+              </ul>
+              <Figure
+                src={detailImg}
+                alt="Close-up of satin column dress with structured shoulder"
+                caption="Shine on one plane keeps it luxe, not loud."
+              />
+            </section>
+
             <section id="shop">
-              <h2>Shop the Look by Budget</h2>
+              <h2>Shop the look — real links, three budgets</h2>
               <Note>
-                Links below are examples—swap in your region & sizes in the Styl­ist for
-                live EU/US availability.
+                We use stable search/category URLs so items don’t break. When your
+                affiliate accounts are live, replace these with your deep links.
               </Note>
 
               <h3 className="mt-6">High-street</h3>
-              <ProductRow title="Save without losing the silhouette" items={highStreet} />
+              <ProductRow
+                title="Affordable, clean, effective"
+                items={highStreet}
+              />
 
               <h3 className="mt-6">Mid</h3>
-              <ProductRow title="Elevated fabrics and cleaner finish" items={mid} />
+              <ProductRow title="Elevated fabric & finish" items={mid} />
 
               <h3 className="mt-6">Luxury</h3>
-              <ProductRow title="Designer structure and liquid textiles" items={luxury} />
+              <ProductRow title="Designer structure & textiles" items={luxury} />
             </section>
 
             <section id="fit">
-              <h2>Fit & Body Type</h2>
+              <h2>Fit & body type (keep the magic, tweak the cut)</h2>
               <ul>
                 <li>
                   <strong>Pear:</strong> add shoulder structure; bias midi or straight
-                  column on bottom; pointed shoes for length.
+                  column; pointed heel elongates.
                 </li>
                 <li>
-                  <strong>Hourglass:</strong> define the waist or use a corset bodice to
-                  follow the curve; avoid heavy volume at hips.
+                  <strong>Hourglass:</strong> define the waist (wrap or corset seam); keep
+                  skirt column clean.
                 </li>
                 <li>
-                  <strong>Apple:</strong> soften the midsection with a longline blazer or
-                  column dress; V-neck elongates.
+                  <strong>Apple:</strong> soften midsection with longline blazer left
+                  open; choose V or scoop neckline.
                 </li>
                 <li>
-                  <strong>Rectangle:</strong> choose a shaped shoulder or peplum/waist
-                  detail to introduce curve.
+                  <strong>Rectangle:</strong> shaped shoulder + peplum/seaming for curve;
+                  avoid overly boxy lengths.
                 </li>
               </ul>
             </section>
 
             <section id="finish">
-              <h2>Finishing Touches</h2>
+              <h2>Finishing touches (the difference between nice and “wow”)</h2>
               <ul>
-                <li>Jewelry: one sculptural gold piece (ear or cuff), not both.</li>
-                <li>Shoes: pointed stiletto or sleek sandal.</li>
-                <li>Bag: compact, structured, metallic or satin.</li>
+                <li>One sculptural metal — ear cuff <em>or</em> bracelet (not both).</li>
+                <li>Compact structured bag: satin, metallic, or patent.</li>
+                <li>Makeup: luminous skin, defined eye, neutral lip.</li>
               </ul>
 
               <div className="mt-6 flex flex-wrap gap-3">
@@ -482,27 +483,21 @@ export default function ArticleZendayaPage() {
               href="/blog/rihanna-street-luxe"
               className="rounded-xl border border-neutral-200 p-4 hover:bg-neutral-50"
             >
-              <div className="text-sm font-semibold">
-                Rihanna Street Luxe: Oversize & Pointed
-              </div>
+              <div className="text-sm font-semibold">Rihanna Street Luxe</div>
               <p className="mt-1 text-xs text-neutral-600">5 min read</p>
             </Link>
             <Link
               href="/blog/jennifer-lawrence-work-minimalism"
               className="rounded-xl border border-neutral-200 p-4 hover:bg-neutral-50"
             >
-              <div className="text-sm font-semibold">
-                Jennifer Lawrence Work Minimalism
-              </div>
+              <div className="text-sm font-semibold">J-Law Work Minimalism</div>
               <p className="mt-1 text-xs text-neutral-600">5 min read</p>
             </Link>
             <Link
               href="/blog/finding-your-neutral-palette"
               className="rounded-xl border border-neutral-200 p-4 hover:bg-neutral-50"
             >
-              <div className="text-sm font-semibold">
-                Find Your Neutral Palette
-              </div>
+              <div className="text-sm font-semibold">Find Your Neutrals</div>
               <p className="mt-1 text-xs text-neutral-600">5 min read</p>
             </Link>
           </div>
@@ -513,3 +508,4 @@ export default function ArticleZendayaPage() {
     </main>
   );
 }
+
