@@ -1,43 +1,106 @@
 // app/api/contact/route.ts
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+
+export const runtime = "nodejs"; // ensure Node runtime for nodemailer
+
+type Body = {
+  name?: string;
+  email?: string;
+  subject?: string;
+  message?: string;
+  hp?: string; // honeypot
+};
 
 export async function POST(req: Request) {
   try {
-    const { name, email, message } = await req.json();
+    const body = (await req.json()) as Body;
 
-    if (!name || !email || !message) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    // Simple spam trap
+    if (body.hp) {
+      return NextResponse.json({ ok: true });
     }
 
+    const name = (body.name || "").trim();
+    const email = (body.email || "").trim();
+    const subject = (body.subject || "New contact form").trim();
+    const message = (body.message || "").trim();
+
+    if (!name || !email || !message) {
+      return NextResponse.json(
+        { ok: false, error: "Missing required fields." },
+        { status: 400 }
+      );
+    }
+
+    // Lazy import to keep build clean even if types hiccup
+    const { default: nodemailer } = await import("nodemailer");
+
+    const host = process.env.SMTP_HOST!;
+    const port = Number(process.env.SMTP_PORT || 465);
+    const user = process.env.SMTP_USER!;
+    const pass = process.env.SMTP_PASS!;
+    const to = process.env.CONTACT_TO || user;
+    const from = process.env.CONTACT_FROM || user;
+
     const transporter = nodemailer.createTransport({
-      host: "smtp.hostinger.com",
-      port: 465,          // try 465 first
-      secure: true,       // true for 465; if you switch to 587, set to false
-      auth: {
-        user: process.env.EMAIL_USER!,
-        pass: process.env.EMAIL_PASS!,
-      },
+      host,
+      port,
+      secure: port === 465, // Hostinger uses 465 (SSL) most of the time
+      auth: { user, pass }
     });
 
-    await transporter.sendMail({
-      from: `"RunwayTwin Contact" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_TO || process.env.EMAIL_USER, // where you receive
+    // optional but helpful
+    await transporter.verify();
+
+    const text = `New message from RunwayTwin contact form
+
+Name: ${name}
+Email: ${email}
+Subject: ${subject}
+
+Message:
+${message}
+`;
+
+    const html = `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;line-height:1.6">
+        <p><strong>New message from RunwayTwin contact form</strong></p>
+        <p><strong>Name:</strong> ${escapeHtml(name)}<br/>
+        <strong>Email:</strong> ${escapeHtml(email)}<br/>
+        <strong>Subject:</strong> ${escapeHtml(subject)}</p>
+        <p><strong>Message:</strong><br/>${nl2br(escapeHtml(message))}</p>
+      </div>
+    `;
+
+    const info = await transporter.sendMail({
+      from,
+      to,
       replyTo: email,
-      subject: `New message from ${name}`,
-      text: message,
-      html: `<p><b>Name:</b> ${name}</p>
-             <p><b>Email:</b> ${email}</p>
-             <p><b>Message:</b><br/>${String(message).replace(/\n/g, "<br/>")}</p>`,
+      subject: `[Contact] ${subject} — ${name}`,
+      text,
+      html
     });
 
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("Email error:", err);
-    return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
+    return NextResponse.json({ ok: true, id: info.messageId });
+  } catch (err: any) {
+    console.error("Contact route error:", err);
+    return NextResponse.json(
+      { ok: false, error: err?.message || "Internal error" },
+      { status: 500 }
+    );
   }
 }
+
+// helpers
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+function nl2br(s: string) {
+  return s.replace(/\n/g, "<br/>");
+}
+
 
