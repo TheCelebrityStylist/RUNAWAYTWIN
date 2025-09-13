@@ -1,11 +1,14 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./content/**/*.{md,mdx}"],
+  content: [
+    "./app/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./content/**/*.{md,mdx}"
+  ],
   theme: {
     extend: {
       colors: {
-        // RunwayTwin palette
         rt: {
           black: "#0A0A0A",
           charcoal: "#444444",
@@ -16,18 +19,17 @@ const config: Config = {
       },
       borderRadius: {
         xl: "1rem",
-        "2xl": "1.25rem",
+        "2xl": "1.25rem"
       },
       boxShadow: {
-        soft: "0 6px 24px rgba(10,10,10,0.06)",
+        soft: "0 6px 24px rgba(10,10,10,0.06)"
       },
       fontFamily: {
-        // Use system first; we’ll swap to Playfair/Inter later if desired
         display: ["ui-serif", "Georgia", "Times", "serif"],
-        body: ["ui-sans-serif", "system-ui", "Helvetica", "Arial", "sans-serif"],
-      },
-    },
+        body: ["ui-sans-serif", "system-ui", "Helvetica", "Arial", "sans-serif"]
+      }
+    }
   },
-  plugins: [require("@tailwindcss/typography")],
+  plugins: [require("@tailwindcss/typography")]
 };
 export default config;
