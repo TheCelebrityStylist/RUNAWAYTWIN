@@ -5,7 +5,7 @@ import Link from "next/link";
 /* =============================================================================
    RunwayTwin — About (Premium • SEO + Trust • Mobile-First)
    - Server Component only (no "use client")
-   - Sticky translucent header + luxury footer (matches Home/Pricing)
+   - Uses global sticky header + global footer from layout (no local dupes)
    - Sections: Brand Story, Vision & Values, How We Curate, Founder Note,
      Press/Logos, Trust & Ethics, FAQ, Final CTA
    - JSON-LD: Organization + AboutPage + Breadcrumb
@@ -168,57 +168,7 @@ export default function AboutPage() {
         }}
       />
 
-      {/* ================================ Sticky Header ================================ */}
-      <header className="sticky top-0 z-40 border-b border-neutral-200/60 bg-[#FAF9F6]/80 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">
-              RT
-            </div>
-            <div className="leading-tight">
-              <div className="font-semibold tracking-tight">RunwayTwin</div>
-              <div className="text-[11px] text-neutral-500">
-                Be Their Runway Twin ✨
-              </div>
-            </div>
-          </Link>
-
-          <nav aria-label="Primary" className="flex items-center gap-1 text-[14px]">
-            <Link
-              href="/stylist"
-              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
-            >
-              Stylist
-            </Link>
-            <Link
-              href="/about"
-              aria-current="page"
-              className="rounded-full px-3 py-2 font-medium text-neutral-900 underline-offset-4 hover:underline"
-            >
-              About
-            </Link>
-            <Link
-              href="/blog"
-              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
-            >
-              Blog
-            </Link>
-            <Link
-              href="/pricing"
-              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
-            >
-              Pricing
-            </Link>
-
-            <Link
-              href="/stylist"
-              className="ml-2 inline-flex items-center rounded-full bg-black px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
-            >
-              Start Styling
-            </Link>
-          </nav>
-        </div>
-      </header>
+      {/* ===== Uses global sticky header from layout — no local header here ===== */}
 
       {/* ================================== HERO =================================== */}
       <section aria-labelledby="hero-title" className="relative">
@@ -403,81 +353,8 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ================================== Footer ================================= */}
-      <footer className="border-t border-neutral-200 bg-[#F6F5F2]">
-        <div className="mx-auto max-w-6xl px-5 py-10">
-          <div className="grid grid-cols-1 gap-8 text-sm text-neutral-700 sm:grid-cols-2 md:grid-cols-4">
-            <div>
-              <p className="font-semibold">RunwayTwin</p>
-              <p className="mt-2 max-w-xs text-neutral-600">
-                Celebrity stylist AI — editorial looks, budget-true picks, live EU/US stock.
-              </p>
-              <p className="mt-3 text-[12px] leading-5 text-neutral-500">
-                Disclosure: some outbound links are affiliate links; we may earn a
-                commission at no extra cost to you.
-              </p>
-            </div>
-            <nav aria-label="Product">
-              <p className="font-semibold">Product</p>
-              <ul className="mt-2 space-y-2">
-                <li>
-                  <Link className="hover:underline" href="/stylist">
-                    Stylist
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline" href="/pricing">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline" href="/blog">
-                    Blog
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-            <nav aria-label="Company">
-              <p className="font-semibold">Company</p>
-              <ul className="mt-2 space-y-2">
-                <li>
-                  <Link className="hover:underline" href="/about" aria-current="page">
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline" href="/contact">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-            <nav aria-label="Legal">
-              <p className="font-semibold">Legal</p>
-              <ul className="mt-2 space-y-2">
-                <li>
-                  <Link className="hover:underline" href="/affiliate-disclosure">
-                    Affiliate Disclosure
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline" href="/privacy">
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline" href="/terms">
-                    Terms
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-          </div>
-          <p className="mt-8 text-xs text-neutral-500">
-            © {new Date().getFullYear()} RunwayTwin — All rights reserved.
-          </p>
-        </div>
-      </footer>
+      {/* ===== Uses global footer from layout — no local footer here ===== */}
     </main>
   );
 }
+
