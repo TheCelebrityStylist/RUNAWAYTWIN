@@ -249,17 +249,10 @@ export default function Page() {
         }}
       />
 
-      {/* ============================ Announcement (trust) ============================ */}
-      <div className="mx-auto max-w-6xl px-5 pt-4">
-        <div className="flex items-center justify-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-[13px] text-emerald-900">
-          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-          7-day money-back on Premium • One-off look for €5 • Cancel anytime
-        </div>
-      </div>
+      {/* ===== Announcement removed here (keep the global one in layout only) ===== */}
 
       {/* ================================== HERO =================================== */}
       <section aria-labelledby="hero-title" className="relative">
-        {/* elevated, subtle gradient for luxury feel */}
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(63%_60%_at_20%_0%,#fff,transparent),radial-gradient(60%_60%_at_80%_0%,#fff,transparent)]" />
         <div className="mx-auto max-w-6xl px-5 pt-14 pb-10">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -307,7 +300,6 @@ export default function Page() {
             </ul>
           </nav>
 
-          {/* proof-driven mini cards */}
           <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
             <Card title="Taste you can trust">
               Trained on celebrity signatures, refined with editor rules — that
@@ -323,7 +315,6 @@ export default function Page() {
             </Card>
           </div>
 
-          {/* retailers */}
           <div className="mt-8 rounded-2xl border border-neutral-200/70 bg-white/70 p-4 text-xs shadow-sm">
             <p className="text-neutral-500">Retailers we love:</p>
             <p className="mt-2 flex flex-wrap gap-4 text-neutral-700">
@@ -339,8 +330,7 @@ export default function Page() {
         </div>
       </section>
 
-      {/* =============================== How it Works =============================== */
-      }
+      {/* =============================== How it Works =============================== */}
       <section className="mx-auto max-w-6xl px-5 py-10">
         <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
