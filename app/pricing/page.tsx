@@ -1,10 +1,11 @@
+// app/pricing/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
 
 /* =============================================================================
    RunwayTwin — Pricing (Ultra-Premium • SEO + CRO • Mobile-First)
    - Server Component only (no client hooks)
-   - Sticky translucent header + luxury footer (matches homepage)
+   - Uses global sticky header & footer from app/layout.tsx (no local header/footer)
    - Sections: Hero, Plans, Value Stack, Comparison, Guarantee, Press,
      Testimonials, FAQs, Final CTA
    - JSON-LD: Product + FAQ for enhanced search visibility
@@ -258,57 +259,7 @@ export default function PricingPage() {
         }}
       />
 
-      {/* ---------------------------- Sticky Header ---------------------------- */}
-      <header className="sticky top-0 z-40 border-b border-neutral-200/60 bg-[#FAF9F6]/80 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">
-              RT
-            </div>
-            <div className="leading-tight">
-              <div className="font-semibold tracking-tight">RunwayTwin</div>
-              <div className="text-[11px] text-neutral-500">
-                Be Their Runway Twin ✨
-              </div>
-            </div>
-          </Link>
-
-          <nav aria-label="Primary" className="flex items-center gap-1 text-[14px]">
-            <Link
-              href="/stylist"
-              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
-            >
-              Stylist
-            </Link>
-            <Link
-              href="/about"
-              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
-            >
-              About
-            </Link>
-            <Link
-              href="/blog"
-              className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100"
-            >
-              Blog
-            </Link>
-            <Link
-              href="/pricing"
-              aria-current="page"
-              className="rounded-full px-3 py-2 font-medium text-neutral-900 underline-offset-4 hover:underline"
-            >
-              Pricing
-            </Link>
-
-            <Link
-              href="/stylist"
-              className="ml-2 inline-flex items-center rounded-full bg-black px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
-            >
-              Upgrade
-            </Link>
-          </nav>
-        </div>
-      </header>
+      {/* -------- Uses global header from app/layout.tsx (no local header here) ------- */}
 
       {/* --------------------------------- Hero --------------------------------- */}
       <section className="relative">
@@ -378,7 +329,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ------------------------------ Value stack ------------------------------ */}
+      {/* ------------------------------ Value stack ------------------------------ */
+      }
       <section className="mx-auto max-w-6xl px-5 pb-12">
         <h2 className="text-2xl font-semibold tracking-tight">What you get</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -545,93 +497,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* --------------------------------- Footer -------------------------------- */}
-      <footer className="border-t border-neutral-200/70 bg-[#FAF9F6]">
-        <div className="mx-auto max-w-6xl px-5 py-10">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="grid h-8 w-8 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">
-                  RT
-                </div>
-                <div className="font-semibold tracking-tight">RunwayTwin</div>
-              </div>
-              <p className="mt-3 text-sm text-neutral-700">
-                Celebrity stylist AI — editorial looks, budget-true picks, live EU/US stock.
-              </p>
-              <p className="mt-3 text-xs text-neutral-500">
-                Disclosure: some outbound links are affiliate links; we may earn a
-                commission at no extra cost to you.
-              </p>
-            </div>
-
-            <nav aria-label="Product">
-              <p className="text-sm font-semibold">Product</p>
-              <ul className="mt-3 space-y-2 text-sm text-neutral-700">
-                <li>
-                  <Link href="/stylist" className="hover:underline">
-                    Stylist
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/pricing" aria-current="page" className="hover:underline">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/blog" className="hover:underline">
-                    Blog
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-
-            <nav aria-label="Company">
-              <p className="text-sm font-semibold">Company</p>
-              <ul className="mt-3 space-y-2 text-sm text-neutral-700">
-                <li>
-                  <Link href="/about" className="hover:underline">
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="hover:underline">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-
-            <nav aria-label="Legal">
-              <p className="text-sm font-semibold">Legal</p>
-              <ul className="mt-3 space-y-2 text-sm text-neutral-700">
-                <li>
-                  <Link href="/affiliate-disclosure" className="hover:underline">
-                    Affiliate Disclosure
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="hover:underline">
-                    Terms
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy" className="hover:underline">
-                    Privacy
-                  </Link>
-                </li>
-              </ul>
-            </nav>
-          </div>
-
-          <div className="mt-10 border-t border-neutral-200/70 pt-6 text-xs text-neutral-500">
-            © {new Date().getFullYear()} RunwayTwin — All rights reserved.
-          </div>
-        </div>
-      </footer>
+      {/* -------- Uses global footer from app/layout.tsx (no local footer here) ------- */}
     </main>
   );
 }
-
 
 
