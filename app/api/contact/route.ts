@@ -1,3 +1,7 @@
+// app/api/contact/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
@@ -6,41 +10,34 @@ export async function POST(req: Request) {
     const { name, email, message } = await req.json();
 
     if (!name || !email || !message) {
-      return NextResponse.json(
-        { error: "Missing fields" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    // Configure SMTP transporter
     const transporter = nodemailer.createTransport({
       host: "smtp.hostinger.com",
-      port: 465, // or 587
-      secure: true, // true for 465, false for 587
+      port: 465,          // try 465 first
+      secure: true,       // true for 465; if you switch to 587, set to false
       auth: {
-        user: process.env.EMAIL_USER, // set in Vercel env vars
-        pass: process.env.EMAIL_PASS, // set in Vercel env vars
+        user: process.env.EMAIL_USER!,
+        pass: process.env.EMAIL_PASS!,
       },
     });
 
-    // Send email
     await transporter.sendMail({
       from: `"RunwayTwin Contact" <${process.env.EMAIL_USER}>`,
-      to: "yourname@yourdomain.com", // where you want to receive messages
+      to: process.env.EMAIL_TO || process.env.EMAIL_USER, // where you receive
       replyTo: email,
       subject: `New message from ${name}`,
       text: message,
       html: `<p><b>Name:</b> ${name}</p>
              <p><b>Email:</b> ${email}</p>
-             <p><b>Message:</b><br/>${message}</p>`,
+             <p><b>Message:</b><br/>${String(message).replace(/\n/g, "<br/>")}</p>`,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Email error:", err);
-    return NextResponse.json(
-      { error: "Failed to send email" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
   }
 }
+
