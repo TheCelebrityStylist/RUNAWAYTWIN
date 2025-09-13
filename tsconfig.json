@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es5",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2017",                 // was "es5"
+    "lib": ["dom", "dom.iterable", "es2017"],
+    "downlevelIteration": true,         // allow for..of / spread on Set/Map if ever downleveled
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -15,9 +16,7 @@
     "jsx": "preserve",
     "incremental": true,
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["./*"]
-    }
+    "paths": { "@/*": ["./*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]
