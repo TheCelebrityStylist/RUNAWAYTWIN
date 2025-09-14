@@ -1,136 +1,114 @@
-import { NextRequest, NextResponse } from "next/server";
+// /app/api/chat/route.ts
+// Edge-ready chat endpoint with tool calling loop (OpenAI v4 SDK).
+
 import OpenAI from "openai";
-
+import { NextRequest, NextResponse } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { toolSchemas } from "./tools";
-import { web_search, open_url_extract, catalog_search } from "./serverTools";
+import { toolSchemas, runTool } from "./tools";
 
-// Run on the edge for speed
 export const runtime = "edge";
 
-type ChatMsg = {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string;
-  // tool call id for "tool" role messages
-  tool_call_id?: string;
-  // name for "tool" role (not required, but handy to keep)
-  name?: string;
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+type ToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
 };
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const userMessages: ChatMsg[] = Array.isArray(body?.messages)
-      ? body.messages
-      : [];
+    const body = await req.json();
 
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OPENAI_API_KEY missing" },
-        { status: 500 }
-      );
-    }
-
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    // Build the message list: system + user provided messages
-    const messages: any[] = [
+    // Expecting { messages: Array<ChatCompletionMessageParam> }
+    // where user/frontend keeps accumulating chat.
+    let messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: STYLIST_SYSTEM_PROMPT },
-      ...userMessages,
+      ...(Array.isArray(body?.messages) ? body.messages : []),
     ];
 
-    // First pass: allow the model to request tools
-    const first = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      tools: toolSchemas,
-      tool_choice: "auto",
-      temperature: 0.6,
-    });
+    // Wrap tools in OpenAI format
+    const tools = toolSchemas.map((fn) => ({ type: "function" as const, function: fn }));
 
-    const firstMsg = first.choices?.[0]?.message;
-    if (!firstMsg) {
-      return NextResponse.json(
-        { error: "No response from model" },
-        { status: 500 }
-      );
-    }
-
-    messages.push(firstMsg);
-
-    // Handle tool calls (if any)
-    if (Array.isArray(firstMsg.tool_calls) && firstMsg.tool_calls.length > 0) {
-      for (const call of firstMsg.tool_calls) {
-        const name = call.function?.name;
-        let args: any = {};
-
-        try {
-          args = call.function?.arguments
-            ? JSON.parse(call.function.arguments)
-            : {};
-        } catch {
-          args = {};
-        }
-
-        let result: any;
-
-        try {
-          if (name === "web_search") {
-            // expects: { query: string, num?: number }
-            result = await web_search(args.query, args.num ?? 5);
-          } else if (name === "open_url_extract") {
-            // expects: { url: string }
-            result = await open_url_extract(args.url);
-          } else if (name === "catalog_search") {
-            // expects: { query: string, budget?: string }
-            result = await catalog_search(args.query, args.budget ?? "");
-          } else {
-            result = { error: `Unknown tool: ${name}` };
-          }
-        } catch (e: any) {
-          result = { error: String(e?.message || e) };
-        }
-
-        // Feed the tool result back to the model
-        messages.push({
-          role: "tool",
-          tool_call_id: call.id,
-          name,
-          content: JSON.stringify(result),
-        });
-      }
-
-      // Second pass: final assistant response with tool results in context
-      const second = await openai.chat.completions.create({
+    // Tool-call loop: ask the model; if it requests tools, run them and feed results back.
+    // Break when there's no new tool call.
+    // (We cap the loop to protect against infinite ping-pong.)
+    for (let step = 0; step < 4; step++) {
+      const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        messages,
         temperature: 0.6,
+        tool_choice: "auto",
+        tools,
+        messages,
       });
 
-      const finalMsg = second.choices?.[0]?.message;
-      if (!finalMsg) {
+      const choice = completion.choices?.[0];
+      const msg = choice?.message;
+
+      if (!msg) {
         return NextResponse.json(
-          { error: "No final response from model" },
+          { error: "No completion choices" },
           { status: 500 }
         );
       }
 
-      return NextResponse.json({
+      // Add assistant message with potential tool_calls
+      messages.push({
         role: "assistant",
-        content: finalMsg.content ?? "",
+        content: msg.content ?? "",
+        tool_calls: msg.tool_calls as any,
       });
+
+      const toolCalls = (msg.tool_calls || []) as ToolCall[];
+      if (!toolCalls.length) {
+        // Final answer
+        return NextResponse.json({
+          id: completion.id,
+          created: completion.created,
+          model: completion.model,
+          message: msg, // assistant final message
+        });
+      }
+
+      // Execute each tool, push a "tool" role message back
+      for (const call of toolCalls) {
+        try {
+          const args = safeJSON(call.function.arguments);
+          const result = await runTool(call.function.name, args);
+
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify(result),
+          } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+        } catch (e: any) {
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify({ error: e?.message || String(e) }),
+          } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+        }
+      }
+
+      // Loop will call the model again with the new tool messages.
     }
 
-    // No tools needed – return the first turn response
     return NextResponse.json({
-      role: "assistant",
-      content: firstMsg.content ?? "",
+      error: "Tool loop limit reached",
     });
-  } catch (err: any) {
-    console.error("Chat API error:", err);
-    return NextResponse.json(
-      { error: String(err?.message || err || "Unknown error") },
-      { status: 500 }
-    );
+  } catch (e: any) {
+    console.error(e);
+    return NextResponse.json({ error: e?.message || String(e) }, { status: 500 });
+  }
+}
+
+/** Parse JSON safely; returns {} on failure. */
+function safeJSON(s: string) {
+  try {
+    return JSON.parse(s || "{}");
+  } catch {
+    return {};
   }
 }
