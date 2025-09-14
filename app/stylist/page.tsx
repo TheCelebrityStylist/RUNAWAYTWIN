@@ -1,7 +1,7 @@
 // app/stylist/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
-import StylistChat from "@/components/StylistChat"; // your client chat (streams + tools)
+import StylistChat from "../../components/StylistChat";
 
 /* =============================================================================
    RunwayTwin — Stylist (Luxury • Conversational • CRO)
