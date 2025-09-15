@@ -75,7 +75,7 @@ export default function StylistChat() {
   }
 
   return (
-    <div className="flex h-[520px] flex-col overflow-hidden rounded-2xl">
+    <div className="flex h-[440px] flex-col overflow-hidden rounded-2xl">
       {/* Chat area */}
       <div className="flex-1 overflow-y-auto bg-white p-4">
         <ul className="space-y-3">
