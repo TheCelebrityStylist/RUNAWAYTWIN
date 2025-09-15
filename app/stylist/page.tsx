@@ -6,9 +6,8 @@ import StylistChat from "../../components/StylistChat";
 /* =============================================================================
    RunwayTwin — Stylist (Luxury • Conversational • CRO)
    - Server Component (no "use client"); only StylistChat is client-side
-   - Sticky header (single instance) + announcement bar
-   - Hero badges, Preferences + Chat grid, “Your Styled Look” shell,
-     How it works, Pro tips, FAQ, Final CTA, Footer (single instance)
+   - Header/announcement/footer are handled globally in app/layout.tsx (to avoid duplicates)
+   - Sections kept: Hero • Preferences + Chat • Styled Look shell • How it works • Pro tips • FAQ • Final CTA
    ============================================================================= */
 
 export const metadata: Metadata = {
@@ -94,56 +93,6 @@ function Card({
 export default function StylistPage() {
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-neutral-900 antialiased">
-      {/* ================================ Sticky Header ================================ */}
-      <header className="sticky top-0 z-40 border-b border-neutral-200/60 bg-[#FAF9F6]/80 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-black text-[11px] font-semibold text-white">
-              RT
-            </div>
-            <div className="leading-tight">
-              <div className="font-semibold tracking-tight">RunwayTwin</div>
-              <div className="text-[11px] text-neutral-500">Be Their Runway Twin ✨</div>
-            </div>
-          </Link>
-          <nav aria-label="Primary" className="flex items-center gap-1 text-[14px]">
-            <Link
-              href="/stylist"
-              aria-current="page"
-              className="rounded-full px-3 py-2 font-medium text-neutral-900 underline-offset-4 hover:underline"
-            >
-              Stylist
-            </Link>
-            <Link href="/pricing" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-              Pricing
-            </Link>
-            <Link href="/blog" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-              Blog
-            </Link>
-            <Link href="/about" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-              About
-            </Link>
-            <Link href="/contact" className="rounded-full px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-              Contact
-            </Link>
-            <Link
-              href="/stylist"
-              className="ml-2 inline-flex items-center rounded-full bg-black px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
-            >
-              Try the Stylist
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* ============================ Announcement (trust) ============================ */}
-      <div className="mx-auto max-w-6xl px-5 pt-4">
-        <div className="flex items-center justify-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-[13px] text-emerald-900">
-          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-          7-day money-back on Premium • One-off look for €5 • Cancel anytime
-        </div>
-      </div>
-
       {/* ================================== HERO =================================== */}
       <section aria-labelledby="hero-title" className="relative">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(63%_60%_at_20%_0%,#fff,transparent),radial-gradient(60%_60%_at_80%_0%,#fff,transparent)]" />
@@ -240,7 +189,6 @@ export default function StylistPage() {
         <p className="mt-1 text-sm text-neutral-600">
           As you chat, I’ll surface working shop links here — title • retailer • price. (EU/US stock.)
         </p>
-        {/* Keep this simple shell; wire it up to your chat results renderer when ready */}
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card title="Waiting for your first look">
             Ask for a celebrity + occasion + budget, e.g. “Zendaya, modern work, mid.”
@@ -318,49 +266,6 @@ export default function StylistPage() {
           </div>
         </div>
       </section>
-
-      {/* ================================== Footer ================================= */}
-      <footer className="border-t border-neutral-200 bg-[#F6F5F2]">
-        <div className="mx-auto max-w-6xl px-5 py-10">
-          <div className="grid grid-cols-1 gap-8 text-sm text-neutral-700 sm:grid-cols-2 md:grid-cols-4">
-            <div>
-              <p className="font-semibold">RunwayTwin</p>
-              <p className="mt-2 max-w-xs text-neutral-600">
-                Celebrity stylist AI — editorial looks, budget-true picks, live EU/US stock.
-              </p>
-              <p className="mt-3 text-[12px] leading-5 text-neutral-500">
-                Disclosure: some outbound links are affiliate links; we may earn a commission at no extra cost to you.
-              </p>
-            </div>
-            <nav aria-label="Product">
-              <p className="font-semibold">Product</p>
-              <ul className="mt-2 space-y-2">
-                <li><Link className="hover:underline" href="/stylist" aria-current="page">Stylist</Link></li>
-                <li><Link className="hover:underline" href="/pricing">Pricing</Link></li>
-                <li><Link className="hover:underline" href="/blog">Blog</Link></li>
-              </ul>
-            </nav>
-            <nav aria-label="Company">
-              <p className="font-semibold">Company</p>
-              <ul className="mt-2 space-y-2">
-                <li><Link className="hover:underline" href="/about">About</Link></li>
-                <li><Link className="hover:underline" href="/contact">Contact</Link></li>
-              </ul>
-            </nav>
-            <nav aria-label="Legal">
-              <p className="font-semibold">Legal</p>
-              <ul className="mt-2 space-y-2">
-                <li><Link className="hover:underline" href="/affiliate-disclosure">Affiliate Disclosure</Link></li>
-                <li><Link className="hover:underline" href="/privacy">Privacy</Link></li>
-                <li><Link className="hover:underline" href="/terms">Terms</Link></li>
-              </ul>
-            </nav>
-          </div>
-          <p className="mt-8 text-xs text-neutral-500">
-            © {new Date().getFullYear()} RunwayTwin — All rights reserved.
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }
