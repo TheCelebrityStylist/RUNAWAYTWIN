@@ -12,7 +12,7 @@ export const toolSchemas: ToolSchema[] = [
     schema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "e.g., 'black leather chelsea boots men'" },
+        query: { type: "string", description: "e.g., 'black leather chelsea boots women'" },
         country: { type: "string" },
         currency: { type: "string" },
         budgetMax: { type: "number" },
@@ -56,45 +56,86 @@ export const toolSchemas: ToolSchema[] = [
   },
 ];
 
-// ===== Demo internals (replace with real retailer APIs) =====
+// ===== Demo internals (replace with real retailer APIs when ready) =====
+function euro(n: number) { return { price: n, currency: "EUR" as const }; }
+
 async function demoSearch(args: any) {
-  const { query } = args;
-  const euro = (n: number) => ({ price: n, currency: "EUR" });
-  return {
-    items: [
-      {
-        id: "tw-boot-001",
-        brand: "Aeyde",
-        title: "Elongated Leather Ankle Boots",
-        ...euro(295),
-        retailer: "Zalando",
-        url: "https://www.zalando.example/aeyde-elong-boot",
-        color: "black",
-        sizes: ["36","37","38","39","40","41"],
-      },
-      {
-        id: "tw-trouser-002",
-        brand: "COS",
-        title: "Tailored Tapered Wool Trousers",
-        ...euro(120),
-        retailer: "COS",
-        url: "https://www.cos.example/tapered-wool-trouser",
-        color: "charcoal",
-        sizes: ["34","36","38","40","42"],
-      },
-      {
-        id: "tw-top-003",
-        brand: "Toteme",
-        title: "Contour Rib Long-Sleeve",
-        ...euro(160),
-        retailer: "SSENSE",
-        url: "https://www.ssense.example/toteme-contour-rib",
-        color: "ivory",
-        sizes: ["XS","S","M","L"],
-      },
-    ],
-    query,
-  };
+  const q = (args?.query || "").toLowerCase();
+  // Return a tiny believable catalog (with imageUrl).
+  const db = [
+    {
+      id: "tw-top-003",
+      brand: "Toteme",
+      title: "Contour Rib Long-Sleeve",
+      ...euro(160),
+      retailer: "SSENSE",
+      url: "https://www.ssense.example/toteme-contour-rib",
+      color: "ivory",
+      sizes: ["XS", "S", "M", "L"],
+      imageUrl: "https://images.example.com/toteme_rib_ivory.jpg",
+    },
+    {
+      id: "tw-trouser-002",
+      brand: "COS",
+      title: "Tailored Tapered Wool Trousers",
+      ...euro(120),
+      retailer: "COS",
+      url: "https://www.cos.example/tapered-wool-trouser",
+      color: "charcoal",
+      sizes: ["34", "36", "38", "40", "42"],
+      imageUrl: "https://images.example.com/cos_tapered_charcoal.jpg",
+    },
+    {
+      id: "tw-outer-010",
+      brand: "Arket",
+      title: "Double-Faced Wool Coat",
+      ...euro(260),
+      retailer: "Arket",
+      url: "https://www.arket.example/dbl-coat",
+      color: "black",
+      sizes: ["XS", "S", "M", "L"],
+      imageUrl: "https://images.example.com/arket_coat_black.jpg",
+    },
+    {
+      id: "tw-boot-001",
+      brand: "Aeyde",
+      title: "Elongated Leather Ankle Boots",
+      ...euro(295),
+      retailer: "Zalando",
+      url: "https://www.zalando.example/aeyde-elong-boot",
+      color: "black",
+      sizes: ["36", "37", "38", "39", "40", "41"],
+      imageUrl: "https://images.example.com/aeyde_ankle_boot.jpg",
+    },
+    {
+      id: "tw-bag-020",
+      brand: "Staud",
+      title: "Leather Shoulder Bag",
+      ...euro(225),
+      retailer: "SSENSE",
+      url: "https://www.ssense.example/staud-shoulder",
+      color: "black",
+      sizes: [],
+      imageUrl: "https://images.example.com/staud_shoulder_black.jpg",
+    },
+    {
+      id: "tw-acc-030",
+      brand: "Mejuri",
+      title: "Bold Gold Hoop Earrings",
+      ...euro(95),
+      retailer: "Mejuri",
+      url: "https://www.mejuri.example/gold-hoop",
+      color: "gold",
+      sizes: [],
+      imageUrl: "https://images.example.com/mejuri_hoop_gold.jpg",
+    },
+  ];
+
+  const items = db.filter((it) =>
+    q.split(/\s+/).every((w: string) => it.title.toLowerCase().includes(w) || it.brand.toLowerCase().includes(w) || it.color.toLowerCase().includes(w))
+  );
+
+  return { items: items.length ? items : db.slice(0, 3), query: args?.query };
 }
 
 export async function runTool(name: string, args: any, _ctx?: any) {
@@ -111,3 +152,4 @@ export async function runTool(name: string, args: any, _ctx?: any) {
       throw new Error(`Unknown tool: ${name}`);
   }
 }
+
