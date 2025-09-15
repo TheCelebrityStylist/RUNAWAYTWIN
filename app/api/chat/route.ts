@@ -6,8 +6,12 @@ import { toolSchemas, runTool } from "./tools";
 
 export const runtime = "edge";
 
-const openai = process.env.OPENAI_API_KEY
+const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
+// NOTE: We always define a variable `client` of type OpenAI so TS never sees `null`,
+// and we ONLY use it in the HAS_OPENAI branch at runtime.
+const client: OpenAI = HAS_OPENAI
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
+  // @ts-expect-error – assigned only to satisfy type; never used unless HAS_OPENAI is true
   : null;
 
 type ToolCallDelta = {
@@ -71,9 +75,8 @@ function lastUserText(messages: any[]): string {
   return "";
 }
 
-/** Deterministic, tool-backed demo output (when OpenAI is unavailable or errors). */
+/** Deterministic, tool-backed demo output (used when no API key or on upstream errors). */
 async function demoResponse(preferences: any, userText: string) {
-  // Use tools to fetch believable items
   const country = preferences?.country || "NL";
   const results = {
     top: await runTool("retailer_search", { query: "ivory rib long-sleeve top women", country, limit: 6 }),
@@ -84,7 +87,6 @@ async function demoResponse(preferences: any, userText: string) {
     acc1: await runTool("retailer_search", { query: "gold hoop earrings", country, limit: 6 }),
   } as any;
 
-  // pick first from each (demo only)
   function pick(o: any, fallback: string) {
     return o?.items?.[0] || { brand: "RunwayTwin", title: fallback, price: 120, currency: "EUR", retailer: "Demo", url: "https://example.com" };
   }
@@ -96,13 +98,10 @@ async function demoResponse(preferences: any, userText: string) {
   const bag = pick(results.bag, "Leather Shoulder Bag");
   const acc = pick(results.acc1, "Gold Hoop Earrings");
 
-  const total =
-    [top, bottom, outer, shoes, bag].reduce((s, x) => s + (Number(x.price) || 0), 0);
-
+  const total = [top, bottom, outer, shoes, bag].reduce((s, x) => s + (Number(x.price) || 0), 0);
   const euro = (n: number) => `€${Math.round(n)}`;
 
-  const concept =
-    `Sculpted minimalism with Zendaya’s sharp proportions — elongated lines, clean monochrome, and a controlled sheen.`;
+  const concept = `Sculpted minimalism with Zendaya’s sharp proportions — elongated lines, clean monochrome, and a controlled sheen.`;
 
   const outfitLines = [
     `- Top — ${top.brand} ${top.title} (${euro(top.price)}, ${top.retailer}) · ${top.url}`,
@@ -163,22 +162,18 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Liveness: let the client’s watchdog know bytes started flowing
       controller.enqueue(sseChunk("ready", { ok: true }));
       const ping = setInterval(() => controller.enqueue(sseChunk("ping", { t: Date.now() })), 15000);
 
       const finish = (ok = true) => {
-        try {
-          controller.enqueue(sseChunk("done", { ok }));
-        } catch {}
+        try { controller.enqueue(sseChunk("done", { ok })); } catch {}
         clearInterval(ping);
         controller.close();
       };
 
-      // If no OpenAI key, serve deterministic demo immediately
-      if (!openai) {
+      // If no OpenAI key => deterministic demo
+      if (!HAS_OPENAI) {
         const text = await demoResponse(preferences, userText);
-        // stream it like the real model
         for (const chunk of text.match(/.{1,240}/g) || []) {
           controller.enqueue(sseChunk("assistant_draft_delta", { text: chunk }));
         }
@@ -188,7 +183,7 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // Normal path: model → (tools)* → critique → final
+      // Normal path (OpenAI available)
       async function runOnce(
         msgs: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         emitDraft: boolean
@@ -198,7 +193,7 @@ export async function POST(req: NextRequest) {
 
         let completion: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
         try {
-          completion = await openai.chat.completions.create({
+          completion = await client.chat.completions.create({
             model: "gpt-4o-mini",
             temperature: 0.7,
             messages: msgs,
@@ -206,12 +201,8 @@ export async function POST(req: NextRequest) {
             tool_choice: "auto",
             stream: true,
           });
-        } catch (err: any) {
+        } catch {
           const text = await demoResponse(preferences, userText);
-          for (const chunk of text.match(/.{1,240}/g) || []) {
-            controller.enqueue(sseChunk("assistant_draft_delta", { text: chunk }));
-          }
-          controller.enqueue(sseChunk("assistant_draft_done", {}));
           controller.enqueue(sseChunk("assistant_final", { text }));
           finish(false);
           return;
@@ -235,16 +226,12 @@ export async function POST(req: NextRequest) {
                 const id = d.id!;
                 const name = d.function?.name || toolCallsMap[id]?.name || "unknown";
                 const argsChunk = d.function?.arguments || "";
-                toolCallsMap[id] = {
-                  name,
-                  arguments: (toolCallsMap[id]?.arguments || "") + argsChunk,
-                };
+                toolCallsMap[id] = { name, arguments: (toolCallsMap[id]?.arguments || "") + argsChunk };
               }
             }
             if (choice.finish_reason) break;
           }
         } catch {
-          // stream got interrupted — demo fallback
           const text = await demoResponse(preferences, userText);
           controller.enqueue(sseChunk("assistant_final", { text }));
           finish(false);
@@ -253,7 +240,6 @@ export async function POST(req: NextRequest) {
 
         if (emitDraft) controller.enqueue(sseChunk("assistant_draft_done", { text: accText }));
 
-        // If there were tool calls, execute and recurse
         const entries = Object.entries(toolCallsMap);
         if (entries.length) {
           const toolResults: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
@@ -276,7 +262,7 @@ export async function POST(req: NextRequest) {
         // Critique pass (non-stream)
         let finalText = accText;
         try {
-          const critique = await openai.chat.completions.create({
+          const critique = await client.chat.completions.create({
             model: "gpt-4o-mini",
             temperature: 0.4,
             messages: [
@@ -298,7 +284,7 @@ export async function POST(req: NextRequest) {
           });
           finalText = critique.choices?.[0]?.message?.content || accText;
         } catch {
-          // ignore — keep accText
+          // keep accText
         }
 
         controller.enqueue(sseChunk("assistant_final", { text: finalText }));
