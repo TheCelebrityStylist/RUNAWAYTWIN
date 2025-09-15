@@ -7,12 +7,6 @@ import { toolSchemas, runTool } from "./tools";
 export const runtime = "edge";
 
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
-// NOTE: We always define a variable `client` of type OpenAI so TS never sees `null`,
-// and we ONLY use it in the HAS_OPENAI branch at runtime.
-const client: OpenAI = HAS_OPENAI
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
-  // @ts-expect-error – assigned only to satisfy type; never used unless HAS_OPENAI is true
-  : null;
 
 type ToolCallDelta = {
   id?: string;
@@ -171,7 +165,7 @@ export async function POST(req: NextRequest) {
         controller.close();
       };
 
-      // If no OpenAI key => deterministic demo
+      // DEMO path (no API key)
       if (!HAS_OPENAI) {
         const text = await demoResponse(preferences, userText);
         for (const chunk of text.match(/.{1,240}/g) || []) {
@@ -183,7 +177,9 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // Normal path (OpenAI available)
+      // NORMAL path: instantiate client here so it's never possibly null to TS
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+
       async function runOnce(
         msgs: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         emitDraft: boolean
@@ -307,3 +303,4 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
