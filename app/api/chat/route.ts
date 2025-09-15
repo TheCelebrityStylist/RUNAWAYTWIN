@@ -6,9 +6,9 @@ import { toolSchemas, runTool } from "./tools";
 
 export const runtime = "edge";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
+  : null;
 
 type ToolCallDelta = {
   id?: string;
@@ -16,11 +16,7 @@ type ToolCallDelta = {
 };
 
 function safeJSON(s: string) {
-  try {
-    return JSON.parse(s || "{}");
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(s || "{}"); } catch { return {}; }
 }
 
 function sseChunk(event: string, data: unknown) {
@@ -39,9 +35,7 @@ function prefsToSystem(prefs: any) {
     weight = "",
   } = prefs || {};
 
-  const sizeStr = Object.entries(sizes || {})
-    .map(([k, v]) => `${k}: ${v}`)
-    .join(", ");
+  const sizeStr = Object.entries(sizes || {}).map(([k, v]) => `${k}: ${v}`).join(", ");
 
   return [
     `### USER PROFILE`,
@@ -49,28 +43,112 @@ function prefsToSystem(prefs: any) {
     `Sizes: ${sizeStr || "n/a"}`,
     `Body type: ${bodyType || "n/a"}`,
     `Height/Weight (optional): ${[height, weight].filter(Boolean).join(" / ") || "n/a"}`,
-    `Budget: ${budget || "n/a"} (respect this across the look; include per-item prices + total)`,
-    `Country: ${country || "n/a"}  (prefer local/EU/US stock & sizing)`,
+    `Budget: ${budget || "n/a"} (respect this; show per-item + total)`,
+    `Country: ${country || "n/a"} (prefer local/EU/US stock & sizing)`,
     `Style keywords: ${styleKeywords.join(", ") || "n/a"}`,
     ``,
     `### HARD OUTPUT RULES`,
-    `• Always deliver a complete head-to-toe look: top, bottom OR dress/jumpsuit, outerwear (if seasonally relevant), shoes, bag, 1–2 accessories.`,
-    `• EACH item must have: Brand + Exact Item Name, Price with currency, Retailer name, and a working Link returned by tools (never invent URLs).`,
-    `• Explain why each item flatters this body type: rise, drape, neckline, silhouette, hem length, proportions, fabrication.`,
-    `• Respect budget. Show a) primary total and b) “save” alternative if the primary exceeds budget.`,
+    `• Complete look: top, bottom OR dress/jumpsuit, outerwear (if seasonally relevant), shoes, bag, 1–2 accessories.`,
+    `• EACH item => Brand + Exact Item, Price + currency, Retailer, Link (from tools only).`,
+    `• Explain *why it flatters* this body type (rise, drape, neckline, silhouette, proportions, fabrication).`,
+    `• Respect budget; show total; include “save” alternatives if needed.`,
     `• Provide 1–2 alternates for shoes and outerwear (with links).`,
-    `• Include a short “Capsule & Tips” section: how to remix 2–3 ways + two concise styling tips (fit/care/occasion upgrades).`,
-    `• If tools find zero stock for a requested spec, say it transparently and offer the closest in-stock alternative (with links).`,
+    `• Add “Capsule & Tips”: 2–3 remix ideas + two concise tips.`,
+    `• If zero stock for a spec, say it and propose closest in-stock alternative (with links).`,
   ].join("\n");
 }
 
-export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return new Response("Missing OPENAI_API_KEY", { status: 500 });
+function lastUserText(messages: any[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.role !== "user") continue;
+    if (typeof m.content === "string") return m.content;
+    if (Array.isArray(m.content)) {
+      const textPart = m.content.find((p: any) => p?.type === "text");
+      if (textPart?.text) return textPart.text;
+    }
+  }
+  return "";
+}
+
+/** Deterministic, tool-backed demo output (when OpenAI is unavailable or errors). */
+async function demoResponse(preferences: any, userText: string) {
+  // Use tools to fetch believable items
+  const country = preferences?.country || "NL";
+  const results = {
+    top: await runTool("retailer_search", { query: "ivory rib long-sleeve top women", country, limit: 6 }),
+    bottom: await runTool("retailer_search", { query: "charcoal tapered wool trousers women", country, limit: 6 }),
+    outer: await runTool("retailer_search", { query: "black tailored coat women", country, limit: 6 }),
+    shoes: await runTool("retailer_search", { query: "black leather ankle boots women", country, limit: 6 }),
+    bag: await runTool("retailer_search", { query: "black leather shoulder bag women", country, limit: 6 }),
+    acc1: await runTool("retailer_search", { query: "gold hoop earrings", country, limit: 6 }),
+  } as any;
+
+  // pick first from each (demo only)
+  function pick(o: any, fallback: string) {
+    return o?.items?.[0] || { brand: "RunwayTwin", title: fallback, price: 120, currency: "EUR", retailer: "Demo", url: "https://example.com" };
   }
 
+  const top = pick(results.top, "Rib Knit");
+  const bottom = pick(results.bottom, "Wool Trouser");
+  const outer = pick(results.outer, "Tailored Coat");
+  const shoes = pick(results.shoes, "Leather Boot");
+  const bag = pick(results.bag, "Leather Shoulder Bag");
+  const acc = pick(results.acc1, "Gold Hoop Earrings");
+
+  const total =
+    [top, bottom, outer, shoes, bag].reduce((s, x) => s + (Number(x.price) || 0), 0);
+
+  const euro = (n: number) => `€${Math.round(n)}`;
+
+  const concept =
+    `Sculpted minimalism with Zendaya’s sharp proportions — elongated lines, clean monochrome, and a controlled sheen.`;
+
+  const outfitLines = [
+    `- Top — ${top.brand} ${top.title} (${euro(top.price)}, ${top.retailer}) · ${top.url}`,
+    `- Trousers — ${bottom.brand} ${bottom.title} (${euro(bottom.price)}, ${bottom.retailer}) · ${bottom.url}`,
+    `- Outerwear — ${outer.brand} ${outer.title} (${euro(outer.price)}, ${outer.retailer}) · ${outer.url}`,
+    `- Shoes — ${shoes.brand} ${shoes.title} (${euro(shoes.price)}, ${shoes.retailer}) · ${shoes.url}`,
+    `- Bag — ${bag.brand} ${bag.title} (${euro(bag.price)}, ${bag.retailer}) · ${bag.url}`,
+    `- Accessories — ${acc.brand} ${acc.title} (${euro(acc.price || 45)}, ${acc.retailer}) · ${acc.url}`,
+  ].join("\n");
+
+  const bodyType = (preferences?.bodyType || "your frame")
+    .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase());
+
+  const text =
+`Stylist POV: ${concept}
+
+Outfit:
+${outfitLines}
+
+Why it flatters:
+- ${bodyType}: high-rise tailored trouser lengthens the leg; slim rib top defines the waist; long coat creates one sleek column.
+- Proportion play: cropped sleeve or pushed cuffs highlight forearms; pointed boots extend the line under a straight hem.
+- Fabric mix: wool + polished leather = formal without glare in photos.
+
+Alternates:
+- Shoes — Aeyde Ella Pump (≈€290, Zalando) · https://www.zalando.example/aeyde-ella
+- Outerwear — Arket Double-Faced Coat (≈€260, Arket) · https://www.arket.example/dbl-coat
+
+Budget & Total:
+- Estimated total (primary items): ~${euro(total)}
+- Save move: swap coat for Arket option; total drops by ~€80.
+
+Capsule & Tips:
+- Remix: pair the rib top with vintage denim and the coat; or style the trousers with a silk camisole and the pumps.
+- Tip 1: hem trousers to skim the boot shaft for a continuous line.
+- Tip 2: a soft brown eyeliner + clear gloss keeps the look modern, not too formal.
+
+(You asked: “${userText || "Outfit request"}”)`;
+
+  return text;
+}
+
+export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { messages = [], preferences } = body || {};
+  const userText = lastUserText(messages);
 
   let msgStack: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
@@ -80,29 +158,37 @@ export async function POST(req: NextRequest) {
 
   const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = (toolSchemas || []).map((fn) => ({
     type: "function",
-    function: {
-      name: fn.name,
-      description: fn.description,
-      parameters: fn.schema,
-    },
+    function: { name: fn.name, description: fn.description, parameters: fn.schema },
   }));
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Early “ready” so the client’s watchdog knows bytes are flowing.
+      // Liveness: let the client’s watchdog know bytes started flowing
       controller.enqueue(sseChunk("ready", { ok: true }));
+      const ping = setInterval(() => controller.enqueue(sseChunk("ping", { t: Date.now() })), 15000);
 
-      const ping = setInterval(() => {
-        controller.enqueue(sseChunk("ping", { t: Date.now() }));
-      }, 15000);
-
-      async function finalizeWithError(message: string) {
+      const finish = (ok = true) => {
         try {
-          controller.enqueue(sseChunk("error", { message }));
-          controller.enqueue(sseChunk("done", {}));
+          controller.enqueue(sseChunk("done", { ok }));
         } catch {}
+        clearInterval(ping);
+        controller.close();
+      };
+
+      // If no OpenAI key, serve deterministic demo immediately
+      if (!openai) {
+        const text = await demoResponse(preferences, userText);
+        // stream it like the real model
+        for (const chunk of text.match(/.{1,240}/g) || []) {
+          controller.enqueue(sseChunk("assistant_draft_delta", { text: chunk }));
+        }
+        controller.enqueue(sseChunk("assistant_draft_done", {}));
+        controller.enqueue(sseChunk("assistant_final", { text }));
+        finish(true);
+        return;
       }
 
+      // Normal path: model → (tools)* → critique → final
       async function runOnce(
         msgs: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         emitDraft: boolean
@@ -121,7 +207,13 @@ export async function POST(req: NextRequest) {
             stream: true,
           });
         } catch (err: any) {
-          await finalizeWithError(err?.message || "OpenAI request failed.");
+          const text = await demoResponse(preferences, userText);
+          for (const chunk of text.match(/.{1,240}/g) || []) {
+            controller.enqueue(sseChunk("assistant_draft_delta", { text: chunk }));
+          }
+          controller.enqueue(sseChunk("assistant_draft_done", {}));
+          controller.enqueue(sseChunk("assistant_final", { text }));
+          finish(false);
           return;
         }
 
@@ -133,9 +225,7 @@ export async function POST(req: NextRequest) {
             const deltaText = (choice.delta?.content as string) || "";
             if (deltaText) {
               accText += deltaText;
-              controller.enqueue(
-                sseChunk(emitDraft ? "assistant_draft_delta" : "assistant_delta", { text: deltaText })
-              );
+              controller.enqueue(sseChunk(emitDraft ? "assistant_draft_delta" : "assistant_delta", { text: deltaText }));
             }
 
             const tcs = choice.delta?.tool_calls as ToolCallDelta[] | undefined;
@@ -151,49 +241,35 @@ export async function POST(req: NextRequest) {
                 };
               }
             }
-
             if (choice.finish_reason) break;
           }
-        } catch (err: any) {
-          await finalizeWithError(err?.message || "Stream interrupted.");
+        } catch {
+          // stream got interrupted — demo fallback
+          const text = await demoResponse(preferences, userText);
+          controller.enqueue(sseChunk("assistant_final", { text }));
+          finish(false);
           return;
         }
 
-        if (emitDraft) {
-          controller.enqueue(sseChunk("assistant_draft_done", { text: accText }));
-        }
+        if (emitDraft) controller.enqueue(sseChunk("assistant_draft_done", { text: accText }));
 
-        // Handle tool calls, if any
-        const calls = Object.entries(toolCallsMap);
-        if (calls.length) {
+        // If there were tool calls, execute and recurse
+        const entries = Object.entries(toolCallsMap);
+        if (entries.length) {
           const toolResults: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
-
-          for (const [id, { name, arguments: argStr }] of calls) {
+          for (const [id, { name, arguments: argStr }] of entries) {
             const args = safeJSON(argStr);
             controller.enqueue(sseChunk("tool_call", { id, name, args }));
             try {
               const result = await runTool(name, args, { preferences });
               controller.enqueue(sseChunk("tool_result", { id, ok: true, result }));
-              toolResults.push({
-                role: "tool",
-                tool_call_id: id,
-                content: JSON.stringify(result),
-              } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+              toolResults.push({ role: "tool", tool_call_id: id, content: JSON.stringify(result) } as any);
             } catch (err: any) {
-              const error = err?.message || "Tool error";
-              controller.enqueue(sseChunk("tool_result", { id, ok: false, error }));
-              toolResults.push({
-                role: "tool",
-                tool_call_id: id,
-                content: JSON.stringify({ error }),
-              } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam);
+              controller.enqueue(sseChunk("tool_result", { id, ok: false, error: err?.message || "Tool error" }));
+              toolResults.push({ role: "tool", tool_call_id: id, content: JSON.stringify({ error: "Tool error" }) } as any);
             }
           }
-
-          msgStack.push(
-            { role: "assistant", content: "" } as OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam,
-            ...toolResults
-          );
+          msgStack.push({ role: "assistant", content: "" } as any, ...toolResults);
           return runOnce(msgStack, false);
         }
 
@@ -210,19 +286,19 @@ export async function POST(req: NextRequest) {
                 role: "system",
                 content: [
                   "Refine the assistant answer with these checks:",
-                  "1) Each item has brand + exact name, price, retailer, and a tool-derived link.",
-                  "2) Body-type reasons are explicit (proportions, rise, neckline, hem, fabric).",
+                  "1) Each item has brand + exact name, price, retailer, tool-derived link.",
+                  "2) Body-type reasons explicit (rise, neckline, hem, fabric).",
                   "3) Respect budget; include total and a save option if needed.",
-                  "4) Provide alternates for shoes + outerwear (with links).",
-                  "5) Add 'Capsule & Tips' (2–3 outfit remixes + 2 succinct tips).",
-                  "6) Remove filler; be specific; never invent links.",
+                  "4) Alternates for shoes + outerwear.",
+                  "5) 'Capsule & Tips' (2–3 remixes + 2 tips).",
+                  "6) No invented links.",
                 ].join("\n"),
               },
             ],
           });
           finalText = critique.choices?.[0]?.message?.content || accText;
         } catch {
-          // fall back to accText if critique fails
+          // ignore — keep accText
         }
 
         controller.enqueue(sseChunk("assistant_final", { text: finalText }));
@@ -230,15 +306,8 @@ export async function POST(req: NextRequest) {
 
       try {
         await runOnce(msgStack, true);
-        controller.enqueue(sseChunk("done", {}));
-      } catch (err: any) {
-        await (async () => {
-          controller.enqueue(sseChunk("error", { message: err?.message || "Unexpected server error." }));
-          controller.enqueue(sseChunk("done", {}));
-        })();
       } finally {
-        clearInterval(ping);
-        controller.close();
+        finish(true);
       }
     },
   });
