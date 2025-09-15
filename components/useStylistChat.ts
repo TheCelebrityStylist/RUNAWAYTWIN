@@ -92,12 +92,22 @@ export function useStylistChat(endpoint = "/api/chat") {
             }
           : { role: "user", content: text || "" };
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        signal: abortRef.current.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...history, last], preferences }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
+          method: "POST",
+          signal: abortRef.current.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: [...history, last], preferences }),
+        });
+      } catch (err) {
+        setMessages((m) => [
+          ...m,
+          { id: crypto.randomUUID(), role: "assistant", content: "Network error. Please try again." },
+        ]);
+        setLoading(false);
+        return;
+      }
 
       if (!res.ok || !res.body) {
         setMessages((m) => [
@@ -112,8 +122,22 @@ export function useStylistChat(endpoint = "/api/chat") {
       const decoder = new TextDecoder();
       let carry = "";
 
+      // Watchdog: if no bytes for 30s, abort.
+      let lastBeat = Date.now();
+      const T_IDLE = 30_000;
+      const heartbeat = setInterval(() => {
+        if (Date.now() - lastBeat > T_IDLE) {
+          abortRef.current?.abort();
+        }
+      }, 5_000);
+
       const onEvent: SSEHandler = (event, data) => {
+        lastBeat = Date.now();
+
         switch (event) {
+          case "ready":
+          case "ping":
+            break;
           case "assistant_draft_delta":
           case "assistant_delta":
             setDraft((d) => d + (data?.text || ""));
@@ -159,10 +183,21 @@ export function useStylistChat(endpoint = "/api/chat") {
         }
       };
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        carry = parseSSE(decoder.decode(value, { stream: true }), onEvent, carry);
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          carry = parseSSE(chunk, onEvent, carry);
+        }
+      } catch (err) {
+        setMessages((m) => [
+          ...m,
+          { id: crypto.randomUUID(), role: "assistant", content: "Stream aborted. Please try again." },
+        ]);
+      } finally {
+        clearInterval(heartbeat);
+        setLoading(false);
       }
     },
     [endpoint, messages]
