@@ -4,25 +4,23 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useStylistChat } from "./useStylistChat";
 
-type Props = {
-  preferences: any;
-};
+type Props = { preferences: any };
 
 export default function StylistChat({ preferences }: Props) {
   const { messages, draft, send, loading } = useStylistChat("/api/chat");
   const [input, setInput] = useState("");
-  const scroller = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
 
   const onScroll = () => {
-    if (!scroller.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scroller.current;
+    if (!viewportRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = viewportRef.current;
     userScrolledUp.current = scrollHeight - (scrollTop + clientHeight) > 80;
   };
 
   const scrollToBottom = useCallback(() => {
-    if (userScrolledUp.current || !scroller.current) return;
-    scroller.current.scrollTop = scroller.current.scrollHeight;
+    if (!viewportRef.current || userScrolledUp.current) return;
+    viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
   }, []);
 
   useEffect(() => {
@@ -36,12 +34,12 @@ export default function StylistChat({ preferences }: Props) {
         <header className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
           <h2 className="text-lg font-semibold tracking-tight">Talk to Your AI Stylist</h2>
           <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            Drop a muse, an image, and the occasion. I’ll build a head-to-toe look with real links.
+            Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
           </p>
         </header>
 
         <div
-          ref={scroller}
+          ref={viewportRef}
           onScroll={onScroll}
           className="flex-1 overflow-y-auto p-4 space-y-4"
         >
@@ -62,7 +60,7 @@ export default function StylistChat({ preferences }: Props) {
             </div>
           ))}
 
-          {draft && (
+          {!!draft && (
             <div className="text-left">
               <div className="inline-block max-w-[80%] whitespace-pre-wrap rounded-xl px-4 py-3 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
                 {draft}
@@ -82,6 +80,8 @@ export default function StylistChat({ preferences }: Props) {
           }}
         >
           <input
+            className="flex-1 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+            placeholder="“Zendaya, Paris gallery opening, 18°C drizzle, smart-casual”"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
@@ -91,8 +91,6 @@ export default function StylistChat({ preferences }: Props) {
                 setInput("");
               }
             }}
-            className="flex-1 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
-            placeholder="e.g., “Zendaya for a Paris gallery opening, 18°C drizzle”"
           />
           <button
             type="submit"
@@ -104,7 +102,7 @@ export default function StylistChat({ preferences }: Props) {
         </form>
       </div>
 
-      {/* RIGHT RAIL */}
+      {/* RIGHT: Sticky rail (no whitespace abyss) */}
       <aside className="hidden lg:block">
         <div className="sticky top-4 space-y-4">
           <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-black/30 backdrop-blur p-4">
@@ -113,13 +111,13 @@ export default function StylistChat({ preferences }: Props) {
               {JSON.stringify(preferences, null, 2)}
             </pre>
             <p className="text-[11px] mt-2 text-neutral-500">
-              These guide fit, budget & country stock in real time.
+              These drive fit, budget, and local stock in real time.
             </p>
           </div>
           <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-black/30 backdrop-blur p-4">
             <h3 className="font-semibold">Pro Tip</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              Add weather and vibe for sharper picks: “smart casual, 26°C, rooftop drinks”.
+              Mention dress code & weather for sharper picks (e.g., “cocktail, 26°C, rooftop drinks”).
             </p>
           </div>
         </div>
