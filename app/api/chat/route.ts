@@ -15,12 +15,6 @@ type ToolCallDelta = {
   function?: { name?: string; arguments?: string };
 };
 
-type ToolCallFull = {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
-};
-
 function safeJSON(s: string) {
   try {
     return JSON.parse(s || "{}");
@@ -65,7 +59,7 @@ function prefsToSystem(prefs: any) {
     `• Explain why each item flatters this body type: rise, drape, neckline, silhouette, hem length, proportions, fabrication.`,
     `• Respect budget. Show a) primary total and b) “save” alternative if the primary exceeds budget.`,
     `• Provide 1–2 alternates for shoes and outerwear (with links).`,
-    `• Include a short “Capsule & Tips” section: how to remix 2–3 ways + 2 concise styling tips (fit/care/occasion upgrades).`,
+    `• Include a short “Capsule & Tips” section: how to remix 2–3 ways + two concise styling tips (fit/care/occasion upgrades).`,
     `• If tools find zero stock for a requested spec, say it transparently and offer the closest in-stock alternative (with links).`,
   ].join("\n");
 }
@@ -78,14 +72,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { messages = [], preferences } = body || {};
 
-  // Base message stack: persona + user profile + conversation history
   let msgStack: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
     { role: "system", content: prefsToSystem(preferences) },
     ...(Array.isArray(messages) ? messages : []),
   ];
 
-  // Strongly type tool definitions for the SDK ("function" literal)
   const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = (toolSchemas || []).map((fn) => ({
     type: "function",
     function: {
@@ -95,67 +87,83 @@ export async function POST(req: NextRequest) {
     },
   }));
 
-  // Build a streaming response
   const stream = new ReadableStream({
     async start(controller) {
-      const keepAlive = setInterval(() => {
+      // Early “ready” so the client’s watchdog knows bytes are flowing.
+      controller.enqueue(sseChunk("ready", { ok: true }));
+
+      const ping = setInterval(() => {
         controller.enqueue(sseChunk("ping", { t: Date.now() }));
       }, 15000);
+
+      async function finalizeWithError(message: string) {
+        try {
+          controller.enqueue(sseChunk("error", { message }));
+          controller.enqueue(sseChunk("done", {}));
+        } catch {}
+      }
 
       async function runOnce(
         msgs: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         emitDraft: boolean
       ): Promise<void> {
-        // Primary streaming turn
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          temperature: 0.7,
-          messages: msgs,
-          tools,
-          tool_choice: "auto",
-          stream: true,
-        });
-
         let accText = "";
-        // Accumulate tool calls by ID (since they arrive in deltas)
         const toolCallsMap: Record<string, { name: string; arguments: string }> = {};
 
-        for await (const part of completion) {
-          const choice = part.choices?.[0];
-          if (!choice) continue;
+        let completion: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+        try {
+          completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            temperature: 0.7,
+            messages: msgs,
+            tools,
+            tool_choice: "auto",
+            stream: true,
+          });
+        } catch (err: any) {
+          await finalizeWithError(err?.message || "OpenAI request failed.");
+          return;
+        }
 
-          // Text deltas
-          const deltaText = (choice.delta?.content as string) || "";
-          if (deltaText) {
-            accText += deltaText;
-            controller.enqueue(
-              sseChunk(emitDraft ? "assistant_draft_delta" : "assistant_delta", { text: deltaText })
-            );
-          }
+        try {
+          for await (const part of completion) {
+            const choice = part.choices?.[0];
+            if (!choice) continue;
 
-          // Tool call deltas
-          const tcs = choice.delta?.tool_calls as ToolCallDelta[] | undefined;
-          if (tcs?.length) {
-            for (const d of tcs) {
-              if (!d) continue;
-              const id = d.id!;
-              const name = d.function?.name || toolCallsMap[id]?.name || "unknown";
-              const argsChunk = d.function?.arguments || "";
-              toolCallsMap[id] = {
-                name,
-                arguments: (toolCallsMap[id]?.arguments || "") + argsChunk,
-              };
+            const deltaText = (choice.delta?.content as string) || "";
+            if (deltaText) {
+              accText += deltaText;
+              controller.enqueue(
+                sseChunk(emitDraft ? "assistant_draft_delta" : "assistant_delta", { text: deltaText })
+              );
             }
-          }
 
-          if (choice.finish_reason) break;
+            const tcs = choice.delta?.tool_calls as ToolCallDelta[] | undefined;
+            if (tcs?.length) {
+              for (const d of tcs) {
+                if (!d) continue;
+                const id = d.id!;
+                const name = d.function?.name || toolCallsMap[id]?.name || "unknown";
+                const argsChunk = d.function?.arguments || "";
+                toolCallsMap[id] = {
+                  name,
+                  arguments: (toolCallsMap[id]?.arguments || "") + argsChunk,
+                };
+              }
+            }
+
+            if (choice.finish_reason) break;
+          }
+        } catch (err: any) {
+          await finalizeWithError(err?.message || "Stream interrupted.");
+          return;
         }
 
         if (emitDraft) {
           controller.enqueue(sseChunk("assistant_draft_done", { text: accText }));
         }
 
-        // If there were tool calls, execute them and recurse once more
+        // Handle tool calls, if any
         const calls = Object.entries(toolCallsMap);
         if (calls.length) {
           const toolResults: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
@@ -182,7 +190,6 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Append the assistant stub + tool results and rerun (no draft this time)
           msgStack.push(
             { role: "assistant", content: "" } as OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam,
             ...toolResults
@@ -190,29 +197,34 @@ export async function POST(req: NextRequest) {
           return runOnce(msgStack, false);
         }
 
-        // Critique pass (non-stream) to tighten to our rubric
-        const critique = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          temperature: 0.4,
-          messages: [
-            ...msgStack,
-            { role: "assistant", content: accText },
-            {
-              role: "system",
-              content: [
-                "Refine the assistant answer with these checks:",
-                "1) Each item has brand + exact name, price, retailer, and a tool-derived link.",
-                "2) Body-type reasons are explicit (proportions, rise, neckline, hem, fabric).",
-                "3) Respect budget; include total and a save option if needed.",
-                "4) Provide alternates for shoes + outerwear (with links).",
-                "5) Add 'Capsule & Tips' (2–3 outfit remixes + 2 succinct tips).",
-                "6) Remove filler; be specific; never invent links.",
-              ].join("\n"),
-            },
-          ],
-        });
+        // Critique pass (non-stream)
+        let finalText = accText;
+        try {
+          const critique = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            temperature: 0.4,
+            messages: [
+              ...msgStack,
+              { role: "assistant", content: accText },
+              {
+                role: "system",
+                content: [
+                  "Refine the assistant answer with these checks:",
+                  "1) Each item has brand + exact name, price, retailer, and a tool-derived link.",
+                  "2) Body-type reasons are explicit (proportions, rise, neckline, hem, fabric).",
+                  "3) Respect budget; include total and a save option if needed.",
+                  "4) Provide alternates for shoes + outerwear (with links).",
+                  "5) Add 'Capsule & Tips' (2–3 outfit remixes + 2 succinct tips).",
+                  "6) Remove filler; be specific; never invent links.",
+                ].join("\n"),
+              },
+            ],
+          });
+          finalText = critique.choices?.[0]?.message?.content || accText;
+        } catch {
+          // fall back to accText if critique fails
+        }
 
-        const finalText = critique.choices?.[0]?.message?.content || accText;
         controller.enqueue(sseChunk("assistant_final", { text: finalText }));
       }
 
@@ -220,9 +232,12 @@ export async function POST(req: NextRequest) {
         await runOnce(msgStack, true);
         controller.enqueue(sseChunk("done", {}));
       } catch (err: any) {
-        controller.enqueue(sseChunk("error", { message: err?.message || "Oops something went wrong." }));
+        await (async () => {
+          controller.enqueue(sseChunk("error", { message: err?.message || "Unexpected server error." }));
+          controller.enqueue(sseChunk("done", {}));
+        })();
       } finally {
-        clearInterval(keepAlive);
+        clearInterval(ping);
         controller.close();
       }
     },
