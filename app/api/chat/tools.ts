@@ -1,5 +1,11 @@
 // app/api/chat/tools.ts
-export const toolSchemas = [
+export type ToolSchema = {
+  name: string;
+  description: string;
+  schema: Record<string, any>;
+};
+
+export const toolSchemas: ToolSchema[] = [
   {
     name: "retailer_search",
     description: "Search in-stock fashion items with filters",
@@ -50,38 +56,44 @@ export const toolSchemas = [
   },
 ];
 
-// TODO: Replace internals with your integrations (Algolia/retailer APIs).
+// ===== Demo internals (replace with real retailer APIs) =====
 async function demoSearch(args: any) {
-  const { query, country, budgetMax, color } = args;
+  const { query } = args;
+  const euro = (n: number) => ({ price: n, currency: "EUR" });
   return {
     items: [
       {
-        id: "boots-123",
-        brand: "Aldo Rossi",
-        title: "Cap-Toe Chelsea Boots",
-        price: 149,
-        currency: "EUR",
+        id: "tw-boot-001",
+        brand: "Aeyde",
+        title: "Elongated Leather Ankle Boots",
+        ...euro(295),
         retailer: "Zalando",
-        url: "https://www.zalando.example/boots-123",
+        url: "https://www.zalando.example/aeyde-elong-boot",
         color: "black",
-        sizes: ["40", "41", "42", "43", "44"],
+        sizes: ["36","37","38","39","40","41"],
       },
       {
-        id: "trouser-456",
+        id: "tw-trouser-002",
         brand: "COS",
-        title: "Tapered Wool Trousers",
-        price: 120,
-        currency: "EUR",
+        title: "Tailored Tapered Wool Trousers",
+        ...euro(120),
         retailer: "COS",
-        url: "https://www.cos.example/trouser-456",
+        url: "https://www.cos.example/tapered-wool-trouser",
         color: "charcoal",
-        sizes: ["46", "48", "50"],
+        sizes: ["34","36","38","40","42"],
+      },
+      {
+        id: "tw-top-003",
+        brand: "Toteme",
+        title: "Contour Rib Long-Sleeve",
+        ...euro(160),
+        retailer: "SSENSE",
+        url: "https://www.ssense.example/toteme-contour-rib",
+        color: "ivory",
+        sizes: ["XS","S","M","L"],
       },
     ],
     query,
-    country,
-    budgetMax,
-    color,
   };
 }
 
