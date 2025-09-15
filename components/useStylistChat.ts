@@ -3,12 +3,17 @@
 
 import { useCallback, useRef, useState } from "react";
 
-export type Msg = { id: string; role: "user" | "assistant" | "tool"; content: string; meta?: any };
+export type Msg = {
+  id: string;
+  role: "user" | "assistant" | "tool";
+  content: string;
+  meta?: any;
+};
 
 type SendOptions = {
   text?: string;
   imageUrl?: string;
-  preferences?: any; // pass your collected sizes/body type/budget/country
+  preferences?: any;
 };
 
 type SSEHandler = (event: string, data: any) => void;
@@ -35,7 +40,7 @@ function parseSSE(chunk: string, handle: SSEHandler, carry = "") {
     }
     handle(event, payload);
   }
-  return buf; // leftover for next chunk
+  return buf;
 }
 
 export function useStylistChat(endpoint = "/api/chat") {
@@ -58,42 +63,40 @@ export function useStylistChat(endpoint = "/api/chat") {
       setDraft("");
       setLoading(true);
 
-      // Abort any previous request
       abortRef.current?.abort();
       abortRef.current = new AbortController();
+
+      // Build conversation with multi-part image messages when present
+      const history = messages.map((mm) => {
+        if (mm.role !== "user") return { role: mm.role, content: mm.content } as const;
+        if (mm.meta?.imageUrl) {
+          return {
+            role: "user",
+            content: [
+              { type: "text", text: mm.content },
+              { type: "image_url", image_url: { url: mm.meta.imageUrl } },
+            ],
+          } as const;
+        }
+        return { role: "user", content: mm.content } as const;
+      });
+
+      const last =
+        imageUrl
+          ? {
+              role: "user",
+              content: [
+                { type: "text", text: text || "" },
+                { type: "image_url", image_url: { url: imageUrl } },
+              ],
+            }
+          : { role: "user", content: text || "" };
 
       const res = await fetch(endpoint, {
         method: "POST",
         signal: abortRef.current.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            ...messages.map((mm) => {
-              if (mm.role !== "user") return { role: mm.role, content: mm.content };
-              // If user message had an image, send multi-part content
-              if (mm.meta?.imageUrl) {
-                return {
-                  role: "user",
-                  content: [
-                    { type: "text", text: mm.content },
-                    { type: "image_url", image_url: { url: mm.meta.imageUrl } },
-                  ],
-                };
-              }
-              return { role: "user", content: mm.content };
-            }),
-            imageUrl
-              ? {
-                  role: "user",
-                  content: [
-                    { type: "text", text: text || "" },
-                    { type: "image_url", image_url: { url: imageUrl } },
-                  ],
-                }
-              : { role: "user", content: text || "" },
-          ],
-          preferences,
-        }),
+        body: JSON.stringify({ messages: [...history, last], preferences }),
       });
 
       if (!res.ok || !res.body) {
@@ -109,14 +112,13 @@ export function useStylistChat(endpoint = "/api/chat") {
       const decoder = new TextDecoder();
       let carry = "";
 
-      const handleEvent: SSEHandler = (event, data) => {
+      const onEvent: SSEHandler = (event, data) => {
         switch (event) {
           case "assistant_draft_delta":
           case "assistant_delta":
             setDraft((d) => d + (data?.text || ""));
             break;
           case "assistant_draft_done":
-            // keep draft visible until final arrives
             break;
           case "tool_call":
             setMessages((m) => [
@@ -130,7 +132,7 @@ export function useStylistChat(endpoint = "/api/chat") {
               {
                 id: crypto.randomUUID(),
                 role: "tool",
-                content: data?.ok ? "✅ results received" : `⚠️ tool error`,
+                content: data?.ok ? "✅ results received" : "⚠️ tool error",
                 meta: data,
               },
             ]);
@@ -153,7 +155,6 @@ export function useStylistChat(endpoint = "/api/chat") {
             setLoading(false);
             break;
           default:
-            // ignore pings/unknowns
             break;
         }
       };
@@ -161,7 +162,7 @@ export function useStylistChat(endpoint = "/api/chat") {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        carry = parseSSE(decoder.decode(value, { stream: true }), handleEvent, carry);
+        carry = parseSSE(decoder.decode(value, { stream: true }), onEvent, carry);
       }
     },
     [endpoint, messages]
