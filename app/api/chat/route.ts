@@ -1,24 +1,34 @@
 // app/api/chat/route.ts
-import OpenAI from "openai";
+export const runtime = "edge";
+
 import type { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 import { toolSchemas, runTool } from "./tools";
 
-export const runtime = "edge";
-
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
+
+type ChatMessage =
+  | { role: "system" | "user" | "assistant"; content: string | any }
+  | { role: "tool"; tool_call_id: string; content: string };
 
 type ToolCallDelta = {
   id?: string;
   function?: { name?: string; arguments?: string };
+  type?: "function";
+  index?: number;
 };
 
-function safeJSON(s: string) {
-  try { return JSON.parse(s || "{}"); } catch { return {}; }
+function sse(event: string, data: unknown) {
+  return `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`;
 }
 
-function sseChunk(event: string, data: unknown) {
-  return `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`;
+function safeJSON(s: string) {
+  try {
+    return JSON.parse(s || "{}");
+  } catch {
+    return {};
+  }
 }
 
 function prefsToSystem(prefs: any) {
@@ -33,7 +43,9 @@ function prefsToSystem(prefs: any) {
     weight = "",
   } = prefs || {};
 
-  const sizeStr = Object.entries(sizes || {}).map(([k, v]) => `${k}: ${v}`).join(", ");
+  const sizeStr = Object.entries(sizes || {})
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(", ");
 
   return [
     `### USER PROFILE`,
@@ -138,159 +150,219 @@ Capsule & Tips:
   return text;
 }
 
+/** Stream OpenAI REST completions and yield parsed JSON events line by line. */
+async function* openaiStream(body: any) {
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) throw new Error(`OpenAI HTTP ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let carry = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    carry += chunk;
+    while (true) {
+      const idx = carry.indexOf("\n\n");
+      if (idx === -1) break;
+      const raw = carry.slice(0, idx);
+      carry = carry.slice(idx + 2);
+      // lines may be multiple "data:" lines
+      const dataLines = raw
+        .split("\n")
+        .filter((l) => l.startsWith("data: "))
+        .map((l) => l.slice(6).trim());
+
+      for (const dl of dataLines) {
+        if (dl === "[DONE]") {
+          yield { done: true };
+          return;
+        }
+        try {
+          const json = JSON.parse(dl);
+          yield json;
+        } catch {
+          // ignore parse errors on keep-alives
+        }
+      }
+    }
+  }
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { messages = [], preferences } = body || {};
   const userText = lastUserText(messages);
 
-  let msgStack: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+  const msgStack: ChatMessage[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
     { role: "system", content: prefsToSystem(preferences) },
     ...(Array.isArray(messages) ? messages : []),
   ];
 
-  const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = (toolSchemas || []).map((fn) => ({
+  const tools = (toolSchemas || []).map((fn) => ({
     type: "function",
     function: { name: fn.name, description: fn.description, parameters: fn.schema },
   }));
 
   const stream = new ReadableStream({
     async start(controller) {
-      controller.enqueue(sseChunk("ready", { ok: true }));
-      const ping = setInterval(() => controller.enqueue(sseChunk("ping", { t: Date.now() })), 15000);
+      // Early heartbeat so client UI never “hangs”
+      controller.enqueue(sse("ready", { ok: true }));
+      const ping = setInterval(() => controller.enqueue(sse("ping", { t: Date.now() })), 15000);
 
       const finish = (ok = true) => {
-        try { controller.enqueue(sseChunk("done", { ok })); } catch {}
+        try { controller.enqueue(sse("done", { ok })); } catch {}
         clearInterval(ping);
         controller.close();
       };
 
-      // DEMO path (no API key)
+      // DEMO path
       if (!HAS_OPENAI) {
         const text = await demoResponse(preferences, userText);
-        for (const chunk of text.match(/.{1,240}/g) || []) {
-          controller.enqueue(sseChunk("assistant_draft_delta", { text: chunk }));
+        for (const chunk of text.match(/.{1,220}/g) || []) {
+          controller.enqueue(sse("assistant_draft_delta", { text: chunk }));
         }
-        controller.enqueue(sseChunk("assistant_draft_done", {}));
-        controller.enqueue(sseChunk("assistant_final", { text }));
+        controller.enqueue(sse("assistant_draft_done", {}));
+        controller.enqueue(sse("assistant_final", { text }));
         finish(true);
         return;
       }
 
-      // NORMAL path: instantiate client here so it's never possibly null to TS
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+      // 1) Primary streaming call with tools enabled
+      const toolCalls: Record<
+        string,
+        { name: string; arguments: string }
+      > = {};
 
-      async function runOnce(
-        msgs: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-        emitDraft: boolean
-      ): Promise<void> {
-        let accText = "";
-        const toolCallsMap: Record<string, { name: string; arguments: string }> = {};
-
-        let completion: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
-        try {
-          completion = await client.chat.completions.create({
-            model: "gpt-4o-mini",
-            temperature: 0.7,
-            messages: msgs,
-            tools,
-            tool_choice: "auto",
-            stream: true,
-          });
-        } catch {
-          const text = await demoResponse(preferences, userText);
-          controller.enqueue(sseChunk("assistant_final", { text }));
-          finish(false);
-          return;
-        }
-
-        try {
-          for await (const part of completion) {
-            const choice = part.choices?.[0];
-            if (!choice) continue;
-
-            const deltaText = (choice.delta?.content as string) || "";
-            if (deltaText) {
-              accText += deltaText;
-              controller.enqueue(sseChunk(emitDraft ? "assistant_draft_delta" : "assistant_delta", { text: deltaText }));
-            }
-
-            const tcs = choice.delta?.tool_calls as ToolCallDelta[] | undefined;
-            if (tcs?.length) {
-              for (const d of tcs) {
-                if (!d) continue;
-                const id = d.id!;
-                const name = d.function?.name || toolCallsMap[id]?.name || "unknown";
-                const argsChunk = d.function?.arguments || "";
-                toolCallsMap[id] = { name, arguments: (toolCallsMap[id]?.arguments || "") + argsChunk };
-              }
-            }
-            if (choice.finish_reason) break;
-          }
-        } catch {
-          const text = await demoResponse(preferences, userText);
-          controller.enqueue(sseChunk("assistant_final", { text }));
-          finish(false);
-          return;
-        }
-
-        if (emitDraft) controller.enqueue(sseChunk("assistant_draft_done", { text: accText }));
-
-        const entries = Object.entries(toolCallsMap);
-        if (entries.length) {
-          const toolResults: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
-          for (const [id, { name, arguments: argStr }] of entries) {
-            const args = safeJSON(argStr);
-            controller.enqueue(sseChunk("tool_call", { id, name, args }));
-            try {
-              const result = await runTool(name, args, { preferences });
-              controller.enqueue(sseChunk("tool_result", { id, ok: true, result }));
-              toolResults.push({ role: "tool", tool_call_id: id, content: JSON.stringify(result) } as any);
-            } catch (err: any) {
-              controller.enqueue(sseChunk("tool_result", { id, ok: false, error: err?.message || "Tool error" }));
-              toolResults.push({ role: "tool", tool_call_id: id, content: JSON.stringify({ error: "Tool error" }) } as any);
-            }
-          }
-          msgStack.push({ role: "assistant", content: "" } as any, ...toolResults);
-          return runOnce(msgStack, false);
-        }
-
-        // Critique pass (non-stream)
-        let finalText = accText;
-        try {
-          const critique = await client.chat.completions.create({
-            model: "gpt-4o-mini",
-            temperature: 0.4,
-            messages: [
-              ...msgStack,
-              { role: "assistant", content: accText },
-              {
-                role: "system",
-                content: [
-                  "Refine the assistant answer with these checks:",
-                  "1) Each item has brand + exact name, price, retailer, tool-derived link.",
-                  "2) Body-type reasons explicit (rise, neckline, hem, fabric).",
-                  "3) Respect budget; include total and a save option if needed.",
-                  "4) Alternates for shoes + outerwear.",
-                  "5) 'Capsule & Tips' (2–3 remixes + 2 tips).",
-                  "6) No invented links.",
-                ].join("\n"),
-              },
-            ],
-          });
-          finalText = critique.choices?.[0]?.message?.content || accText;
-        } catch {
-          // keep accText
-        }
-
-        controller.enqueue(sseChunk("assistant_final", { text: finalText }));
-      }
-
+      let accText = "";
       try {
-        await runOnce(msgStack, true);
-      } finally {
-        finish(true);
+        for await (const evt of openaiStream({
+          model: "gpt-4o-mini",
+          temperature: 0.7,
+          stream: true,
+          tool_choice: "auto",
+          tools,
+          messages: msgStack,
+        })) {
+          // End of stream (first hop)
+          if ((evt as any).done) break;
+
+          const choice = (evt as any).choices?.[0];
+          if (!choice) continue;
+
+          const delta = choice.delta || {};
+
+          // text deltas
+          if (typeof delta.content === "string" && delta.content) {
+            accText += delta.content;
+            controller.enqueue(sse("assistant_draft_delta", { text: delta.content }));
+          }
+
+          // tool call deltas
+          const tcs = delta.tool_calls as ToolCallDelta[] | undefined;
+          if (tcs?.length) {
+            for (const d of tcs) {
+              const id = d.id!;
+              const name = d.function?.name || toolCalls[id]?.name || "unknown";
+              const argsChunk = d.function?.arguments || "";
+              toolCalls[id] = {
+                name,
+                arguments: (toolCalls[id]?.arguments || "") + argsChunk,
+              };
+            }
+          }
+
+          if (choice.finish_reason) {
+            // end of first hop
+            break;
+          }
+        }
+      } catch (err) {
+        // Fallback immediately
+        const text = await demoResponse(preferences, userText);
+        controller.enqueue(sse("assistant_final", { text }));
+        finish(false);
+        return;
       }
+
+      controller.enqueue(sse("assistant_draft_done", { text: accText }));
+
+      const toolEntries = Object.entries(toolCalls);
+
+      // 2) If tools were requested, execute them and do a second (non-stream) call for final
+      if (toolEntries.length) {
+        const toolMsgs: ChatMessage[] = [];
+        for (const [id, { name, arguments: argStr }] of toolEntries) {
+          const args = safeJSON(argStr);
+          controller.enqueue(sse("tool_call", { id, name, args }));
+          try {
+            const result = await runTool(name, args, { preferences });
+            controller.enqueue(sse("tool_result", { id, ok: true, result }));
+            toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify(result) });
+          } catch (err: any) {
+            const error = err?.message || "Tool error";
+            controller.enqueue(sse("tool_result", { id, ok: false, error }));
+            toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify({ error }) });
+          }
+        }
+
+        // Second call (non-stream) to compose the refined final using tool results
+        try {
+          const res = await fetch(OPENAI_URL, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              temperature: 0.4,
+              stream: false,
+              messages: [
+                ...msgStack,
+                { role: "assistant", content: accText },
+                ...toolMsgs,
+                {
+                  role: "system",
+                  content: [
+                    "Refine the assistant answer with these checks:",
+                    "1) Each item has brand + exact name, price, retailer, tool-derived link.",
+                    "2) Body-type reasons explicit (rise, neckline, hem, fabric).",
+                    "3) Respect budget; include total and a save option if needed.",
+                    "4) Alternates for shoes + outerwear.",
+                    "5) 'Capsule & Tips' (2–3 remixes + 2 tips).",
+                    "6) No invented links.",
+                  ].join("\n"),
+                },
+              ],
+            }),
+          });
+          const json = await res.json();
+          const finalText =
+            json?.choices?.[0]?.message?.content || accText || "I found options, but couldn’t compose the final text.";
+          controller.enqueue(sse("assistant_final", { text: finalText }));
+          finish(true);
+          return;
+        } catch {
+          // fall back to draft
+          controller.enqueue(sse("assistant_final", { text: accText }));
+          finish(false);
+          return;
+        }
+      }
+
+      // 3) No tool calls → finalize with the draft (or critique optionally)
+      controller.enqueue(sse("assistant_final", { text: accText || "Let’s try that again with more detail." }));
+      finish(true);
     },
   });
 
@@ -303,4 +375,3 @@ export async function POST(req: NextRequest) {
     },
   });
 }
-
