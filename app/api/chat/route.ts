@@ -1,5 +1,8 @@
 // app/api/chat/route.ts
 export const runtime = "edge";
+// If you're deploying on Vercel Edge and want global availability,
+// you can optionally pin a region, but it's not required.
+// export const preferredRegion = "iad1";
 
 import type { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
@@ -7,6 +10,8 @@ import { toolSchemas, runTool } from "./tools";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
+
+/** ---------- Utilities ---------- */
 
 type ChatMessage =
   | { role: "system" | "user" | "assistant"; content: string | any }
@@ -81,76 +86,66 @@ function lastUserText(messages: any[]): string {
   return "";
 }
 
-/** Deterministic, tool-backed demo output (used when no API key or on upstream errors). */
-async function demoResponse(preferences: any, userText: string) {
+/** Quick “optimistic” draft that uses tools + prefs so the UI replies instantly. */
+async function optimisticDraft(preferences: any, userText: string) {
   const country = preferences?.country || "NL";
-  const results = {
-    top: await runTool("retailer_search", { query: "ivory rib long-sleeve top women", country, limit: 6 }),
-    bottom: await runTool("retailer_search", { query: "charcoal tapered wool trousers women", country, limit: 6 }),
-    outer: await runTool("retailer_search", { query: "black tailored coat women", country, limit: 6 }),
-    shoes: await runTool("retailer_search", { query: "black leather ankle boots women", country, limit: 6 }),
-    bag: await runTool("retailer_search", { query: "black leather shoulder bag women", country, limit: 6 }),
-    acc1: await runTool("retailer_search", { query: "gold hoop earrings", country, limit: 6 }),
-  } as any;
 
-  function pick(o: any, fallback: string) {
-    return o?.items?.[0] || { brand: "RunwayTwin", title: fallback, price: 120, currency: "EUR", retailer: "Demo", url: "https://example.com" };
-  }
+  // Pull a few quick items using our demo search tool (replace with real catalog later).
+  const [topR, trouR, coatR, shoeR, bagR, accR] = await Promise.all([
+    runTool("retailer_search", { query: "ivory rib long-sleeve top women", country, limit: 3 }),
+    runTool("retailer_search", { query: "charcoal tapered wool trousers women", country, limit: 3 }),
+    runTool("retailer_search", { query: "black tailored coat women", country, limit: 3 }),
+    runTool("retailer_search", { query: "black leather ankle boots women", country, limit: 3 }),
+    runTool("retailer_search", { query: "black leather shoulder bag women", country, limit: 3 }),
+    runTool("retailer_search", { query: "gold hoop earrings", country, limit: 3 }),
+  ] as const);
 
-  const top = pick(results.top, "Rib Knit");
-  const bottom = pick(results.bottom, "Wool Trouser");
-  const outer = pick(results.outer, "Tailored Coat");
-  const shoes = pick(results.shoes, "Leather Boot");
-  const bag = pick(results.bag, "Leather Shoulder Bag");
-  const acc = pick(results.acc1, "Gold Hoop Earrings");
+  const pick = (r: any) => r?.items?.[0];
 
-  const total = [top, bottom, outer, shoes, bag].reduce((s, x) => s + (Number(x.price) || 0), 0);
-  const euro = (n: number) => `€${Math.round(n)}`;
+  const top = pick(topR);
+  const trou = pick(trouR);
+  const coat = pick(coatR);
+  const shoe = pick(shoeR);
+  const bag = pick(bagR);
+  const acc = pick(accR);
 
-  const concept = `Sculpted minimalism with Zendaya’s sharp proportions — elongated lines, clean monochrome, and a controlled sheen.`;
+  const euro = (n: number) => `€${Math.round(Number(n) || 0)}`;
+  const total =
+    [top, trou, coat, shoe, bag].reduce((s, x) => s + (Number(x?.price) || 0), 0);
 
-  const outfitLines = [
-    `- Top — ${top.brand} ${top.title} (${euro(top.price)}, ${top.retailer}) · ${top.url}`,
-    `- Trousers — ${bottom.brand} ${bottom.title} (${euro(bottom.price)}, ${bottom.retailer}) · ${bottom.url}`,
-    `- Outerwear — ${outer.brand} ${outer.title} (${euro(outer.price)}, ${outer.retailer}) · ${outer.url}`,
-    `- Shoes — ${shoes.brand} ${shoes.title} (${euro(shoes.price)}, ${shoes.retailer}) · ${shoes.url}`,
-    `- Bag — ${bag.brand} ${bag.title} (${euro(bag.price)}, ${bag.retailer}) · ${bag.url}`,
-    `- Accessories — ${acc.brand} ${acc.title} (${euro(acc.price || 45)}, ${acc.retailer}) · ${acc.url}`,
-  ].join("\n");
+  const concept = `Editorial minimalism with celebrity-level polish — clean lines, elongated silhouette, and a controlled monochrome palette.`;
 
   const bodyType = (preferences?.bodyType || "your frame")
     .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase());
 
-  const text =
-`Stylist POV: ${concept}
+  const bullets: string[] = [];
+  bullets.push(`Stylist POV: ${concept}`);
+  bullets.push(``);
+  bullets.push(`Outfit:`);
+  if (top) bullets.push(`- Top — ${top.brand} ${top.title} (${euro(top.price)}, ${top.retailer}) · ${top.url}`);
+  if (trou) bullets.push(`- Trousers — ${trou.brand} ${trou.title} (${euro(trou.price)}, ${trou.retailer}) · ${trou.url}`);
+  if (coat) bullets.push(`- Outerwear — ${coat.brand} ${coat.title} (${euro(coat.price)}, ${coat.retailer}) · ${coat.url}`);
+  if (shoe) bullets.push(`- Shoes — ${shoe.brand} ${shoe.title} (${euro(shoe.price)}, ${shoe.retailer}) · ${shoe.url}`);
+  if (bag) bullets.push(`- Bag — ${bag.brand} ${bag.title} (${euro(bag.price)}, ${bag.retailer}) · ${bag.url}`);
+  if (acc) bullets.push(`- Accessories — ${acc.brand} ${acc.title} (${euro(acc.price)}, ${acc.retailer}) · ${acc.url}`);
 
-Outfit:
-${outfitLines}
+  bullets.push(``);
+  bullets.push(`Why it flatters:`);
+  bullets.push(`- ${bodyType}: high-rise trouser lengthens the leg; fitted rib balances the coat; pointed boot extends the line.`);
+  bullets.push(`- Fabric mix: wool + polished leather reads formal without glare in flash photos.`);
+  bullets.push(``);
+  bullets.push(`Budget & Total: ~${euro(total)} (swap coat for Arket to save ~€80).`);
+  bullets.push(``);
+  bullets.push(`Capsule & Tips:`);
+  bullets.push(`- Remix the rib top with denim + the coat; or the trousers with a silk camisole and pumps.`);
+  bullets.push(`- Tailor trouser hem to skim boot shaft; a soft brown liner + clear gloss keeps it modern.`);
+  bullets.push(``);
+  bullets.push(`(You said: “${userText || "Outfit request"}”)`);
 
-Why it flatters:
-- ${bodyType}: high-rise tailored trouser lengthens the leg; slim rib top defines the waist; long coat creates one sleek column.
-- Proportion play: cropped sleeve or pushed cuffs highlight forearms; pointed boots extend the line under a straight hem.
-- Fabric mix: wool + polished leather = formal without glare in photos.
-
-Alternates:
-- Shoes — Aeyde Ella Pump (≈€290, Zalando) · https://www.zalando.example/aeyde-ella
-- Outerwear — Arket Double-Faced Coat (≈€260, Arket) · https://www.arket.example/dbl-coat
-
-Budget & Total:
-- Estimated total (primary items): ~${euro(total)}
-- Save move: swap coat for Arket option; total drops by ~€80.
-
-Capsule & Tips:
-- Remix: pair the rib top with vintage denim and the coat; or style the trousers with a silk camisole and the pumps.
-- Tip 1: hem trousers to skim the boot shaft for a continuous line.
-- Tip 2: a soft brown eyeliner + clear gloss keeps the look modern, not too formal.
-
-(You asked: “${userText || "Outfit request"}”)`;
-
-  return text;
+  return bullets.join("\n");
 }
 
-/** Stream OpenAI REST completions and yield parsed JSON events line by line. */
+/** Low-level OpenAI streaming helper (REST + SSE) */
 async function* openaiStream(body: any) {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
@@ -175,34 +170,31 @@ async function* openaiStream(body: any) {
       if (idx === -1) break;
       const raw = carry.slice(0, idx);
       carry = carry.slice(idx + 2);
-      // lines may be multiple "data:" lines
-      const dataLines = raw
-        .split("\n")
-        .filter((l) => l.startsWith("data: "))
-        .map((l) => l.slice(6).trim());
-
-      for (const dl of dataLines) {
-        if (dl === "[DONE]") {
+      const lines = raw.split("\n").filter((l) => l.startsWith("data: "));
+      for (const line of lines) {
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") {
           yield { done: true };
           return;
         }
         try {
-          const json = JSON.parse(dl);
-          yield json;
+          yield JSON.parse(data);
         } catch {
-          // ignore parse errors on keep-alives
+          // ignore keep-alives
         }
       }
     }
   }
 }
 
+/** ---------- Route ---------- */
+
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const { messages = [], preferences } = body || {};
+  const payload = await req.json().catch(() => ({}));
+  const { messages = [], preferences } = payload || {};
   const userText = lastUserText(messages);
 
-  const msgStack: ChatMessage[] = [
+  const baseMsgs: ChatMessage[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
     { role: "system", content: prefsToSystem(preferences) },
     ...(Array.isArray(messages) ? messages : []),
@@ -215,59 +207,58 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Early heartbeat so client UI never “hangs”
+      // initial liveness
       controller.enqueue(sse("ready", { ok: true }));
-      const ping = setInterval(() => controller.enqueue(sse("ping", { t: Date.now() })), 15000);
-
-      const finish = (ok = true) => {
+      const pinger = setInterval(() => controller.enqueue(sse("ping", { t: Date.now() })), 15000);
+      const end = (ok = true) => {
         try { controller.enqueue(sse("done", { ok })); } catch {}
-        clearInterval(ping);
+        clearInterval(pinger);
         controller.close();
       };
 
-      // DEMO path
-      if (!HAS_OPENAI) {
-        const text = await demoResponse(preferences, userText);
-        for (const chunk of text.match(/.{1,220}/g) || []) {
+      // 0) **Optimistic draft** — reply instantly using our local generator + tools
+      try {
+        const draft = await optimisticDraft(preferences, userText);
+        for (const chunk of draft.match(/.{1,220}/g) || []) {
           controller.enqueue(sse("assistant_draft_delta", { text: chunk }));
         }
         controller.enqueue(sse("assistant_draft_done", {}));
-        controller.enqueue(sse("assistant_final", { text }));
-        finish(true);
+      } catch {
+        // even if this fails, continue to model path
+      }
+
+      // 1) **Model path** — try OpenAI; if anything fails, finalize with the optimistic draft already sent
+      if (!HAS_OPENAI) {
+        // no key → finalize with draft only
+        // (The optimistic draft already streamed. We still send a final event to satisfy the UI.)
+        controller.enqueue(sse("assistant_final", { text: "" }));
+        end(true);
         return;
       }
 
-      // 1) Primary streaming call with tools enabled
-      const toolCalls: Record<
-        string,
-        { name: string; arguments: string }
-      > = {};
-
+      const toolCalls: Record<string, { name: string; arguments: string }> = {};
       let accText = "";
+
       try {
+        // 1st hop: stream draft + collect tool calls
         for await (const evt of openaiStream({
           model: "gpt-4o-mini",
           temperature: 0.7,
           stream: true,
           tool_choice: "auto",
           tools,
-          messages: msgStack,
+          messages: baseMsgs,
         })) {
-          // End of stream (first hop)
-          if ((evt as any).done) break;
-
           const choice = (evt as any).choices?.[0];
           if (!choice) continue;
 
           const delta = choice.delta || {};
 
-          // text deltas
           if (typeof delta.content === "string" && delta.content) {
             accText += delta.content;
-            controller.enqueue(sse("assistant_draft_delta", { text: delta.content }));
+            controller.enqueue(sse("assistant_delta", { text: delta.content }));
           }
 
-          // tool call deltas
           const tcs = delta.tool_calls as ToolCallDelta[] | undefined;
           if (tcs?.length) {
             for (const d of tcs) {
@@ -281,27 +272,21 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          if (choice.finish_reason) {
-            // end of first hop
-            break;
-          }
+          if (choice.finish_reason) break;
         }
-      } catch (err) {
-        // Fallback immediately
-        const text = await demoResponse(preferences, userText);
-        controller.enqueue(sse("assistant_final", { text }));
-        finish(false);
+      } catch {
+        // model failed; finalize with whatever we already drafted
+        controller.enqueue(sse("assistant_final", { text: accText || "" }));
+        end(false);
         return;
       }
 
-      controller.enqueue(sse("assistant_draft_done", { text: accText }));
-
-      const toolEntries = Object.entries(toolCalls);
-
-      // 2) If tools were requested, execute them and do a second (non-stream) call for final
-      if (toolEntries.length) {
+      // tools?
+      const entries = Object.entries(toolCalls);
+      if (entries.length) {
         const toolMsgs: ChatMessage[] = [];
-        for (const [id, { name, arguments: argStr }] of toolEntries) {
+
+        for (const [id, { name, arguments: argStr }] of entries) {
           const args = safeJSON(argStr);
           controller.enqueue(sse("tool_call", { id, name, args }));
           try {
@@ -309,13 +294,12 @@ export async function POST(req: NextRequest) {
             controller.enqueue(sse("tool_result", { id, ok: true, result }));
             toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify(result) });
           } catch (err: any) {
-            const error = err?.message || "Tool error";
-            controller.enqueue(sse("tool_result", { id, ok: false, error }));
-            toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify({ error }) });
+            controller.enqueue(sse("tool_result", { id, ok: false, error: err?.message || "Tool error" }));
+            toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify({ error: "Tool error" }) });
           }
         }
 
-        // Second call (non-stream) to compose the refined final using tool results
+        // 2nd hop: non-stream final w/ tool results + critique rules
         try {
           const res = await fetch(OPENAI_URL, {
             method: "POST",
@@ -328,7 +312,7 @@ export async function POST(req: NextRequest) {
               temperature: 0.4,
               stream: false,
               messages: [
-                ...msgStack,
+                ...baseMsgs,
                 { role: "assistant", content: accText },
                 ...toolMsgs,
                 {
@@ -347,22 +331,20 @@ export async function POST(req: NextRequest) {
             }),
           });
           const json = await res.json();
-          const finalText =
-            json?.choices?.[0]?.message?.content || accText || "I found options, but couldn’t compose the final text.";
+          const finalText = json?.choices?.[0]?.message?.content || accText || "";
           controller.enqueue(sse("assistant_final", { text: finalText }));
-          finish(true);
+          end(true);
           return;
         } catch {
-          // fall back to draft
-          controller.enqueue(sse("assistant_final", { text: accText }));
-          finish(false);
+          controller.enqueue(sse("assistant_final", { text: accText || "" }));
+          end(false);
           return;
         }
       }
 
-      // 3) No tool calls → finalize with the draft (or critique optionally)
-      controller.enqueue(sse("assistant_final", { text: accText || "Let’s try that again with more detail." }));
-      finish(true);
+      // No tool calls → finalize with streamed model text (or empty if none)
+      controller.enqueue(sse("assistant_final", { text: accText || "" }));
+      end(true);
     },
   });
 
@@ -375,3 +357,4 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
