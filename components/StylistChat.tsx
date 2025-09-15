@@ -29,11 +29,11 @@ export default function StylistChat({ preferences }: Props) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
-      {/* CHAT */}
-      <div className="flex min-h-[70vh] max-h-[78vh] flex-col rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-black/30 backdrop-blur">
-        <header className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
-          <h2 className="text-lg font-semibold tracking-tight">Talk to Your AI Stylist</h2>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">
+      {/* CHAT PANEL */}
+      <div className="card flex min-h-[68vh] max-h-[78vh] flex-col overflow-hidden">
+        <header className="px-5 py-4 border-b" style={{ borderColor: "var(--rt-border)" }}>
+          <h2 className="text-[15px] font-semibold tracking-tight">Talk to Your AI Stylist</h2>
+          <p className="mt-1 text-[13px]" style={{ color: "var(--rt-charcoal)" }}>
             Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
           </p>
         </header>
@@ -41,18 +41,23 @@ export default function StylistChat({ preferences }: Props) {
         <div
           ref={viewportRef}
           onScroll={onScroll}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
+          className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
         >
           {messages.map((m) => (
             <div key={m.id} className={m.role === "user" ? "text-right" : "text-left"}>
               <div
                 className={
-                  "inline-block max-w-[80%] whitespace-pre-wrap leading-relaxed rounded-xl px-4 py-3 " +
+                  "inline-block max-w-[80%] whitespace-pre-wrap leading-relaxed rounded-2xl px-4 py-3 " +
                   (m.role === "user"
                     ? "bg-black text-white"
                     : m.role === "tool"
-                    ? "bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300"
-                    : "bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800")
+                    ? "bg-[var(--rt-ivory)] text-[var(--rt-charcoal)]"
+                    : "border")
+                }
+                style={
+                  m.role === "assistant"
+                    ? { borderColor: "var(--rt-border)", background: "white" }
+                    : undefined
                 }
               >
                 {m.content}
@@ -62,7 +67,10 @@ export default function StylistChat({ preferences }: Props) {
 
           {!!draft && (
             <div className="text-left">
-              <div className="inline-block max-w-[80%] whitespace-pre-wrap rounded-xl px-4 py-3 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
+              <div
+                className="inline-block max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-3 border"
+                style={{ borderColor: "var(--rt-border)", background: "white" }}
+              >
                 {draft}
                 <span className="ml-1 animate-pulse">▍</span>
               </div>
@@ -71,7 +79,8 @@ export default function StylistChat({ preferences }: Props) {
         </div>
 
         <form
-          className="p-3 border-t border-neutral-200 dark:border-neutral-800 flex gap-2"
+          className="px-3 py-3 border-t flex gap-2 items-center"
+          style={{ borderColor: "var(--rt-border)" }}
           onSubmit={(e) => {
             e.preventDefault();
             if (!input.trim()) return;
@@ -80,7 +89,11 @@ export default function StylistChat({ preferences }: Props) {
           }}
         >
           <input
-            className="flex-1 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20"
+            className="flex-1 h-10 rounded-full border px-4 text-[14px] outline-none"
+            style={{
+              borderColor: "var(--rt-border)",
+              background: "rgba(255,255,255,.9)",
+            }}
             placeholder="“Zendaya, Paris gallery opening, 18°C drizzle, smart-casual”"
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -95,29 +108,31 @@ export default function StylistChat({ preferences }: Props) {
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="rounded-xl bg-black text-white px-4 py-3 disabled:opacity-50"
+            className="btn"
+            style={{ opacity: loading || !input.trim() ? 0.6 : 1 }}
           >
             {loading ? "Styling…" : "Send"}
           </button>
         </form>
       </div>
 
-      {/* RIGHT: Sticky rail (no whitespace abyss) */}
+      {/* RIGHT RAIL (Sticky, matches your site cards) */}
       <aside className="hidden lg:block">
         <div className="sticky top-4 space-y-4">
-          <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-black/30 backdrop-blur p-4">
-            <h3 className="font-semibold">Your Preferences</h3>
-            <pre className="text-xs text-neutral-600 dark:text-neutral-300 whitespace-pre-wrap mt-2">
+          <div className="card p-4">
+            <h3 className="font-semibold text-[15px]">Your Preferences</h3>
+            <pre className="mt-2 text-[12px] leading-5 text-[var(--rt-charcoal)] whitespace-pre-wrap">
               {JSON.stringify(preferences, null, 2)}
             </pre>
-            <p className="text-[11px] mt-2 text-neutral-500">
-              These drive fit, budget, and local stock in real time.
+            <p className="text-[11px] mt-2" style={{ color: "var(--rt-muted)" }}>
+              Drives fit, budget, and local stock in real time.
             </p>
           </div>
-          <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-black/30 backdrop-blur p-4">
-            <h3 className="font-semibold">Pro Tip</h3>
-            <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              Mention dress code & weather for sharper picks (e.g., “cocktail, 26°C, rooftop drinks”).
+
+          <div className="card p-4">
+            <h3 className="font-semibold text-[15px]">Pro Tip</h3>
+            <p className="text-[13px] mt-1" style={{ color: "var(--rt-charcoal)" }}>
+              Add dress code + weather for sharper picks (e.g., “cocktail, 26°C, rooftop drinks”).
             </p>
           </div>
         </div>
