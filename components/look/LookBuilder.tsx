@@ -4,9 +4,20 @@
 import React, { useMemo } from "react";
 
 /**
- * Very forgiving parser that looks for the "Outfit" section and extracts lines like:
- * "- Top — BRAND Item (€120, Retailer) · [Link]"
- * It works with the stylist format we enforced in systemPrompt.
+ * Forgiving parser for the “Outfit” section the stylist outputs.
+ * Works without named regex groups (ES2018 not required).
+ *
+ * Expected line shape (flexible):
+ * - Top — BRAND Item (€120, Retailer) · [https://...]
+ * - Dress — BRAND Item ($240, NET-A-PORTER) · https://...
+ * - Shoes — BRAND Item (€150) · (https://...)
+ *
+ * Strategy:
+ *  1) Only consider bullet lines that contain an em dash "—".
+ *  2) category  = text before "—"
+ *  3) brandItem = between "—" and first "(" (if any), else to " · " or line end
+ *  4) details   = first (...) pair -> split by "," -> price, retailer
+ *  5) link      = first http(s):// URL anywhere in the line
  */
 function parseItems(text: string) {
   const items: {
@@ -19,25 +30,67 @@ function parseItems(text: string) {
 
   if (!text) return items;
 
-  // Try to isolate the Outfit section first
-  const outfitMatch = text.split(/(?:^|\n)Outfit\s*:\s*/i).pop() || text;
-  const lines = outfitMatch.split("\n");
+  // Prefer Outfit section when present
+  const parts = text.split(/(?:^|\n)Outfit\s*:?\s*/i);
+  const outfitBlock = parts.length > 1 ? parts.slice(1).join("\n") : text;
+  const lines = outfitBlock.split(/\r?\n/);
 
-  const re =
-    /^\s*[-•]\s*(?<cat>[A-Za-z /&]+)\s+—\s+(?<brandItem>.+?)\s*\((?<price>[^,()]+)?(?:,\s*(?<retailer>[^()]+))?\)\s*·\s*\[(?<link>https?:\/\/[^\]]+)\]/;
+  for (let raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (!/^[•\-]/.test(line)) continue;         // must start with a bullet
+    if (!line.includes("—")) continue;          // must have an em dash
 
-  for (const raw of lines) {
-    const m = raw.match(re);
-    if (m?.groups) {
-      items.push({
-        category: m.groups.cat.trim(),
-        brandItem: m.groups.brandItem.trim(),
-        price: m.groups.price?.trim(),
-        retailer: m.groups.retailer?.trim(),
-        link: m.groups.link?.trim(),
-      });
+    // 1) Category
+    const dashIdx = line.indexOf("—");
+    const category = line.slice(1, dashIdx).replace(/[•\-]/, "").trim();
+    if (!category) continue;
+
+    // 2) brandItem (between "—" and first "(" or " · ")
+    const afterDash = line.slice(dashIdx + 1).trim();
+    const parenIdx = afterDash.indexOf("(");
+    const dotIdx = afterDash.indexOf("·");
+    let brandItem = "";
+    if (parenIdx !== -1) {
+      brandItem = afterDash.slice(0, parenIdx).trim().replace(/[–-]\s*$/,"");
+    } else if (dotIdx !== -1) {
+      brandItem = afterDash.slice(0, dotIdx).trim();
+    } else {
+      brandItem = afterDash.trim();
     }
+    brandItem = brandItem.replace(/\s+$/,"");
+
+    // 3) details in first (...) -> price, retailer
+    let price: string | undefined;
+    let retailer: string | undefined;
+    const firstParenStart = afterDash.indexOf("(");
+    if (firstParenStart !== -1) {
+      // find matching )
+      const afterParen = afterDash.slice(firstParenStart + 1);
+      const close = afterParen.indexOf(")");
+      if (close !== -1) {
+        const inside = afterParen.slice(0, close).trim();
+        if (inside) {
+          const parts = inside.split(",").map((s) => s.trim()).filter(Boolean);
+          if (parts.length === 1) {
+            // Could be price OR retailer
+            if (/[\d€$£]|USD|EUR|GBP/i.test(parts[0])) price = parts[0];
+            else retailer = parts[0];
+          } else if (parts.length >= 2) {
+            price = parts[0];
+            retailer = parts.slice(1).join(", "); // keep commas in retailer names
+          }
+        }
+      }
+    }
+
+    // 4) URL anywhere
+    const urlMatch = line.match(/https?:\/\/[^\s\])>]+/);
+    const link = urlMatch ? urlMatch[0] : undefined;
+
+    items.push({ category, brandItem, price, retailer, link });
   }
+
   return items;
 }
 
@@ -67,8 +120,11 @@ export default function LookBuilder({ text }: { text: string }) {
             rel="noopener noreferrer"
             className="group"
           >
-            <div className="aspect-[4/5] w-full rounded-2xl border mb-3 bg-[var(--rt-ivory)]"
-                 style={{ borderColor: "var(--rt-border)" }} />
+            {/* Placeholder image block – swap to real product images when tools return imageUrl */}
+            <div
+              className="aspect-[4/5] w-full rounded-2xl border mb-3 bg-[var(--rt-ivory)]"
+              style={{ borderColor: "var(--rt-border)" }}
+            />
             <div className="space-y-1">
               <div className="text-[12px] uppercase tracking-wide" style={{ color: "var(--rt-muted)" }}>
                 {it.category}
