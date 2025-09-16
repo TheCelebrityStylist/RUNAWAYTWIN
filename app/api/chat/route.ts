@@ -6,10 +6,20 @@ export const runtime = "edge";
 
 import type { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { toolSchemas, runTool } from "./tools";
+import { toolSchemas, createToolDispatcher } from "./tools";
+import type { ToolName } from "./tools";
+import { awinAdapter } from "./tools/adapters/awinAdapter";
+import { webAdapter } from "./tools/adapters/webAdapter";
+import { demoAdapter } from "./tools/adapters/demoAdapter";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
+
+const dispatcher = createToolDispatcher([awinAdapter, webAdapter, demoAdapter]);
+const { runTool } = dispatcher;
+
+const isToolName = (value: string): value is ToolName =>
+  toolSchemas.some((tool) => tool.name === value);
 
 /** ---------- Utilities ---------- */
 
@@ -90,17 +100,27 @@ function lastUserText(messages: any[]): string {
 async function optimisticDraft(preferences: any, userText: string) {
   const country = preferences?.country || "NL";
 
-  // Pull a few quick items using our demo search tool (replace with real catalog later).
+  const currencyPref = (preferences?.currency || "EUR").toUpperCase();
+  const ctx = { preferences };
+  const search = (query: string) =>
+    runTool(
+      "retailer_search",
+      { query, country, limit: 3 },
+      ctx
+    );
+
+  // Pull a few quick items using the adapters in order (affiliate → web → demo).
   const [topR, trouR, coatR, shoeR, bagR, accR] = await Promise.all([
-    runTool("retailer_search", { query: "ivory rib long-sleeve top women", country, limit: 3 }),
-    runTool("retailer_search", { query: "charcoal tapered wool trousers women", country, limit: 3 }),
-    runTool("retailer_search", { query: "black tailored coat women", country, limit: 3 }),
-    runTool("retailer_search", { query: "black leather ankle boots women", country, limit: 3 }),
-    runTool("retailer_search", { query: "black leather shoulder bag women", country, limit: 3 }),
-    runTool("retailer_search", { query: "gold hoop earrings", country, limit: 3 }),
+    search("ivory rib long-sleeve top women"),
+    search("charcoal tapered wool trousers women"),
+    search("black tailored coat women"),
+    search("black leather ankle boots women"),
+    search("black leather shoulder bag women"),
+    search("gold hoop earrings"),
   ] as const);
 
-  const pick = (r: any) => r?.items?.[0];
+  const pick = (r: any) =>
+    (r?.items || []).find((item: any) => item?.url || item?.link) || null;
 
   const top = pick(topR);
   const trou = pick(trouR);
@@ -109,9 +129,36 @@ async function optimisticDraft(preferences: any, userText: string) {
   const bag = pick(bagR);
   const acc = pick(accR);
 
-  const euro = (n: number) => `€${Math.round(Number(n) || 0)}`;
-  const total =
-    [top, trou, coat, shoe, bag].reduce((s, x) => s + (Number(x?.price) || 0), 0);
+  const money = (value?: number, currency?: string) => {
+    if (!Number.isFinite(value)) return "";
+    const code = (currency || currencyPref || "EUR").toUpperCase();
+    const symbol = code === "EUR" ? "€" : code === "USD" ? "$" : code === "GBP" ? "£" : `${code} `;
+    return `${symbol}${Math.round(Number(value))}`;
+  };
+
+  const formatPrice = (item: any) =>
+    money(Number(item?.price), typeof item?.currency === "string" ? item.currency : undefined);
+
+  const total = [top, trou, coat, shoe, bag].reduce(
+    (sum, item) => sum + (Number(item?.price) || 0),
+    0
+  );
+  const totalCurrency =
+    top?.currency ||
+    trou?.currency ||
+    coat?.currency ||
+    shoe?.currency ||
+    bag?.currency ||
+    currencyPref;
+
+  const describe = (label: string, item: any) => {
+    if (!item) return null;
+    const name =
+      [item.brand, item.title].filter(Boolean).join(" ").trim() || "Product";
+    const details = [formatPrice(item), item?.retailer].filter(Boolean).join(", ");
+    const link = item?.link || item?.url;
+    return `- ${label} — ${name}${details ? ` (${details})` : ""}${link ? ` · ${link}` : ""}`;
+  };
 
   const concept = `Editorial minimalism with celebrity-level polish — clean lines, elongated silhouette, and a controlled monochrome palette.`;
 
@@ -122,19 +169,24 @@ async function optimisticDraft(preferences: any, userText: string) {
   bullets.push(`Stylist POV: ${concept}`);
   bullets.push(``);
   bullets.push(`Outfit:`);
-  if (top) bullets.push(`- Top — ${top.brand} ${top.title} (${euro(top.price)}, ${top.retailer}) · ${top.url}`);
-  if (trou) bullets.push(`- Trousers — ${trou.brand} ${trou.title} (${euro(trou.price)}, ${trou.retailer}) · ${trou.url}`);
-  if (coat) bullets.push(`- Outerwear — ${coat.brand} ${coat.title} (${euro(coat.price)}, ${coat.retailer}) · ${coat.url}`);
-  if (shoe) bullets.push(`- Shoes — ${shoe.brand} ${shoe.title} (${euro(shoe.price)}, ${shoe.retailer}) · ${shoe.url}`);
-  if (bag) bullets.push(`- Bag — ${bag.brand} ${bag.title} (${euro(bag.price)}, ${bag.retailer}) · ${bag.url}`);
-  if (acc) bullets.push(`- Accessories — ${acc.brand} ${acc.title} (${euro(acc.price)}, ${acc.retailer}) · ${acc.url}`);
+  [
+    describe("Top", top),
+    describe("Trousers", trou),
+    describe("Outerwear", coat),
+    describe("Shoes", shoe),
+    describe("Bag", bag),
+    describe("Accessories", acc),
+  ]
+    .filter(Boolean)
+    .forEach((line) => bullets.push(line!));
 
   bullets.push(``);
   bullets.push(`Why it flatters:`);
   bullets.push(`- ${bodyType}: high-rise trouser lengthens the leg; fitted rib balances the coat; pointed boot extends the line.`);
   bullets.push(`- Fabric mix: wool + polished leather reads formal without glare in flash photos.`);
   bullets.push(``);
-  bullets.push(`Budget & Total: ~${euro(total)} (swap coat for Arket to save ~€80).`);
+  const savings = money(80, totalCurrency);
+  bullets.push(`Budget & Total: ~${money(total, totalCurrency)} (swap coat for Arket to save ~${savings || "€80"}).`);
   bullets.push(``);
   bullets.push(`Capsule & Tips:`);
   bullets.push(`- Remix the rib top with denim + the coat; or the trousers with a silk camisole and pumps.`);
@@ -290,7 +342,8 @@ export async function POST(req: NextRequest) {
           const args = safeJSON(argStr);
           controller.enqueue(sse("tool_call", { id, name, args }));
           try {
-            const result = await runTool(name, args, { preferences });
+            const toolName: ToolName = isToolName(name) ? name : "retailer_search";
+            const result = await runTool(toolName, args, { preferences });
             controller.enqueue(sse("tool_result", { id, ok: true, result }));
             toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify(result) });
           } catch (err: any) {
