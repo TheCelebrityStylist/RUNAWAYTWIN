@@ -12,7 +12,8 @@ export const toolSchemas: ToolSchema[] = [
     schema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "e.g., 'black leather chelsea boots women'" },
+        query: { type: "string", description: "Keywords or URL for the desired product" },
+        url: { type: "string", description: "Direct product URL to inspect" },
         country: { type: "string" },
         currency: { type: "string" },
         budgetMax: { type: "number" },
@@ -32,6 +33,7 @@ export const toolSchemas: ToolSchema[] = [
       properties: {
         productId: { type: "string" },
         country: { type: "string" },
+        currency: { type: "string" },
       },
       required: ["productId", "country"],
     },
@@ -41,7 +43,10 @@ export const toolSchemas: ToolSchema[] = [
     description: "Convert a product URL to an affiliate-safe link",
     schema: {
       type: "object",
-      properties: { url: { type: "string" }, retailer: { type: "string" } },
+      properties: {
+        url: { type: "string" },
+        retailer: { type: "string" },
+      },
       required: ["url"],
     },
   },
@@ -54,102 +59,41 @@ export const toolSchemas: ToolSchema[] = [
       required: ["imageUrl"],
     },
   },
+  {
+    name: "fx_convert",
+    description: "Convert an amount between currencies",
+    schema: {
+      type: "object",
+      properties: {
+        amount: { type: "number" },
+        from: { type: "string", description: "Source currency (e.g. EUR)" },
+        to: { type: "string", description: "Target currency (e.g. USD)" },
+        precision: { type: "number", description: "Decimal places for rounding" },
+      },
+      required: ["amount", "from", "to"],
+    },
+  },
 ];
 
-// ===== Demo internals (replace with real retailer APIs when ready) =====
-function euro(n: number) { return { price: n, currency: "EUR" as const }; }
+export { createToolDispatcher } from "./tools/index";
+export type {
+  ToolDispatcher,
+  ToolAdapter,
+  ToolContext,
+  ToolName,
+  SearchProductsArgs,
+  SearchProductsResponse,
+  CheckStockArgs,
+  CheckStockResponse,
+  AffiliateLinkArgs,
+  AffiliateLinkResponse,
+  PaletteFromImageArgs,
+  PaletteFromImageResponse,
+  FxConvertArgs,
+  FxConvertResponse,
+  NormalizedProduct,
+} from "./tools/index";
 
-async function demoSearch(args: any) {
-  const q = (args?.query || "").toLowerCase();
-  // Return a tiny believable catalog (with imageUrl).
-  const db = [
-    {
-      id: "tw-top-003",
-      brand: "Toteme",
-      title: "Contour Rib Long-Sleeve",
-      ...euro(160),
-      retailer: "SSENSE",
-      url: "https://www.ssense.example/toteme-contour-rib",
-      color: "ivory",
-      sizes: ["XS", "S", "M", "L"],
-      imageUrl: "https://images.example.com/toteme_rib_ivory.jpg",
-    },
-    {
-      id: "tw-trouser-002",
-      brand: "COS",
-      title: "Tailored Tapered Wool Trousers",
-      ...euro(120),
-      retailer: "COS",
-      url: "https://www.cos.example/tapered-wool-trouser",
-      color: "charcoal",
-      sizes: ["34", "36", "38", "40", "42"],
-      imageUrl: "https://images.example.com/cos_tapered_charcoal.jpg",
-    },
-    {
-      id: "tw-outer-010",
-      brand: "Arket",
-      title: "Double-Faced Wool Coat",
-      ...euro(260),
-      retailer: "Arket",
-      url: "https://www.arket.example/dbl-coat",
-      color: "black",
-      sizes: ["XS", "S", "M", "L"],
-      imageUrl: "https://images.example.com/arket_coat_black.jpg",
-    },
-    {
-      id: "tw-boot-001",
-      brand: "Aeyde",
-      title: "Elongated Leather Ankle Boots",
-      ...euro(295),
-      retailer: "Zalando",
-      url: "https://www.zalando.example/aeyde-elong-boot",
-      color: "black",
-      sizes: ["36", "37", "38", "39", "40", "41"],
-      imageUrl: "https://images.example.com/aeyde_ankle_boot.jpg",
-    },
-    {
-      id: "tw-bag-020",
-      brand: "Staud",
-      title: "Leather Shoulder Bag",
-      ...euro(225),
-      retailer: "SSENSE",
-      url: "https://www.ssense.example/staud-shoulder",
-      color: "black",
-      sizes: [],
-      imageUrl: "https://images.example.com/staud_shoulder_black.jpg",
-    },
-    {
-      id: "tw-acc-030",
-      brand: "Mejuri",
-      title: "Bold Gold Hoop Earrings",
-      ...euro(95),
-      retailer: "Mejuri",
-      url: "https://www.mejuri.example/gold-hoop",
-      color: "gold",
-      sizes: [],
-      imageUrl: "https://images.example.com/mejuri_hoop_gold.jpg",
-    },
-  ];
-
-  const items = db.filter((it) =>
-    q.split(/\s+/).every((w: string) => it.title.toLowerCase().includes(w) || it.brand.toLowerCase().includes(w) || it.color.toLowerCase().includes(w))
-  );
-
-  return { items: items.length ? items : db.slice(0, 3), query: args?.query };
-}
-
-export async function runTool(name: string, args: any, _ctx?: any) {
-  switch (name) {
-    case "retailer_search":
-      return demoSearch(args);
-    case "stock_check":
-      return { productId: args.productId, country: args.country, inStock: true, price: 149, currency: "EUR" };
-    case "affiliate_link":
-      return { url: args.url + "?affid=runwaytwin", retailer: args.retailer || null };
-    case "palette_from_image":
-      return { colors: ["#2E2E2E", "#8B8B8B", "#EAEAEA", "#3A5F5F", "#C7A27A"] };
-    default:
-      throw new Error(`Unknown tool: ${name}`);
-  }
-}
-
+export { demoAdapter } from "./tools/adapters/demoAdapter";
+export { webAdapter } from "./tools/adapters/webAdapter";
+export { awinAdapter } from "./tools/adapters/awinAdapter";
