@@ -13,7 +13,6 @@ import { webAdapter } from "./tools/adapters/webAdapter";
 import { demoAdapter } from "./tools/adapters/demoAdapter";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
 
 const dispatcher = createToolDispatcher([awinAdapter, webAdapter, demoAdapter]);
 const { runTool } = dispatcher;
@@ -44,6 +43,21 @@ function safeJSON(s: string) {
   } catch {
     return {};
   }
+}
+
+function textFromOpenAIContent(content: any): string {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => textFromOpenAIContent(part)).join("");
+  }
+  if (typeof content === "object") {
+    if (typeof content.text === "string") return content.text;
+    if (typeof content?.content === "string") return content.content;
+    if (Array.isArray(content?.content)) return textFromOpenAIContent(content.content);
+    if (typeof content?.value === "string") return content.value;
+  }
+  return "";
 }
 
 function prefsToSystem(prefs: any) {
@@ -198,11 +212,11 @@ async function optimisticDraft(preferences: any, userText: string) {
 }
 
 /** Low-level OpenAI streaming helper (REST + SSE) */
-async function* openaiStream(body: any) {
+async function* openaiStream(body: any, apiKey: string) {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -269,8 +283,10 @@ export async function POST(req: NextRequest) {
       };
 
       // 0) **Optimistic draft** — reply instantly using our local generator + tools
+      let optimisticText = "";
       try {
         const draft = await optimisticDraft(preferences, userText);
+        optimisticText = draft || "";
         for (const chunk of draft.match(/.{1,220}/g) || []) {
           controller.enqueue(sse("assistant_draft_delta", { text: chunk }));
         }
@@ -280,10 +296,11 @@ export async function POST(req: NextRequest) {
       }
 
       // 1) **Model path** — try OpenAI; if anything fails, finalize with the optimistic draft already sent
-      if (!HAS_OPENAI) {
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (!openaiKey) {
         // no key → finalize with draft only
         // (The optimistic draft already streamed. We still send a final event to satisfy the UI.)
-        controller.enqueue(sse("assistant_final", { text: "" }));
+        controller.enqueue(sse("assistant_final", { text: optimisticText }));
         end(true);
         return;
       }
@@ -300,15 +317,16 @@ export async function POST(req: NextRequest) {
           tool_choice: "auto",
           tools,
           messages: baseMsgs,
-        })) {
+        }, openaiKey)) {
           const choice = (evt as any).choices?.[0];
           if (!choice) continue;
 
           const delta = choice.delta || {};
 
-          if (typeof delta.content === "string" && delta.content) {
-            accText += delta.content;
-            controller.enqueue(sse("assistant_delta", { text: delta.content }));
+          const deltaText = textFromOpenAIContent(delta.content);
+          if (deltaText) {
+            accText += deltaText;
+            controller.enqueue(sse("assistant_delta", { text: deltaText }));
           }
 
           const tcs = delta.tool_calls as ToolCallDelta[] | undefined;
@@ -328,7 +346,7 @@ export async function POST(req: NextRequest) {
         }
       } catch {
         // model failed; finalize with whatever we already drafted
-        controller.enqueue(sse("assistant_final", { text: accText || "" }));
+        controller.enqueue(sse("assistant_final", { text: accText || optimisticText || "" }));
         end(false);
         return;
       }
@@ -357,7 +375,7 @@ export async function POST(req: NextRequest) {
           const res = await fetch(OPENAI_URL, {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              Authorization: `Bearer ${openaiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -383,20 +401,24 @@ export async function POST(req: NextRequest) {
               ],
             }),
           });
+          if (!res.ok) {
+            throw new Error(`OpenAI HTTP ${res.status}`);
+          }
           const json = await res.json();
-          const finalText = json?.choices?.[0]?.message?.content || accText || "";
+          const finalContent = json?.choices?.[0]?.message?.content;
+          const finalText = textFromOpenAIContent(finalContent) || accText || "";
           controller.enqueue(sse("assistant_final", { text: finalText }));
           end(true);
           return;
         } catch {
-          controller.enqueue(sse("assistant_final", { text: accText || "" }));
+          controller.enqueue(sse("assistant_final", { text: accText || optimisticText || "" }));
           end(false);
           return;
         }
       }
 
       // No tool calls → finalize with streamed model text (or empty if none)
-      controller.enqueue(sse("assistant_final", { text: accText || "" }));
+      controller.enqueue(sse("assistant_final", { text: accText || optimisticText || "" }));
       end(true);
     },
   });
