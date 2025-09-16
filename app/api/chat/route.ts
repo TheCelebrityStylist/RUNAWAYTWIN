@@ -62,14 +62,12 @@ function prefsToSystem(prefs: any) {
     `Country: ${country || "n/a"} (prefer local/EU/US stock & sizing)`,
     `Style keywords: ${styleKeywords.join(", ") || "n/a"}`,
     ``,
-    `### HARD OUTPUT RULES`,
-    `• Complete look: top, bottom OR dress/jumpsuit, outerwear (if seasonally relevant), shoes, bag, 1–2 accessories.`,
-    `• EACH item => Brand + Exact Item, Price + currency, Retailer, Link (from tools only).`,
-    `• Explain *why it flatters* this body type (rise, drape, neckline, silhouette, proportions, fabrication).`,
-    `• Respect budget; show total; include “save” alternatives if needed.`,
-    `• Provide 1–2 alternates for shoes and outerwear (with links).`,
-    `• Add “Capsule & Tips”: 2–3 remix ideas + two concise tips.`,
-    `• If zero stock for a spec, say it and propose closest in-stock alternative (with links).`,
+    `### OUTPUT CHECKLIST`,
+    `• Follow the structured format defined in the system prompt.`,
+    `• Use only tool-sourced items and links; no fabrication.`,
+    `• Budget line must state total and whether it meets the user's range.`,
+    `• Body-type logic should reference rise, drape, neckline, hem or fabrication.`,
+    `• Alternates must include footwear and outerwear with working links.`,
   ].join("\n");
 }
 
@@ -88,61 +86,221 @@ function lastUserText(messages: any[]): string {
 
 /** Quick “optimistic” draft that uses tools + prefs so the UI replies instantly. */
 async function optimisticDraft(preferences: any, userText: string) {
-  const country = preferences?.country || "NL";
+  const country = preferences?.country || "US";
+  const gender = preferences?.gender || "unspecified";
+  const styleKeywords: string[] = Array.isArray(preferences?.styleKeywords)
+    ? preferences.styleKeywords
+    : [];
 
-  // Pull a few quick items using our demo search tool (replace with real catalog later).
-  const [topR, trouR, coatR, shoeR, bagR, accR] = await Promise.all([
-    runTool("retailer_search", { query: "ivory rib long-sleeve top women", country, limit: 3 }),
-    runTool("retailer_search", { query: "charcoal tapered wool trousers women", country, limit: 3 }),
-    runTool("retailer_search", { query: "black tailored coat women", country, limit: 3 }),
-    runTool("retailer_search", { query: "black leather ankle boots women", country, limit: 3 }),
-    runTool("retailer_search", { query: "black leather shoulder bag women", country, limit: 3 }),
-    runTool("retailer_search", { query: "gold hoop earrings", country, limit: 3 }),
-  ] as const);
+  const vibe = styleKeywords.length
+    ? `Effortless ${styleKeywords.slice(0, 3).join(" ")}`
+    : "Polished minimalism";
 
-  const pick = (r: any) => r?.items?.[0];
+  const categories = [
+    { key: "top", category: "Top", fallback: "silk knit top", query: `${vibe} top ${gender}`.trim() },
+    { key: "bottom", category: "Bottom", fallback: "tailored wool trouser", query: `${vibe} high-waist trouser ${gender}`.trim() },
+    { key: "outer", category: "Outerwear", fallback: "structured wool coat", query: `${vibe} coat ${gender}`.trim() },
+    { key: "shoes", category: "Shoes", fallback: "sleek leather ankle boot", query: `${vibe} leather ankle boot ${gender}`.trim() },
+    { key: "bag", category: "Bag", fallback: "structured leather shoulder bag", query: `${vibe} leather bag` },
+    { key: "accessory", category: "Accessories", fallback: "gold hoop earrings", query: `${vibe} gold hoop` },
+  ];
 
-  const top = pick(topR);
-  const trou = pick(trouR);
-  const coat = pick(coatR);
-  const shoe = pick(shoeR);
-  const bag = pick(bagR);
-  const acc = pick(accR);
+  const toolCalls = await Promise.all(
+    categories.map((spec) =>
+      runTool(
+        "search_products",
+        {
+          query: spec.query || spec.fallback,
+          category: spec.category,
+          country,
+          limit: 3,
+        },
+        { preferences }
+      ).catch(() => null)
+    )
+  );
 
-  const euro = (n: number) => `€${Math.round(Number(n) || 0)}`;
-  const total =
-    [top, trou, coat, shoe, bag].reduce((s, x) => s + (Number(x?.price) || 0), 0);
+  type Picked = {
+    spec: (typeof categories)[number];
+    primary: any;
+    alternate: any;
+  };
 
-  const concept = `Editorial minimalism with celebrity-level polish — clean lines, elongated silhouette, and a controlled monochrome palette.`;
+  const picks: Picked[] = categories.map((spec, index) => {
+    const result = toolCalls[index] as any;
+    const items = Array.isArray(result?.items) ? result.items : [];
+    return { spec, primary: items[0] || null, alternate: items[1] || null };
+  });
 
-  const bodyType = (preferences?.bodyType || "your frame")
-    .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase());
+  const formatPrice = (item: any) => {
+    if (!item?.price) return "price on request";
+    const rounded = Math.round(Number(item.price));
+    return `${item.currency || "EUR"} ${rounded}`;
+  };
 
-  const bullets: string[] = [];
-  bullets.push(`Stylist POV: ${concept}`);
-  bullets.push(``);
-  bullets.push(`Outfit:`);
-  if (top) bullets.push(`- Top — ${top.brand} ${top.title} (${euro(top.price)}, ${top.retailer}) · ${top.url}`);
-  if (trou) bullets.push(`- Trousers — ${trou.brand} ${trou.title} (${euro(trou.price)}, ${trou.retailer}) · ${trou.url}`);
-  if (coat) bullets.push(`- Outerwear — ${coat.brand} ${coat.title} (${euro(coat.price)}, ${coat.retailer}) · ${coat.url}`);
-  if (shoe) bullets.push(`- Shoes — ${shoe.brand} ${shoe.title} (${euro(shoe.price)}, ${shoe.retailer}) · ${shoe.url}`);
-  if (bag) bullets.push(`- Bag — ${bag.brand} ${bag.title} (${euro(bag.price)}, ${bag.retailer}) · ${bag.url}`);
-  if (acc) bullets.push(`- Accessories — ${acc.brand} ${acc.title} (${euro(acc.price)}, ${acc.retailer}) · ${acc.url}`);
+  const formatItem = (item: any, category: string) => {
+    if (!item) return null;
+    const brand = item.brand || "";
+    const title = item.title || item.name || "Item";
+    const price = formatPrice(item);
+    const retailer = item.retailer || item.source || "Retailer";
+    const url = item.url || item.link || "";
+    const image = item.imageUrl || item.image || url;
+    return `- ${category} — ${brand} ${title} (${price}, ${retailer}) · ${url} · Image: ${image}`;
+  };
 
-  bullets.push(``);
-  bullets.push(`Why it flatters:`);
-  bullets.push(`- ${bodyType}: high-rise trouser lengthens the leg; fitted rib balances the coat; pointed boot extends the line.`);
-  bullets.push(`- Fabric mix: wool + polished leather reads formal without glare in flash photos.`);
-  bullets.push(``);
-  bullets.push(`Budget & Total: ~${euro(total)} (swap coat for Arket to save ~€80).`);
-  bullets.push(``);
-  bullets.push(`Capsule & Tips:`);
-  bullets.push(`- Remix the rib top with denim + the coat; or the trousers with a silk camisole and pumps.`);
-  bullets.push(`- Tailor trouser hem to skim boot shaft; a soft brown liner + clear gloss keeps it modern.`);
-  bullets.push(``);
-  bullets.push(`(You said: “${userText || "Outfit request"}”)`);
+  const outfitLines = picks
+    .map((pick) => formatItem(pick.primary, pick.spec.category))
+    .filter(Boolean) as string[];
 
-  return bullets.join("\n");
+  const totals = new Map<string, number>();
+  for (const pick of picks) {
+    if (!pick.primary?.price || !pick.primary?.currency) continue;
+    const cur = pick.primary.currency.toUpperCase();
+    totals.set(cur, (totals.get(cur) || 0) + Number(pick.primary.price));
+  }
+
+  const totalText = totals.size
+    ? Array.from(totals.entries())
+        .map(([currency, amount]) => `${currency} ${Math.round(amount)}`)
+        .join(" + ")
+    : "mixed currency";
+
+  const budgetLine = preferences?.budget
+    ? `Budget: approx ${totalText} (user range: ${preferences.budget}).`
+    : `Budget: approx ${totalText}.`;
+
+  const bodyType = (preferences?.bodyType || "frame").toLowerCase();
+  const bodyNotesMap: Record<string, string[]> = {
+    hourglass: [
+      "High-rise tailoring locks in the waist while matching shoulder and hem structure keep lines balanced.",
+      "Sculpted knit hugs without flattening curves; streamlined boots extend the leg line.",
+    ],
+    pear: [
+      "Strong shoulder line and long coat shift volume upward while the trouser drapes cleanly over hips.",
+      "Pointed boots and vertical seams elongate the leg, avoiding cling at the hip.",
+    ],
+    rectangle: [
+      "Cinched waist detail and curved neckline carve shape through the torso.",
+      "Fluid trouser with tapered hem introduces soft contrast against structured outerwear.",
+    ],
+    apple: [
+      "Column coat and relaxed rise create a continuous line that skims the midsection.",
+      "Deep V neck and elongated trouser crease draw eyes vertically, not at the core.",
+    ],
+    "inverted-triangle": [
+      "Slight flare in the trouser and pointed boots balance broader shoulders.",
+      "Soft knit texture tempers the top block while the coat drapes away from the frame.",
+    ],
+    petite: [
+      "Cropped proportions and unified tones lengthen the line without overwhelming scale.",
+      "Clean ankle boot and mid-rise trouser keep the silhouette uninterrupted.",
+    ],
+    tall: [
+      "Break the height with waist emphasis and layered texture at the shoulder.",
+      "Long coat with measured vent keeps the stride easy while maintaining structure.",
+    ],
+    plus: [
+      "Smooth tailoring with strategic waist shaping defines curves without cling.",
+      "Vertical seams and pointed toe boots stretch the frame elegantly.",
+    ],
+  };
+
+  const bodyNotes = bodyNotesMap[bodyType] || [
+    "Balanced proportions and controlled layers elongate the frame.",
+    "Texture mix keeps the look intentional while flattering natural lines.",
+  ];
+
+  const alternates: string[] = [];
+  const outerAlt = picks.find((p) => p.spec.category === "Outerwear" && p.alternate);
+  if (outerAlt?.alternate) {
+    const line = formatItem(outerAlt.alternate, outerAlt.spec.category);
+    if (line) alternates.push(line);
+  }
+  const shoeAlt = picks.find((p) => p.spec.category === "Shoes" && p.alternate);
+  if (shoeAlt?.alternate) {
+    const line = formatItem(shoeAlt.alternate, shoeAlt.spec.category);
+    if (line) alternates.push(line);
+  }
+  for (const pick of picks) {
+    if (alternates.length >= 2) break;
+    if (pick.alternate) {
+      const line = formatItem(pick.alternate, pick.spec.category);
+      if (line && !alternates.includes(line)) alternates.push(line);
+    }
+  }
+
+  const names = Object.fromEntries(
+    picks.map((pick) => [pick.spec.key, pick.primary?.title || pick.primary?.name || ""])
+  );
+  const brands = Object.fromEntries(
+    picks.map((pick) => [pick.spec.key, pick.primary?.brand || ""])
+  );
+
+  const capsule: string[] = [];
+  if (names.top && names.bottom) {
+    capsule.push(
+      `Pair the ${brands.top} ${names.top} with vintage denim and the ${brands.shoes || ""} ${
+        names.shoes || "boots"
+      } for off-duty polish.`
+    );
+  }
+  if (names.outer && names.dress) {
+    capsule.push(
+      `Layer the ${brands.outer || ""} ${names.outer || "coat"} over the ${
+        names.dress
+      } for evening with metallic jewelry.`
+    );
+  }
+  if (names.bag) {
+    capsule.push(
+      `Swap in a relaxed tee and keep the ${brands.bag || ""} ${names.bag} to anchor a weekend uniform.`
+    );
+  }
+  while (capsule.length < 2) {
+    capsule.push("Rotate the coat over crisp denim and loafers for weekday errands.");
+  }
+
+  const tips = [
+    "Tailor trouser hems to kiss the boot shaft for an unbroken leg line.",
+    "Brush wool with a cashmere comb and store leather with cedar to keep the set pristine.",
+  ];
+
+  const lines: string[] = [];
+  lines.push(`Vibe: ${vibe} with celebrity-level ease.`);
+  lines.push("");
+  lines.push("Outfit:");
+  if (outfitLines.length) {
+    lines.push(...outfitLines);
+  } else {
+    lines.push("- Look building — fetching products");
+  }
+  lines.push("");
+  lines.push("Body Notes:");
+  lines.push(...bodyNotes.map((note) => `- ${note}`));
+  lines.push("");
+  lines.push(budgetLine);
+  lines.push("");
+  lines.push("Alternates:");
+  if (alternates.length) {
+    lines.push(...alternates);
+  } else {
+    lines.push("- More alternates coming once live tools respond.");
+  }
+  lines.push("");
+  lines.push("Capsule & Tips:");
+  for (const idea of capsule.slice(0, 3)) {
+    lines.push(`- ${idea}`);
+  }
+  for (const tip of tips.slice(0, 2)) {
+    lines.push(`- Tip: ${tip}`);
+  }
+  lines.push("");
+  if (userText) {
+    lines.push(`(Request: “${userText}”)`);
+  }
+
+  return lines.join("\n");
 }
 
 /** Low-level OpenAI streaming helper (REST + SSE) */

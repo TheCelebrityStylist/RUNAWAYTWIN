@@ -10,6 +10,8 @@ export type Prefs = {
   budget: string; // free text like "€300–€600"
   country: string; // ISO-ish; keep simple for now
   styleKeywords: string[];
+  height?: string;
+  weight?: string;
 };
 
 type Props = {
@@ -129,6 +131,29 @@ export default function PreferencesPanel({ value, onChange }: Props) {
             value={value.country}
             onChange={(e) => update("country", e.target.value)}
             placeholder="e.g., NL / US"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Height</label>
+          <input
+            className="h-10 rounded-full border px-3 text-[14px] w-full"
+            style={{ borderColor: "var(--rt-border)", background: "white" }}
+            value={value.height || ""}
+            onChange={(e) => update("height", e.target.value)}
+            placeholder="e.g., 170 cm"
+          />
+        </div>
+        <div>
+          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Weight</label>
+          <input
+            className="h-10 rounded-full border px-3 text-[14px] w-full"
+            style={{ borderColor: "var(--rt-border)", background: "white" }}
+            value={value.weight || ""}
+            onChange={(e) => update("weight", e.target.value)}
+            placeholder="optional"
           />
         </div>
       </div>
