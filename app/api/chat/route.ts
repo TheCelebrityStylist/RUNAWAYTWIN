@@ -45,6 +45,21 @@ function safeJSON(s: string) {
   }
 }
 
+function textFromOpenAIContent(content: any): string {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => textFromOpenAIContent(part)).join("");
+  }
+  if (typeof content === "object") {
+    if (typeof content.text === "string") return content.text;
+    if (typeof content?.content === "string") return content.content;
+    if (Array.isArray(content?.content)) return textFromOpenAIContent(content.content);
+    if (typeof content?.value === "string") return content.value;
+  }
+  return "";
+}
+
 function prefsToSystem(prefs: any) {
   const {
     gender = "unspecified",
@@ -308,9 +323,10 @@ export async function POST(req: NextRequest) {
 
           const delta = choice.delta || {};
 
-          if (typeof delta.content === "string" && delta.content) {
-            accText += delta.content;
-            controller.enqueue(sse("assistant_delta", { text: delta.content }));
+          const deltaText = textFromOpenAIContent(delta.content);
+          if (deltaText) {
+            accText += deltaText;
+            controller.enqueue(sse("assistant_delta", { text: deltaText }));
           }
 
           const tcs = delta.tool_calls as ToolCallDelta[] | undefined;
@@ -385,8 +401,12 @@ export async function POST(req: NextRequest) {
               ],
             }),
           });
+          if (!res.ok) {
+            throw new Error(`OpenAI HTTP ${res.status}`);
+          }
           const json = await res.json();
-          const finalText = json?.choices?.[0]?.message?.content || accText || "";
+          const finalContent = json?.choices?.[0]?.message?.content;
+          const finalText = textFromOpenAIContent(finalContent) || accText || "";
           controller.enqueue(sse("assistant_final", { text: finalText }));
           end(true);
           return;
