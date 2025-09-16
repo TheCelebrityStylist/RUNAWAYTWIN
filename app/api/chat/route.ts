@@ -95,6 +95,29 @@ function lastUserText(messages: any[]): string {
   return "";
 }
 
+function pickFirstKey(candidate: unknown): string | null {
+  if (typeof candidate !== "string") return null;
+  const trimmed = candidate.trim();
+  return trimmed ? trimmed : null;
+}
+
+function resolveOpenAIKey(req: NextRequest, payload: any): string | null {
+  const envKey =
+    pickFirstKey(process.env.OPENAI_API_KEY) ||
+    pickFirstKey(process.env.OPENAI_KEY) ||
+    pickFirstKey(process.env.NEXT_PUBLIC_OPENAI_API_KEY);
+
+  if (envKey) return envKey;
+
+  const headerKey =
+    pickFirstKey(req.headers.get("x-openai-key")) ||
+    pickFirstKey(req.headers.get("x-runway-openai-key"));
+
+  if (headerKey) return headerKey;
+
+  return pickFirstKey(payload?.openaiKey);
+}
+
 /** Quick “optimistic” draft that uses tools + prefs so the UI replies instantly. */
 async function optimisticDraft(preferences: any, userText: string) {
   const country = preferences?.country || "NL";
@@ -242,9 +265,9 @@ async function* openaiStream(body: any, apiKey: string) {
 
 export async function POST(req: NextRequest) {
   const payload = await req.json().catch(() => ({}));
+  const openaiKey = resolveOpenAIKey(req, payload);
   const { messages = [], preferences } = payload || {};
   const userText = lastUserText(messages);
-  const openaiKey = process.env.OPENAI_API_KEY?.trim();
 
   const baseMsgs: ChatMessage[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
@@ -282,7 +305,7 @@ export async function POST(req: NextRequest) {
       // 1) **Model path** — try OpenAI; if anything fails, finalize with the optimistic draft already sent
       if (!openaiKey) {
         const helpText =
-          "Add an OpenAI API key (OPENAI_API_KEY) in your environment settings to enable full stylist responses.";
+          "Add an OpenAI API key (OPENAI_API_KEY env or x-openai-key header) to enable full stylist responses.";
         controller.enqueue(sse("assistant_final", { text: helpText }));
         end(false);
         return;
