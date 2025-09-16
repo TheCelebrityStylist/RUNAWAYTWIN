@@ -13,7 +13,6 @@ import { webAdapter } from "./tools/adapters/webAdapter";
 import { demoAdapter } from "./tools/adapters/demoAdapter";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
 
 const dispatcher = createToolDispatcher([awinAdapter, webAdapter, demoAdapter]);
 const { runTool } = dispatcher;
@@ -198,11 +197,11 @@ async function optimisticDraft(preferences: any, userText: string) {
 }
 
 /** Low-level OpenAI streaming helper (REST + SSE) */
-async function* openaiStream(body: any) {
+async function* openaiStream(body: any, apiKey: string) {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -269,8 +268,10 @@ export async function POST(req: NextRequest) {
       };
 
       // 0) **Optimistic draft** — reply instantly using our local generator + tools
+      let optimisticText = "";
       try {
         const draft = await optimisticDraft(preferences, userText);
+        optimisticText = draft || "";
         for (const chunk of draft.match(/.{1,220}/g) || []) {
           controller.enqueue(sse("assistant_draft_delta", { text: chunk }));
         }
@@ -280,10 +281,11 @@ export async function POST(req: NextRequest) {
       }
 
       // 1) **Model path** — try OpenAI; if anything fails, finalize with the optimistic draft already sent
-      if (!HAS_OPENAI) {
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (!openaiKey) {
         // no key → finalize with draft only
         // (The optimistic draft already streamed. We still send a final event to satisfy the UI.)
-        controller.enqueue(sse("assistant_final", { text: "" }));
+        controller.enqueue(sse("assistant_final", { text: optimisticText }));
         end(true);
         return;
       }
@@ -300,7 +302,7 @@ export async function POST(req: NextRequest) {
           tool_choice: "auto",
           tools,
           messages: baseMsgs,
-        })) {
+        }, openaiKey)) {
           const choice = (evt as any).choices?.[0];
           if (!choice) continue;
 
@@ -328,7 +330,7 @@ export async function POST(req: NextRequest) {
         }
       } catch {
         // model failed; finalize with whatever we already drafted
-        controller.enqueue(sse("assistant_final", { text: accText || "" }));
+        controller.enqueue(sse("assistant_final", { text: accText || optimisticText || "" }));
         end(false);
         return;
       }
@@ -357,7 +359,7 @@ export async function POST(req: NextRequest) {
           const res = await fetch(OPENAI_URL, {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              Authorization: `Bearer ${openaiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -389,14 +391,14 @@ export async function POST(req: NextRequest) {
           end(true);
           return;
         } catch {
-          controller.enqueue(sse("assistant_final", { text: accText || "" }));
+          controller.enqueue(sse("assistant_final", { text: accText || optimisticText || "" }));
           end(false);
           return;
         }
       }
 
       // No tool calls → finalize with streamed model text (or empty if none)
-      controller.enqueue(sse("assistant_final", { text: accText || "" }));
+      controller.enqueue(sse("assistant_final", { text: accText || optimisticText || "" }));
       end(true);
     },
   });
