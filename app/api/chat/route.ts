@@ -13,7 +13,6 @@ import { webAdapter } from "./tools/adapters/webAdapter";
 import { demoAdapter } from "./tools/adapters/demoAdapter";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
 
 const dispatcher = createToolDispatcher([awinAdapter, webAdapter, demoAdapter]);
 const { runTool } = dispatcher;
@@ -94,6 +93,29 @@ function lastUserText(messages: any[]): string {
     }
   }
   return "";
+}
+
+function pickFirstKey(candidate: unknown): string | null {
+  if (typeof candidate !== "string") return null;
+  const trimmed = candidate.trim();
+  return trimmed ? trimmed : null;
+}
+
+function resolveOpenAIKey(req: NextRequest, payload: any): string | null {
+  const envKey =
+    pickFirstKey(process.env.OPENAI_API_KEY) ||
+    pickFirstKey(process.env.OPENAI_KEY) ||
+    pickFirstKey(process.env.NEXT_PUBLIC_OPENAI_API_KEY);
+
+  if (envKey) return envKey;
+
+  const headerKey =
+    pickFirstKey(req.headers.get("x-openai-key")) ||
+    pickFirstKey(req.headers.get("x-runway-openai-key"));
+
+  if (headerKey) return headerKey;
+
+  return pickFirstKey(payload?.openaiKey);
 }
 
 /** Quick “optimistic” draft that uses tools + prefs so the UI replies instantly. */
@@ -198,11 +220,11 @@ async function optimisticDraft(preferences: any, userText: string) {
 }
 
 /** Low-level OpenAI streaming helper (REST + SSE) */
-async function* openaiStream(body: any) {
+async function* openaiStream(body: any, apiKey: string) {
   const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -243,6 +265,7 @@ async function* openaiStream(body: any) {
 
 export async function POST(req: NextRequest) {
   const payload = await req.json().catch(() => ({}));
+  const openaiKey = resolveOpenAIKey(req, payload);
   const { messages = [], preferences } = payload || {};
   const userText = lastUserText(messages);
 
@@ -280,11 +303,11 @@ export async function POST(req: NextRequest) {
       }
 
       // 1) **Model path** — try OpenAI; if anything fails, finalize with the optimistic draft already sent
-      if (!HAS_OPENAI) {
-        // no key → finalize with draft only
-        // (The optimistic draft already streamed. We still send a final event to satisfy the UI.)
-        controller.enqueue(sse("assistant_final", { text: "" }));
-        end(true);
+      if (!openaiKey) {
+        const helpText =
+          "Add an OpenAI API key (OPENAI_API_KEY env or x-openai-key header) to enable full stylist responses.";
+        controller.enqueue(sse("assistant_final", { text: helpText }));
+        end(false);
         return;
       }
 
@@ -300,7 +323,7 @@ export async function POST(req: NextRequest) {
           tool_choice: "auto",
           tools,
           messages: baseMsgs,
-        })) {
+        }, openaiKey)) {
           const choice = (evt as any).choices?.[0];
           if (!choice) continue;
 
@@ -357,7 +380,7 @@ export async function POST(req: NextRequest) {
           const res = await fetch(OPENAI_URL, {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+              Authorization: `Bearer ${openaiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
