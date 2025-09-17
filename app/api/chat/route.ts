@@ -1,17 +1,16 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-// ⬇️ fix: use relative path instead of "@/lib/sse/reader"
-import { encodeSSE } from "../../../lib/sse/reader";
+import { encodeSSE } from "../../../lib/sse/reader"; // ✅ relative path to lib/sse/reader.ts
 import { searchProducts, affiliateLink, fxConvert } from "./tools";
 
 export const runtime = "edge";
 
 /**
  * RunwayTwin — Edge SSE chat route
- * Emits (always, never hangs):
+ * Contract (always, never hangs):
  *   ready → assistant_draft_delta* → assistant_draft_done → (tool_call/tool_result)* → assistant_final → done
- * If OpenAI is unavailable or misconfigured, we still produce an optimistic draft and reuse it as assistant_final.
+ * If OpenAI is unavailable/misconfigured, we still stream an optimistic draft and reuse it as assistant_final.
  */
 
 /* =========================
@@ -43,7 +42,7 @@ type ChatMessage = {
  * Helpers
  * ========================= */
 const te = new TextEncoder();
-const pushBytes = (evt: any) => te.encode(encodeSSE(evt));
+const push = (evt: any) => te.encode(encodeSSE(evt));
 
 function prefsToSystem(p: Prefs): string {
   const cur = p.currency || (p.country === "US" ? "USD" : "EUR");
@@ -57,7 +56,7 @@ function prefsToSystem(p: Prefs): string {
     `- Country: ${p.country ?? "-"}`,
     `- Currency: ${cur}`,
     `- Style Keywords: ${p.styleKeywords ?? "-"}`,
-    `Preferences must influence all selections, size/fit notes, and budget math.`,
+    `Preferences must influence all selections, fit notes, and budget math.`,
   ].join("\n");
 }
 
@@ -89,10 +88,7 @@ async function streamOpenAI(
 
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  const toolCalls: Record<
-    string,
-    { id: string; type: "function"; function: { name: string; arguments: string } }
-  > = {};
+  const toolCalls: Record<string, { id: string; type: "function"; function: { name: string; arguments: string } }> = {};
   let full = "";
   let finished = false;
 
@@ -123,11 +119,7 @@ async function streamOpenAI(
             const id = tc.id;
             if (!id) continue;
             if (!toolCalls[id]) {
-              toolCalls[id] = {
-                id,
-                type: "function",
-                function: { name: "", arguments: "" },
-              };
+              toolCalls[id] = { id, type: "function", function: { name: "", arguments: "" } };
             }
             if (tc.function?.name) toolCalls[id].function.name = tc.function.name;
             if (typeof tc.function?.arguments === "string") {
@@ -136,7 +128,7 @@ async function streamOpenAI(
           }
         }
       } catch {
-        // ignore malformed line
+        // ignore malformed event lines
       }
     }
   }
@@ -145,7 +137,7 @@ async function streamOpenAI(
 }
 
 /* =========================
- * Tool Schemas
+ * Tool Schemas (for model tool-calls)
  * ========================= */
 const toolSchemas = [
   {
@@ -202,7 +194,7 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (evt: any) => controller.enqueue(pushBytes(evt));
+      const send = (evt: any) => controller.enqueue(push(evt));
       const keepAlive = setInterval(() => send({ type: "ping" }), 15000);
 
       const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
@@ -216,7 +208,7 @@ export async function POST(req: NextRequest) {
         // 1) ready
         send({ type: "ready" });
 
-        // 2) Optimistic draft (tool-guided) with proper async mapping
+        // 2) Optimistic draft (tool-guided) — FIXED: async map via Promise.all
         const lastUser = [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
         const style = prefs.styleKeywords ? ` ${prefs.styleKeywords}` : "";
         const heuristicQuery = `${lastUser.slice(0, 160)}${style ? " | " + style : ""}`.trim();
@@ -268,12 +260,13 @@ export async function POST(req: NextRequest) {
         optimisticDraft = draftLines.join("\n");
         for (const line of draftLines) {
           send({ type: "assistant_draft_delta", data: line + "\n" });
-          // @ts-ignore small delay for pleasant chunking
+          // small delay to keep chunk cadence pleasant
+          // @ts-ignore
           await new Promise((r) => setTimeout(r, 8));
         }
         send({ type: "assistant_draft_done" });
 
-        // 3) No key → finalize with optimistic draft (UI never empties)
+        // 3) If missing key → return draft as final + error
         if (!OPENAI_API_KEY) {
           console.warn("[RunwayTwin] Missing OPENAI_API_KEY — returning optimistic draft as final.");
           send({ type: "error", data: "Missing OPENAI_API_KEY on the server." });
@@ -291,7 +284,7 @@ export async function POST(req: NextRequest) {
         if (OPENAI_ORG_ID) headers["OpenAI-Organization"] = OPENAI_ORG_ID;
         if (OPENAI_PROJECT_ID) headers["OpenAI-Project"] = OPENAI_PROJECT_ID;
 
-        // 4) Stream first pass + accumulate tool calls
+        // 4) First pass: stream model output & accumulate tool calls
         let streamedText = "";
         let toolCalls: any[] = [];
         try {
@@ -358,11 +351,7 @@ export async function POST(req: NextRequest) {
         // 6) Second pass (non-stream) → assistant_final
         let finalText = "";
         try {
-          const body = {
-            model,
-            temperature: 0.4,
-            messages: [...baseMessages, ...toolResults],
-          };
+          const body = { model, temperature: 0.4, messages: [...baseMessages, ...toolResults] };
           const res = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers,
