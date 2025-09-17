@@ -62,7 +62,6 @@ function prefsToSystem(p: Prefs): string {
 
 /**
  * Raw OpenAI streaming with tool-call delta accumulation.
- * We do not expose partial assistant deltas to the UI as "final"; they're surfaced as extra draft deltas for liveliness.
  */
 async function streamOpenAI(
   messages: ChatMessage[],
@@ -113,13 +112,11 @@ async function streamOpenAI(
         const delta = obj.choices?.[0]?.delta;
         if (!delta) continue;
 
-        // Text deltas
         if (typeof delta.content === "string") {
           full += delta.content;
           onContentDelta(delta.content);
         }
 
-        // Tool call deltas
         if (delta.tool_calls) {
           for (const tc of delta.tool_calls) {
             const id = tc.id;
@@ -191,7 +188,6 @@ const toolSchemas = [
  * Route
  * ========================= */
 export async function POST(req: NextRequest) {
-  // Always respond with an SSE stream — never hang.
   const { messages: clientMessages, preferences, imageUrl } = await req.json();
   const prefs: Prefs = preferences || {};
   const sysPrefs = prefsToSystem(prefs);
@@ -213,14 +209,13 @@ export async function POST(req: NextRequest) {
       const OPENAI_PROJECT_ID = process.env.OPENAI_PROJECT_ID || "";
       const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-      // Local buffer of the optimistic draft lines — reused as assistant_final fallback
       let optimisticDraft = "";
 
       try {
         // 1) ready
         send({ type: "ready" });
 
-        // 2) Optimistic draft (fast, tool-guided) so UI never feels stuck
+        // 2) Optimistic draft (tool-guided) — FIXED: no await inside non-async map
         const lastUser = [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
         const style = prefs.styleKeywords ? ` ${prefs.styleKeywords}` : "";
         const heuristicQuery = `${lastUser.slice(0, 160)}${style ? " | " + style : ""}`.trim();
@@ -233,22 +228,26 @@ export async function POST(req: NextRequest) {
             limit: 3,
             preferEU: true,
           });
+
           if (picks.length) {
+            const heroLines = await Promise.all(
+              picks.map(async (p) => {
+                const link = await affiliateLink(p.url, p.retailer);
+                const retailer = p.retailer ?? new URL(p.url).hostname;
+                return `- Hero: ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${retailer} | ${link} | ${p.imageUrl ?? ""}`;
+              })
+            );
+
             draftLines = [
               "Outfit:",
-              ...picks.map(
-                (p) =>
-                  `- Hero: ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${
-                    p.retailer ?? new URL(p.url).hostname
-                  } | ${await affiliateLink(p.url, p.retailer)} | ${p.imageUrl ?? ""}`
-              ),
+              ...heroLines,
               "Alternates:",
               "- Shoes: searching…",
               "- Outerwear: searching…",
             ];
           }
         } catch {
-          // ignore, fallback to static demo-ish draft below
+          // ignore; we'll fallback to static draft below
         }
 
         if (!draftLines.length) {
@@ -265,17 +264,15 @@ export async function POST(req: NextRequest) {
           ];
         }
 
-        // Stream draft lines and capture optimisticDraft text for fallback
         optimisticDraft = draftLines.join("\n");
         for (const line of draftLines) {
           send({ type: "assistant_draft_delta", data: line + "\n" });
-          // micro-yield to keep UI flowing
-          // @ts-ignore
+          // @ts-ignore intentional tiny delay for chunk cadence
           await new Promise((r) => setTimeout(r, 8));
         }
         send({ type: "assistant_draft_done" });
 
-        // 3) If missing key → return draft as final + error so developer can fix env quickly
+        // 3) Missing key → draft becomes final (so UI never empties)
         if (!OPENAI_API_KEY) {
           console.warn("[RunwayTwin] Missing OPENAI_API_KEY — returning optimistic draft as final.");
           send({ type: "error", data: "Missing OPENAI_API_KEY on the server." });
@@ -293,7 +290,7 @@ export async function POST(req: NextRequest) {
         if (OPENAI_ORG_ID) headers["OpenAI-Organization"] = OPENAI_ORG_ID;
         if (OPENAI_PROJECT_ID) headers["OpenAI-Project"] = OPENAI_PROJECT_ID;
 
-        // 4) First pass: stream model output and accumulate tool calls
+        // 4) Stream first pass + accumulate tool calls
         let streamedText = "";
         let toolCalls: any[] = [];
         try {
@@ -304,25 +301,24 @@ export async function POST(req: NextRequest) {
             headers,
             new AbortController().signal,
             (delta) => {
-              // Surface as additional draft deltas to keep the chat feeling alive
               streamedText += delta;
               send({ type: "assistant_draft_delta", data: delta });
             }
           );
           toolCalls = tc || [];
         } catch (e: any) {
-          console.warn("[RunwayTwin] OpenAI stream failed — falling back to draft.", e?.message);
+          console.warn("[RunwayTwin] OpenAI stream failed — using draft.", e?.message);
           send({ type: "error", data: "Upstream model stream failed; using draft." });
         }
 
-        // Announce tool calls (meta)
+        // Announce tool calls
         if (toolCalls.length) {
           for (const call of toolCalls) {
             send({ type: "tool_call", data: { id: call.id, name: call.function?.name } });
           }
         }
 
-        // 5) Execute tools best-effort
+        // 5) Execute tools
         const toolResults: ChatMessage[] = [];
         for (const call of toolCalls) {
           let resultPayload: any = null;
@@ -358,7 +354,7 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // 6) Second pass (non-stream) for deterministic assistant_final
+        // 6) Second pass (non-stream) → assistant_final
         let finalText = "";
         try {
           const body = {
@@ -389,16 +385,13 @@ export async function POST(req: NextRequest) {
           send({ type: "error", data: "Model finalization error; using draft." });
         }
 
-        // If finalText is empty for any reason, fall back to the optimistic draft (critical fix).
         if (!finalText || !finalText.trim()) finalText = optimisticDraft || streamedText || "Outfit:\n- (draft unavailable)";
 
-        // 7) Emit final + done
         send({ type: "assistant_final", data: finalText });
         send({ type: "done" });
       } catch (err: any) {
-        // Global safety net — still send a usable final so the UI shows content.
-        console.error("[RunwayTwin] route fatal:", err?.message);
         const fallback = optimisticDraft || "Outfit:\n- Top: — | — | — | —\n\n(An error occurred, but streaming remained responsive.)";
+        console.error("[RunwayTwin] route fatal:", err?.message);
         send({ type: "error", data: String(err?.message || err) });
         send({ type: "assistant_final", data: fallback });
         send({ type: "done" });
