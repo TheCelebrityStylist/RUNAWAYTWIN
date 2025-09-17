@@ -1,16 +1,10 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { encodeSSE } from "../../../lib/sse/reader"; // ✅ file is at project-root/lib/sse/reader.ts
-import { searchProducts, affiliateLink, fxConvert } from "./tools";
+import { encodeSSE } from "../../../lib/sse/reader"; // lib is at project root
+import { searchProducts, affiliateLink, fxConvert } from "../tools"; // ← tools is one folder up (app/api/tools.ts)
 
 export const runtime = "edge";
-
-/**
- * RunwayTwin — Edge SSE chat route
- * Contract: ready → assistant_draft_delta* → assistant_draft_done → (tool_call/tool_result)* → assistant_final → done
- * Never hangs; on any failure, we finalize with the optimistic draft.
- */
 
 type Prefs = {
   gender?: string;
@@ -53,7 +47,6 @@ function prefsToSystem(p: Prefs): string {
   ].join("\n");
 }
 
-/** Stream OpenAI deltas and accumulate tool_calls. */
 async function streamOpenAI(
   messages: ChatMessage[],
   toolsSchema: any[],
@@ -63,25 +56,18 @@ async function streamOpenAI(
   onContentDelta: (text: string) => void
 ): Promise<{ toolCalls: any[]; content: string }> {
   const body = { model, stream: true, temperature: 0.6, messages, tools: toolsSchema, tool_choice: "auto" };
-
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-    signal,
+    method: "POST", headers, body: JSON.stringify(body), signal,
   });
   if (!res.ok || !res.body) {
     const txt = await res.text().catch(() => "");
     console.warn("[OpenAI] stream error:", res.status, txt.slice(0, 400));
     throw new Error(`OpenAI stream error: ${res.status}`);
   }
-
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   const toolCalls: Record<string, { id: string; type: "function"; function: { name: string; arguments: string } }> = {};
-  let full = "";
-  let finished = false;
-
+  let full = ""; let finished = false;
   while (!finished) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -89,31 +75,21 @@ async function streamOpenAI(
     for (const line of chunk.split(/\r?\n/)) {
       if (!line.startsWith("data:")) continue;
       const payload = line.slice(5).trim();
-      if (payload === "[DONE]") {
-        finished = true;
-        break;
-      }
+      if (payload === "[DONE]") { finished = true; break; }
       try {
         const obj = JSON.parse(payload);
         const delta = obj.choices?.[0]?.delta;
         if (!delta) continue;
-
-        if (typeof delta.content === "string") {
-          full += delta.content;
-          onContentDelta(delta.content);
-        }
+        if (typeof delta.content === "string") { full += delta.content; onContentDelta(delta.content); }
         if (delta.tool_calls) {
           for (const tc of delta.tool_calls) {
-            const id = tc.id;
-            if (!id) continue;
+            const id = tc.id; if (!id) continue;
             if (!toolCalls[id]) toolCalls[id] = { id, type: "function", function: { name: "", arguments: "" } };
             if (tc.function?.name) toolCalls[id].function.name = tc.function.name;
             if (typeof tc.function?.arguments === "string") toolCalls[id].function.arguments += tc.function.arguments;
           }
         }
-      } catch {
-        /* ignore malformed line */
-      }
+      } catch { /* ignore malformed */ }
     }
   }
   return { content: full, toolCalls: Object.values(toolCalls) };
@@ -158,8 +134,7 @@ const toolSchemas = [
 ];
 
 export async function POST(req: NextRequest) {
-  let body: any = {};
-  try { body = await req.json(); } catch {}
+  let body: any = {}; try { body = await req.json(); } catch {}
   const clientMessages: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
   const preferences: Prefs = (body?.preferences || {}) as Prefs;
   const imageUrl: string | undefined = typeof body?.imageUrl === "string" ? body.imageUrl : undefined;
@@ -183,7 +158,7 @@ export async function POST(req: NextRequest) {
       try {
         send({ type: "ready" });
 
-        // Optimistic draft (tool-guided)
+        // Optimistic draft
         const lastUser = [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
         const style = preferences.styleKeywords ? ` ${preferences.styleKeywords}` : "";
         const heuristicQuery = `${lastUser.slice(0, 160)}${style ? " | " + style : ""}`.trim();
@@ -229,21 +204,14 @@ export async function POST(req: NextRequest) {
         }
 
         optimisticDraft = draftLines.join("\n");
-        for (const line of draftLines) {
-          send({ type: "assistant_draft_delta", data: line + "\n" });
-          // @ts-ignore
-          await new Promise((r) => setTimeout(r, 8));
-        }
+        for (const line of draftLines) { send({ type: "assistant_draft_delta", data: line + "\n" }); await new Promise((r) => setTimeout(r, 8)); }
         send({ type: "assistant_draft_done" });
 
         if (!OPENAI_API_KEY) {
           console.warn("[RunwayTwin] Missing OPENAI_API_KEY — returning optimistic draft as final.");
           send({ type: "error", data: "Missing OPENAI_API_KEY on the server." });
           send({ type: "assistant_final", data: optimisticDraft || "Temporary draft unavailable." });
-          send({ type: "done" });
-          clearInterval(keepAlive);
-          controller.close();
-          return;
+          send({ type: "done" }); clearInterval(keepAlive); controller.close(); return;
         }
 
         const headers: Record<string, string> = {
@@ -253,20 +221,11 @@ export async function POST(req: NextRequest) {
         if (OPENAI_ORG_ID) headers["OpenAI-Organization"] = OPENAI_ORG_ID;
         if (OPENAI_PROJECT_ID) headers["OpenAI-Project"] = OPENAI_PROJECT_ID;
 
-        // First pass: stream model + collect tool calls
-        let streamedText = "";
-        let toolCalls: any[] = [];
+        let streamedText = ""; let toolCalls: any[] = [];
         try {
           const { toolCalls: tc } = await streamOpenAI(
-            baseMessages,
-            toolSchemas,
-            model,
-            headers,
-            new AbortController().signal,
-            (delta) => {
-              streamedText += delta;
-              send({ type: "assistant_draft_delta", data: delta });
-            }
+            baseMessages, toolSchemas, model, headers, new AbortController().signal,
+            (delta) => { streamedText += delta; send({ type: "assistant_draft_delta", data: delta }); }
           );
           toolCalls = tc || [];
         } catch (e: any) {
@@ -274,11 +233,8 @@ export async function POST(req: NextRequest) {
           send({ type: "error", data: "Upstream model stream failed; using draft." });
         }
 
-        if (toolCalls.length) {
-          for (const call of toolCalls) send({ type: "tool_call", data: { id: call.id, name: call.function?.name } });
-        }
+        if (toolCalls.length) for (const call of toolCalls) send({ type: "tool_call", data: { id: call.id, name: call.function?.name } });
 
-        // Execute tools
         const toolResults: ChatMessage[] = [];
         for (const call of toolCalls) {
           let resultPayload: any = null;
@@ -287,10 +243,7 @@ export async function POST(req: NextRequest) {
               const args = JSON.parse(call.function.arguments || "{}");
               const results = await searchProducts({
                 query: args.query || "",
-                country: args.country,
-                currency: args.currency,
-                size: args.size,
-                color: args.color,
+                country: args.country, currency: args.currency, size: args.size, color: args.color,
                 limit: Math.min(6, Number(args.limit || 6)),
                 preferEU: (preferences.country || "NL") !== "US",
               });
@@ -306,51 +259,28 @@ export async function POST(req: NextRequest) {
             resultPayload = { ok: false, error: String(err?.message || err) };
           }
           send({ type: "tool_result", data: { tool: call.function?.name, result: resultPayload } });
-          toolResults.push({
-            role: "tool",
-            content: JSON.stringify(resultPayload),
-            name: call.function?.name,
-            tool_call_id: call.id,
-          });
+          toolResults.push({ role: "tool", content: JSON.stringify(resultPayload), name: call.function?.name, tool_call_id: call.id });
         }
 
-        // Second pass: non-stream finalization
+        // Finalization pass (non-stream)
         let finalText = "";
         try {
           const body = { model, temperature: 0.4, messages: [...baseMessages, ...toolResults] };
-          const res = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers,
-            body: JSON.stringify(body),
-          });
-          const status = res.status;
-          let data: any = null;
-          try { data = await res.json(); } catch {}
-          if (status >= 200 && status < 300) {
-            finalText = data?.choices?.[0]?.message?.content || "";
-          } else {
-            console.warn("[OpenAI] finalization failed:", status, JSON.stringify(data).slice(0, 400));
-            send({ type: "error", data: `Model finalization failed (${status}). Using draft.` });
-          }
-        } catch (err: any) {
-          console.warn("[OpenAI] finalization exception:", err?.message);
-          send({ type: "error", data: "Model finalization error; using draft." });
-        }
+          const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers, body: JSON.stringify(body) });
+          const status = res.status; let data: any = null; try { data = await res.json(); } catch {}
+          if (status >= 200 && status < 300) finalText = data?.choices?.[0]?.message?.content || "";
+          else { console.warn("[OpenAI] finalization failed:", status, JSON.stringify(data).slice(0, 400)); send({ type: "error", data: `Model finalization failed (${status}). Using draft.` }); }
+        } catch (err: any) { console.warn("[OpenAI] finalization exception:", err?.message); send({ type: "error", data: "Model finalization error; using draft." }); }
 
         if (!finalText || !finalText.trim()) finalText = optimisticDraft || streamedText || "Outfit:\n- (draft unavailable)";
-
-        send({ type: "assistant_final", data: finalText });
-        send({ type: "done" });
+        send({ type: "assistant_final", data: finalText }); send({ type: "done" });
       } catch (err: any) {
         const fallback = optimisticDraft || "Outfit:\n- Top: — | — | — | —\n\n(An error occurred, but streaming remained responsive.)";
         console.error("[RunwayTwin] route fatal:", err?.message);
         send({ type: "error", data: String(err?.message || err) });
         send({ type: "assistant_final", data: fallback });
         send({ type: "done" });
-      } finally {
-        clearInterval(keepAlive);
-        controller.close();
-      }
+      } finally { clearInterval(keepAlive); controller.close(); }
     },
   });
 
