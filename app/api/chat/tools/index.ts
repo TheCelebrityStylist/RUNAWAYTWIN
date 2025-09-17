@@ -1,6 +1,6 @@
 // FILE: app/api/chat/tools/index.ts
 import type { Product, ProductAdapter, SearchProductsArgs } from "./types";
-import { demoAdapter } from "./demoAdapter";
+import { demoAdapter } from "./demoAdapter"; // ← must match file name EXACTLY
 
 // Add more adapters later: webAdapter, awinAdapter, etc.
 const ADAPTERS: ProductAdapter[] = [demoAdapter];
@@ -54,5 +54,4 @@ export function fxConvert(amount: number, from: string, to: string): number {
   return Math.round((amount / f) * t * 100) / 100;
 }
 
-// Re-export types
 export type { Product, ProductAdapter, SearchProductsArgs };
