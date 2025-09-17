@@ -1,6 +1,10 @@
 // FILE: app/api/chat/tools/demoAdapter.ts
 import type { ProductAdapter, SearchProductsArgs, Product } from "./types";
 
+/**
+ * Deterministic demo catalog used for optimistic drafts and as a fallback
+ * when web/affiliate adapters are unavailable.
+ */
 const DEMO: Product[] = [
   {
     id: "the-row-tee",
@@ -39,6 +43,7 @@ const DEMO: Product[] = [
 
 export const demoAdapter: ProductAdapter = {
   name: "demoAdapter",
+
   async searchProducts(params: SearchProductsArgs): Promise<Product[]> {
     const q = (params.query || "").toLowerCase();
     const limit = Math.max(1, Math.min(params.limit ?? 6, 12));
@@ -52,11 +57,14 @@ export const demoAdapter: ProductAdapter = {
 
     return (hits.length ? hits : DEMO).slice(0, limit);
   },
+
   async checkStock(productIdOrUrl: string) {
     const hit = DEMO.find((p) => p.id === productIdOrUrl || p.url === productIdOrUrl);
     return { availability: hit?.availability ?? null };
   },
+
   async affiliateLink(url: string) {
+    // No affiliate rewrite for demo; return canonical PDP
     return url;
   },
 };
