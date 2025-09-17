@@ -1,21 +1,27 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { encodeSSE } from "../../../lib/sse/reader"; // ✅ relative path to lib/sse/reader.ts
+import { encodeSSE } from "../../lib/sse/reader"; // path is correct for app/lib/sse/reader.ts
 import { searchProducts, affiliateLink, fxConvert } from "./tools";
 
 export const runtime = "edge";
 
 /**
  * RunwayTwin — Edge SSE chat route
+ *
  * Contract (always, never hangs):
  *   ready → assistant_draft_delta* → assistant_draft_done → (tool_call/tool_result)* → assistant_final → done
- * If OpenAI is unavailable/misconfigured, we still stream an optimistic draft and reuse it as assistant_final.
+ *
+ * Design notes:
+ * - We stream an optimistic draft immediately (tool-guided; fast) so the UI never feels stuck.
+ * - We collect tool_calls from the model's streamed deltas, run tools, and do a second non-stream pass for a crisp `assistant_final`.
+ * - If OpenAI is unavailable/misconfigured, we still send the optimistic draft as `assistant_final` so the chat always shows something.
+ * - The route runs on Vercel Edge; we only use `fetch` and avoid Node APIs.
  */
 
-/* =========================
+/* ============================================================
  * Types
- * ========================= */
+ * ============================================================ */
 type Prefs = {
   gender?: string;
   sizeTop?: string;
@@ -38,12 +44,13 @@ type ChatMessage = {
   tool_call_id?: string;
 };
 
-/* =========================
+/* ============================================================
  * Helpers
- * ========================= */
+ * ============================================================ */
 const te = new TextEncoder();
 const push = (evt: any) => te.encode(encodeSSE(evt));
 
+/** Convert user preferences to a compact system message the model can reliably use. */
 function prefsToSystem(p: Prefs): string {
   const cur = p.currency || (p.country === "US" ? "USD" : "EUR");
   return [
@@ -56,13 +63,11 @@ function prefsToSystem(p: Prefs): string {
     `- Country: ${p.country ?? "-"}`,
     `- Currency: ${cur}`,
     `- Style Keywords: ${p.styleKeywords ?? "-"}`,
-    `Preferences must influence all selections, fit notes, and budget math.`,
+    `These preferences MUST influence every recommendation, including silhouette, rise, drape, neckline, hems, fabrication, and budget math.`,
   ].join("\n");
 }
 
-/**
- * Raw OpenAI streaming with tool-call delta accumulation.
- */
+/** Stream OpenAI deltas and accumulate tool_calls safely. */
 async function streamOpenAI(
   messages: ChatMessage[],
   toolsSchema: any[],
@@ -82,13 +87,14 @@ async function streamOpenAI(
 
   if (!res.ok || !res.body) {
     const txt = await res.text().catch(() => "");
-    console.warn("[OpenAI] stream error:", res.status, txt.slice(0, 200));
+    console.warn("[OpenAI] stream error:", res.status, txt.slice(0, 500));
     throw new Error(`OpenAI stream error: ${res.status}`);
   }
 
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  const toolCalls: Record<string, { id: string; type: "function"; function: { name: string; arguments: string } }> = {};
+  const toolCallsMap: Record<string, { id: string; type: "function"; function: { name: string; arguments: string } }> =
+    {};
   let full = "";
   let finished = false;
 
@@ -118,27 +124,27 @@ async function streamOpenAI(
           for (const tc of delta.tool_calls) {
             const id = tc.id;
             if (!id) continue;
-            if (!toolCalls[id]) {
-              toolCalls[id] = { id, type: "function", function: { name: "", arguments: "" } };
+            if (!toolCallsMap[id]) {
+              toolCallsMap[id] = { id, type: "function", function: { name: "", arguments: "" } };
             }
-            if (tc.function?.name) toolCalls[id].function.name = tc.function.name;
+            if (tc.function?.name) toolCallsMap[id].function.name = tc.function.name;
             if (typeof tc.function?.arguments === "string") {
-              toolCalls[id].function.arguments += tc.function.arguments;
+              toolCallsMap[id].function.arguments += tc.function.arguments;
             }
           }
         }
       } catch {
-        // ignore malformed event lines
+        // ignore malformed partial lines; keep streaming
       }
     }
   }
 
-  return { content: full, toolCalls: Object.values(toolCalls) };
+  return { content: full, toolCalls: Object.values(toolCallsMap) };
 }
 
-/* =========================
- * Tool Schemas (for model tool-calls)
- * ========================= */
+/* ============================================================
+ * Tool Schemas (model-visible functions)
+ * ============================================================ */
 const toolSchemas = [
   {
     type: "function",
@@ -163,7 +169,7 @@ const toolSchemas = [
     type: "function",
     function: {
       name: "fx_convert",
-      description: "Convert a price to a target currency.",
+      description: "Convert a numeric price between currencies using a simple static table.",
       parameters: {
         type: "object",
         properties: {
@@ -177,49 +183,61 @@ const toolSchemas = [
   },
 ];
 
-/* =========================
+/* ============================================================
  * Route
- * ========================= */
+ * ============================================================ */
 export async function POST(req: NextRequest) {
-  const { messages: clientMessages, preferences, imageUrl } = await req.json();
-  const prefs: Prefs = preferences || {};
-  const sysPrefs = prefsToSystem(prefs);
+  // Defensive parse: ensure we always have the expected shape
+  let bodyJson: any = {};
+  try {
+    bodyJson = await req.json();
+  } catch {
+    // ignored; we'll use defaults
+  }
+  const clientMessages = Array.isArray(bodyJson?.messages) ? (bodyJson.messages as ChatMessage[]) : [];
+  const preferences: Prefs = (bodyJson?.preferences || {}) as Prefs;
+  const imageUrl: string | undefined = typeof bodyJson?.imageUrl === "string" ? bodyJson.imageUrl : undefined;
 
+  const sysPrefs = prefsToSystem(preferences);
   const baseMessages: ChatMessage[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
     { role: "system", content: sysPrefs },
-    ...(Array.isArray(clientMessages) ? clientMessages : []),
+    ...clientMessages,
   ];
   if (imageUrl) baseMessages.push({ role: "user", content: `Image provided for palette/fit context: ${imageUrl}` });
 
   const stream = new ReadableStream({
     async start(controller) {
       const send = (evt: any) => controller.enqueue(push(evt));
+      // keep-alive ping so proxies don't close the stream
       const keepAlive = setInterval(() => send({ type: "ping" }), 15000);
 
+      // env
       const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
       const OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || "";
       const OPENAI_PROJECT_ID = process.env.OPENAI_PROJECT_ID || "";
       const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-      let optimisticDraft = "";
+      let optimisticDraftText = "";
 
       try {
-        // 1) ready
+        // 1) handshake
         send({ type: "ready" });
 
-        // 2) Optimistic draft (tool-guided) — FIXED: async map via Promise.all
+        // 2) Optimistic draft: do a fast product search using our adapters
         const lastUser = [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
-        const style = prefs.styleKeywords ? ` ${prefs.styleKeywords}` : "";
+        const style = preferences.styleKeywords ? ` ${preferences.styleKeywords}` : "";
+        // small heuristic: take the most recent user text + style keywords
         const heuristicQuery = `${lastUser.slice(0, 160)}${style ? " | " + style : ""}`.trim();
 
         let draftLines: string[] = [];
         try {
           const picks = await searchProducts({
             query: heuristicQuery || "black wool coat women",
-            country: (prefs.country as any) || "NL",
+            country: (preferences.country as any) || "NL",
+            currency: preferences.currency || (preferences.country === "US" ? "USD" : "EUR"),
             limit: 3,
-            preferEU: true,
+            preferEU: (preferences.country || "NL") !== "US",
           });
 
           if (picks.length) {
@@ -227,7 +245,9 @@ export async function POST(req: NextRequest) {
               picks.map(async (p) => {
                 const link = await affiliateLink(p.url, p.retailer);
                 const retailer = p.retailer ?? new URL(p.url).hostname;
-                return `- Hero: ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${retailer} | ${link} | ${p.imageUrl ?? ""}`;
+                const priceStr = p.price != null ? `${p.price}` : "?";
+                const ccy = p.currency ?? "";
+                return `- Hero: ${p.brand} — ${p.title} | ${priceStr} ${ccy} | ${retailer} | ${link} | ${p.imageUrl ?? ""}`;
               })
             );
 
@@ -239,11 +259,13 @@ export async function POST(req: NextRequest) {
               "- Outerwear: searching…",
             ];
           }
-        } catch {
-          // ignore; fallback below
+        } catch (e: any) {
+          console.warn("[RunwayTwin] optimistic search failed:", e?.message);
+          // fall through to static draft below
         }
 
         if (!draftLines.length) {
+          // Static but realistic draft (EU-leaning)
           draftLines = [
             "Outfit:",
             "- Top: The Row — Wesler Merino T-Shirt | 590 EUR | Matches | https://www.matchesfashion.com/products/the-row-wesler-merino-t-shirt | ",
@@ -257,20 +279,20 @@ export async function POST(req: NextRequest) {
           ];
         }
 
-        optimisticDraft = draftLines.join("\n");
+        optimisticDraftText = draftLines.join("\n");
         for (const line of draftLines) {
           send({ type: "assistant_draft_delta", data: line + "\n" });
-          // small delay to keep chunk cadence pleasant
+          // small cadence so UI sees multiple chunks (feels more "alive")
           // @ts-ignore
           await new Promise((r) => setTimeout(r, 8));
         }
         send({ type: "assistant_draft_done" });
 
-        // 3) If missing key → return draft as final + error
+        // 3) If missing key → finalize with optimistic draft (never leave the UI empty)
         if (!OPENAI_API_KEY) {
           console.warn("[RunwayTwin] Missing OPENAI_API_KEY — returning optimistic draft as final.");
           send({ type: "error", data: "Missing OPENAI_API_KEY on the server." });
-          send({ type: "assistant_final", data: optimisticDraft || "Temporary draft unavailable." });
+          send({ type: "assistant_final", data: optimisticDraftText || "Temporary draft unavailable." });
           send({ type: "done" });
           clearInterval(keepAlive);
           controller.close();
@@ -284,7 +306,7 @@ export async function POST(req: NextRequest) {
         if (OPENAI_ORG_ID) headers["OpenAI-Organization"] = OPENAI_ORG_ID;
         if (OPENAI_PROJECT_ID) headers["OpenAI-Project"] = OPENAI_PROJECT_ID;
 
-        // 4) First pass: stream model output & accumulate tool calls
+        // 4) First pass: stream model deltas & accumulate tool calls
         let streamedText = "";
         let toolCalls: any[] = [];
         try {
@@ -296,6 +318,7 @@ export async function POST(req: NextRequest) {
             new AbortController().signal,
             (delta) => {
               streamedText += delta;
+              // surface to UI as extra draft deltas to keep the feeling of progress
               send({ type: "assistant_draft_delta", data: delta });
             }
           );
@@ -305,14 +328,14 @@ export async function POST(req: NextRequest) {
           send({ type: "error", data: "Upstream model stream failed; using draft." });
         }
 
-        // Announce tool calls
+        // Announce tool calls (UI/meta)
         if (toolCalls.length) {
           for (const call of toolCalls) {
             send({ type: "tool_call", data: { id: call.id, name: call.function?.name } });
           }
         }
 
-        // 5) Execute tools
+        // 5) Execute tools (best-effort)
         const toolResults: ChatMessage[] = [];
         for (const call of toolCalls) {
           let resultPayload: any = null;
@@ -326,7 +349,7 @@ export async function POST(req: NextRequest) {
                 size: args.size,
                 color: args.color,
                 limit: Math.min(6, Number(args.limit || 6)),
-                preferEU: true,
+                preferEU: (preferences.country || "NL") !== "US",
               });
               resultPayload = { ok: true, results };
             } else if (call.function?.name === "fx_convert") {
@@ -348,7 +371,7 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // 6) Second pass (non-stream) → assistant_final
+        // 6) Second pass (non-stream) → deterministic assistant_final
         let finalText = "";
         try {
           const body = { model, temperature: 0.4, messages: [...baseMessages, ...toolResults] };
@@ -361,11 +384,13 @@ export async function POST(req: NextRequest) {
           let data: any = null;
           try {
             data = await res.json();
-          } catch {}
+          } catch {
+            // ignore parse failure, will fallback
+          }
           if (status >= 200 && status < 300) {
             finalText = data?.choices?.[0]?.message?.content || "";
           } else {
-            console.warn("[OpenAI] finalization failed:", status, JSON.stringify(data).slice(0, 200));
+            console.warn("[OpenAI] finalization failed:", status, JSON.stringify(data).slice(0, 500));
             send({ type: "error", data: `Model finalization failed (${status}). Using draft.` });
           }
         } catch (err: any) {
@@ -373,12 +398,14 @@ export async function POST(req: NextRequest) {
           send({ type: "error", data: "Model finalization error; using draft." });
         }
 
-        if (!finalText || !finalText.trim()) finalText = optimisticDraft || streamedText || "Outfit:\n- (draft unavailable)";
+        // If nothing came back, reuse the optimistic draft (critical for never-empty UI)
+        if (!finalText || !finalText.trim()) finalText = optimisticDraftText || streamedText || "Outfit:\n- (draft unavailable)";
 
+        // 7) Final + done
         send({ type: "assistant_final", data: finalText });
         send({ type: "done" });
       } catch (err: any) {
-        const fallback = optimisticDraft || "Outfit:\n- Top: — | — | — | —\n\n(An error occurred, but streaming remained responsive.)";
+        const fallback = optimisticDraftText || "Outfit:\n- Top: — | — | — | —\n\n(An error occurred, but streaming remained responsive.)";
         console.error("[RunwayTwin] route fatal:", err?.message);
         send({ type: "error", data: String(err?.message || err) });
         send({ type: "assistant_final", data: fallback });
