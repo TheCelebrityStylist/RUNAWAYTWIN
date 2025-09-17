@@ -45,9 +45,22 @@ function parseSSE(chunk: string, handle: SSEHandler, carry = "") {
 
 export function useStylistChat(endpoint = "/api/chat") {
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraftState] = useState("");
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const draftRef = useRef("");
+
+  type DraftUpdater = string | ((prev: string) => string);
+
+  const updateDraft = useCallback((value: DraftUpdater) => {
+    const current = draftRef.current;
+    const next =
+      typeof value === "function"
+        ? (value as (prev: string) => string)(current)
+        : value;
+    draftRef.current = next;
+    setDraftState(next);
+  }, []);
 
   const send = useCallback(
     async ({ text, imageUrl, preferences }: SendOptions) => {
@@ -60,7 +73,7 @@ export function useStylistChat(endpoint = "/api/chat") {
         meta: imageUrl ? { imageUrl } : undefined,
       };
       setMessages((m) => [...m, user]);
-      setDraft("");
+      updateDraft("");
       setLoading(true);
 
       abortRef.current?.abort();
@@ -140,7 +153,7 @@ export function useStylistChat(endpoint = "/api/chat") {
             break;
           case "assistant_draft_delta":
           case "assistant_delta":
-            setDraft((d) => d + (data?.text || ""));
+            updateDraft((d) => d + (data?.text || ""));
             break;
           case "assistant_draft_done":
             break;
@@ -162,18 +175,26 @@ export function useStylistChat(endpoint = "/api/chat") {
             ]);
             break;
           case "assistant_final":
-            setMessages((m) => [
-              ...m,
-              { id: crypto.randomUUID(), role: "assistant", content: data?.text || "" },
-            ]);
-            setDraft("");
+            {
+              const incoming =
+                typeof data?.text === "string" && data.text.trim().length
+                  ? data.text
+                  : draftRef.current;
+              if (incoming && incoming.trim().length) {
+                setMessages((m) => [
+                  ...m,
+                  { id: crypto.randomUUID(), role: "assistant", content: incoming },
+                ]);
+              }
+              updateDraft("");
+            }
             break;
           case "error":
             setMessages((m) => [
               ...m,
               { id: crypto.randomUUID(), role: "assistant", content: "Sorry—something went wrong. Try again." },
             ]);
-            setDraft("");
+            updateDraft("");
             break;
           case "done":
             setLoading(false);
@@ -195,18 +216,20 @@ export function useStylistChat(endpoint = "/api/chat") {
           ...m,
           { id: crypto.randomUUID(), role: "assistant", content: "Stream aborted. Please try again." },
         ]);
+        updateDraft("");
       } finally {
         clearInterval(heartbeat);
         setLoading(false);
       }
     },
-    [endpoint, messages]
+    [endpoint, messages, updateDraft]
   );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
     setLoading(false);
-  }, []);
+    updateDraft("");
+  }, [updateDraft]);
 
   return { messages, draft, send, stop, loading };
 }
