@@ -1,5 +1,4 @@
 // FILE: lib/sse/reader.ts
-// (project-root/lib/sse/reader.ts)
 export type SSEEvent =
   | { type: "ready" }
   | { type: "assistant_draft_delta"; data: string }
