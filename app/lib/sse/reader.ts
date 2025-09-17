@@ -1,5 +1,11 @@
-// FILE: lib/sse/reader.ts
-// Minimal SSE encoder used by the Edge route.
+// FILE: app/lib/sse/reader.ts
+/**
+ * Minimal Server-Sent Event encoder for Edge runtime.
+ * Produces lines:
+ *   event: <name>\n
+ *   data: <json?>\n
+ *   \n
+ */
 export type SSEEvent =
   | { type: "ready" }
   | { type: "assistant_draft_delta"; data: string }
