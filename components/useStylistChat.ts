@@ -62,6 +62,21 @@ export function useStylistChat(endpoint = "/api/chat") {
     setDraftState(next);
   }, []);
 
+  const coerceText = useCallback((value: unknown): string => {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      return value.map((entry) => coerceText(entry)).join("");
+    }
+    if (typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      if ("text" in record) return coerceText(record.text);
+      if ("content" in record) return coerceText(record.content);
+      return "";
+    }
+    return String(value);
+  }, []);
+
   const send = useCallback(
     async ({ text, imageUrl, preferences }: SendOptions) => {
       if (!text && !imageUrl) return;
@@ -108,10 +123,10 @@ export function useStylistChat(endpoint = "/api/chat") {
       let res: Response;
       let settled = false;
 
-      const finalize = (raw?: string) => {
+      const finalize = (raw?: unknown) => {
         if (settled) return;
 
-        const fromEvent = typeof raw === "string" ? raw : "";
+        const fromEvent = coerceText(raw);
         const fallback = fromEvent.trim().length ? fromEvent : draftRef.current;
         const finalText = typeof fallback === "string" ? fallback : "";
 
@@ -172,7 +187,7 @@ export function useStylistChat(endpoint = "/api/chat") {
             break;
           case "assistant_draft_delta":
           case "assistant_delta":
-            updateDraft((d) => d + (data?.text || ""));
+            updateDraft((d) => d + coerceText(data?.text));
             break;
           case "assistant_draft_done":
             break;
@@ -246,7 +261,7 @@ export function useStylistChat(endpoint = "/api/chat") {
         setLoading(false);
       }
     },
-    [endpoint, messages, updateDraft]
+    [coerceText, endpoint, messages, updateDraft]
   );
 
   const stop = useCallback(() => {
