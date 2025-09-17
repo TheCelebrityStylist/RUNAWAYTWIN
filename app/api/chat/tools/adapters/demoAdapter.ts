@@ -1,10 +1,6 @@
 // FILE: app/api/chat/tools/demoAdapter.ts
 import type { ProductAdapter, SearchProductsArgs, Product } from "./types";
 
-/**
- * A curated, deterministic catalog that guarantees instant results
- * so the optimistic draft feels real even if web scraping is blocked.
- */
 const DEMO: Product[] = [
   {
     id: "the-row-tee",
@@ -48,22 +44,19 @@ export const demoAdapter: ProductAdapter = {
     const limit = Math.max(1, Math.min(params.limit ?? 6, 12));
     if (!q) return DEMO.slice(0, limit);
 
+    const tokens = q.split(/\s+/).filter(Boolean);
     const hits = DEMO.filter((p) => {
       const hay = `${p.brand} ${p.title} ${p.retailer}`.toLowerCase();
-      const tokens = q.split(/\s+/).filter(Boolean);
       return tokens.every((t) => hay.includes(t));
     });
 
     return (hits.length ? hits : DEMO).slice(0, limit);
   },
-
   async checkStock(productIdOrUrl: string) {
     const hit = DEMO.find((p) => p.id === productIdOrUrl || p.url === productIdOrUrl);
     return { availability: hit?.availability ?? null };
   },
-
   async affiliateLink(url: string) {
-    // No affiliate rewrite in demo; return canonical.
     return url;
   },
 };
