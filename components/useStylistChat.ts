@@ -106,6 +106,25 @@ export function useStylistChat(endpoint = "/api/chat") {
           : { role: "user", content: text || "" };
 
       let res: Response;
+      let settled = false;
+
+      const finalize = (raw?: string) => {
+        if (settled) return;
+
+        const fromEvent = typeof raw === "string" ? raw : "";
+        const fallback = fromEvent.trim().length ? fromEvent : draftRef.current;
+        const finalText = typeof fallback === "string" ? fallback : "";
+
+        if (finalText.trim().length) {
+          setMessages((m) => [
+            ...m,
+            { id: crypto.randomUUID(), role: "assistant", content: finalText },
+          ]);
+        }
+
+        updateDraft("");
+        settled = true;
+      };
       try {
         res = await fetch(endpoint, {
           method: "POST",
@@ -175,19 +194,7 @@ export function useStylistChat(endpoint = "/api/chat") {
             ]);
             break;
           case "assistant_final":
-            {
-              const incoming =
-                typeof data?.text === "string" && data.text.trim().length
-                  ? data.text
-                  : draftRef.current;
-              if (incoming && incoming.trim().length) {
-                setMessages((m) => [
-                  ...m,
-                  { id: crypto.randomUUID(), role: "assistant", content: incoming },
-                ]);
-              }
-              updateDraft("");
-            }
+            finalize(data?.text);
             break;
           case "error":
             setMessages((m) => [
@@ -195,6 +202,7 @@ export function useStylistChat(endpoint = "/api/chat") {
               { id: crypto.randomUUID(), role: "assistant", content: "Sorry—something went wrong. Try again." },
             ]);
             updateDraft("");
+            settled = true;
             break;
           case "done":
             setLoading(false);
@@ -211,14 +219,30 @@ export function useStylistChat(endpoint = "/api/chat") {
           const chunk = decoder.decode(value, { stream: true });
           carry = parseSSE(chunk, onEvent, carry);
         }
-      } catch (err) {
-        setMessages((m) => [
-          ...m,
-          { id: crypto.randomUUID(), role: "assistant", content: "Stream aborted. Please try again." },
-        ]);
-        updateDraft("");
+      } catch (err: any) {
+        if (!settled) {
+          if (err?.name === "AbortError") {
+            // User aborted — silently clear the draft.
+            updateDraft("");
+          } else {
+            setMessages((m) => [
+              ...m,
+              { id: crypto.randomUUID(), role: "assistant", content: "Stream aborted. Please try again." },
+            ]);
+            updateDraft("");
+          }
+          settled = true;
+        }
       } finally {
         clearInterval(heartbeat);
+        if (!settled) {
+          if (draftRef.current.trim().length) {
+            finalize();
+          } else {
+            updateDraft("");
+            settled = true;
+          }
+        }
         setLoading(false);
       }
     },
