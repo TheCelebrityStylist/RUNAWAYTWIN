@@ -1,413 +1,420 @@
-// app/api/chat/route.ts
-export const runtime = "edge";
-// If you're deploying on Vercel Edge and want global availability,
-// you can optionally pin a region, but it's not required.
-// export const preferredRegion = "iad1";
-
-import type { NextRequest } from "next/server";
+// FILE: app/api/chat/route.ts
+import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { toolSchemas, createToolDispatcher } from "./tools";
-import type { ToolName } from "./tools";
-import { awinAdapter } from "./tools/adapters/awinAdapter";
-import { webAdapter } from "./tools/adapters/webAdapter";
-import { demoAdapter } from "./tools/adapters/demoAdapter";
+import { encodeSSE } from "@/lib/sse/reader";
+import { searchProducts, affiliateLink, fxConvert } from "./tools";
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
+export const runtime = "edge";
 
-const dispatcher = createToolDispatcher([awinAdapter, webAdapter, demoAdapter]);
-const { runTool } = dispatcher;
+/**
+ * RunwayTwin — Edge SSE chat route
+ * Emits (always, never hangs):
+ *   ready → assistant_draft_delta* → assistant_draft_done → (tool_call/tool_result)* → assistant_final → done
+ * If OpenAI is unavailable or misconfigured, we still produce an optimistic draft and reuse it as assistant_final.
+ */
 
-const isToolName = (value: string): value is ToolName =>
-  toolSchemas.some((tool) => tool.name === value);
-
-/** ---------- Utilities ---------- */
-
-type ChatMessage =
-  | { role: "system" | "user" | "assistant"; content: string | any }
-  | { role: "tool"; tool_call_id: string; content: string };
-
-type ToolCallDelta = {
-  id?: string;
-  function?: { name?: string; arguments?: string };
-  type?: "function";
-  index?: number;
+/* =========================
+ * Types
+ * ========================= */
+type Prefs = {
+  gender?: string;
+  sizeTop?: string;
+  sizeBottom?: string;
+  sizeDress?: string;
+  sizeShoe?: string;
+  bodyType?: string;
+  budget?: number;
+  country?: string;
+  styleKeywords?: string;
+  heightCm?: number;
+  weightKg?: number;
+  currency?: string;
 };
 
-function sse(event: string, data: unknown) {
-  return `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`;
-}
+type ChatMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  name?: string;
+  tool_call_id?: string;
+};
 
-function safeJSON(s: string) {
-  try {
-    return JSON.parse(s || "{}");
-  } catch {
-    return {};
-  }
-}
+/* =========================
+ * Helpers
+ * ========================= */
+const te = new TextEncoder();
+const pushBytes = (evt: any) => te.encode(encodeSSE(evt));
 
-function prefsToSystem(prefs: any) {
-  const {
-    gender = "unspecified",
-    sizes = {},
-    bodyType = "",
-    budget = "",
-    country = "",
-    styleKeywords = [],
-    height = "",
-    weight = "",
-  } = prefs || {};
-
-  const sizeStr = Object.entries(sizes || {})
-    .map(([k, v]) => `${k}: ${v}`)
-    .join(", ");
-
+function prefsToSystem(p: Prefs): string {
+  const cur = p.currency || (p.country === "US" ? "USD" : "EUR");
   return [
-    `### USER PROFILE`,
-    `Gender: ${gender}`,
-    `Sizes: ${sizeStr || "n/a"}`,
-    `Body type: ${bodyType || "n/a"}`,
-    `Height/Weight (optional): ${[height, weight].filter(Boolean).join(" / ") || "n/a"}`,
-    `Budget: ${budget || "n/a"} (respect this; show per-item + total)`,
-    `Country: ${country || "n/a"} (prefer local/EU/US stock & sizing)`,
-    `Style keywords: ${styleKeywords.join(", ") || "n/a"}`,
-    ``,
-    `### HARD OUTPUT RULES`,
-    `• Complete look: top, bottom OR dress/jumpsuit, outerwear (if seasonally relevant), shoes, bag, 1–2 accessories.`,
-    `• EACH item => Brand + Exact Item, Price + currency, Retailer, Link (from tools only).`,
-    `• Explain *why it flatters* this body type (rise, drape, neckline, silhouette, proportions, fabrication).`,
-    `• Respect budget; show total; include “save” alternatives if needed.`,
-    `• Provide 1–2 alternates for shoes and outerwear (with links).`,
-    `• Add “Capsule & Tips”: 2–3 remix ideas + two concise tips.`,
-    `• If zero stock for a spec, say it and propose closest in-stock alternative (with links).`,
+    `User Profile:`,
+    `- Gender: ${p.gender ?? "unspecified"}`,
+    `- Sizes: top=${p.sizeTop ?? "-"}, bottom=${p.sizeBottom ?? "-"}, dress=${p.sizeDress ?? "-"}, shoe=${p.sizeShoe ?? "-"}`,
+    `- Body Type: ${p.bodyType ?? "-"}`,
+    `- Height/Weight: ${p.heightCm ?? "-"}cm / ${p.weightKg ?? "-"}kg`,
+    `- Budget: ${p.budget ? `${p.budget} ${cur}` : "-"}`,
+    `- Country: ${p.country ?? "-"}`,
+    `- Currency: ${cur}`,
+    `- Style Keywords: ${p.styleKeywords ?? "-"}`,
+    `Preferences must influence all selections, size/fit notes, and budget math.`,
   ].join("\n");
 }
 
-function lastUserText(messages: any[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m?.role !== "user") continue;
-    if (typeof m.content === "string") return m.content;
-    if (Array.isArray(m.content)) {
-      const textPart = m.content.find((p: any) => p?.type === "text");
-      if (textPart?.text) return textPart.text;
-    }
-  }
-  return "";
-}
+/**
+ * Raw OpenAI streaming with tool-call delta accumulation.
+ * We do not expose partial assistant deltas to the UI as "final"; they're surfaced as extra draft deltas for liveliness.
+ */
+async function streamOpenAI(
+  messages: ChatMessage[],
+  toolsSchema: any[],
+  model: string,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+  onContentDelta: (text: string) => void
+): Promise<{ toolCalls: any[]; content: string }> {
+  const body = { model, stream: true, temperature: 0.6, messages, tools: toolsSchema, tool_choice: "auto" };
 
-/** Quick “optimistic” draft that uses tools + prefs so the UI replies instantly. */
-async function optimisticDraft(preferences: any, userText: string) {
-  const country = preferences?.country || "NL";
-
-  const currencyPref = (preferences?.currency || "EUR").toUpperCase();
-  const ctx = { preferences };
-  const search = (query: string) =>
-    runTool(
-      "retailer_search",
-      { query, country, limit: 3 },
-      ctx
-    );
-
-  // Pull a few quick items using the adapters in order (affiliate → web → demo).
-  const [topR, trouR, coatR, shoeR, bagR, accR] = await Promise.all([
-    search("ivory rib long-sleeve top women"),
-    search("charcoal tapered wool trousers women"),
-    search("black tailored coat women"),
-    search("black leather ankle boots women"),
-    search("black leather shoulder bag women"),
-    search("gold hoop earrings"),
-  ] as const);
-
-  const pick = (r: any) =>
-    (r?.items || []).find((item: any) => item?.url || item?.link) || null;
-
-  const top = pick(topR);
-  const trou = pick(trouR);
-  const coat = pick(coatR);
-  const shoe = pick(shoeR);
-  const bag = pick(bagR);
-  const acc = pick(accR);
-
-  const money = (value?: number, currency?: string) => {
-    if (!Number.isFinite(value)) return "";
-    const code = (currency || currencyPref || "EUR").toUpperCase();
-    const symbol = code === "EUR" ? "€" : code === "USD" ? "$" : code === "GBP" ? "£" : `${code} `;
-    return `${symbol}${Math.round(Number(value))}`;
-  };
-
-  const formatPrice = (item: any) =>
-    money(Number(item?.price), typeof item?.currency === "string" ? item.currency : undefined);
-
-  const total = [top, trou, coat, shoe, bag].reduce(
-    (sum, item) => sum + (Number(item?.price) || 0),
-    0
-  );
-  const totalCurrency =
-    top?.currency ||
-    trou?.currency ||
-    coat?.currency ||
-    shoe?.currency ||
-    bag?.currency ||
-    currencyPref;
-
-  const describe = (label: string, item: any) => {
-    if (!item) return null;
-    const name =
-      [item.brand, item.title].filter(Boolean).join(" ").trim() || "Product";
-    const details = [formatPrice(item), item?.retailer].filter(Boolean).join(", ");
-    const link = item?.link || item?.url;
-    return `- ${label} — ${name}${details ? ` (${details})` : ""}${link ? ` · ${link}` : ""}`;
-  };
-
-  const concept = `Editorial minimalism with celebrity-level polish — clean lines, elongated silhouette, and a controlled monochrome palette.`;
-
-  const bodyType = (preferences?.bodyType || "your frame")
-    .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase());
-
-  const bullets: string[] = [];
-  bullets.push(`Stylist POV: ${concept}`);
-  bullets.push(``);
-  bullets.push(`Outfit:`);
-  [
-    describe("Top", top),
-    describe("Trousers", trou),
-    describe("Outerwear", coat),
-    describe("Shoes", shoe),
-    describe("Bag", bag),
-    describe("Accessories", acc),
-  ]
-    .filter(Boolean)
-    .forEach((line) => bullets.push(line!));
-
-  bullets.push(``);
-  bullets.push(`Why it flatters:`);
-  bullets.push(`- ${bodyType}: high-rise trouser lengthens the leg; fitted rib balances the coat; pointed boot extends the line.`);
-  bullets.push(`- Fabric mix: wool + polished leather reads formal without glare in flash photos.`);
-  bullets.push(``);
-  const savings = money(80, totalCurrency);
-  bullets.push(`Budget & Total: ~${money(total, totalCurrency)} (swap coat for Arket to save ~${savings || "€80"}).`);
-  bullets.push(``);
-  bullets.push(`Capsule & Tips:`);
-  bullets.push(`- Remix the rib top with denim + the coat; or the trousers with a silk camisole and pumps.`);
-  bullets.push(`- Tailor trouser hem to skim boot shaft; a soft brown liner + clear gloss keeps it modern.`);
-  bullets.push(``);
-  bullets.push(`(You said: “${userText || "Outfit request"}”)`);
-
-  return bullets.join("\n");
-}
-
-/** Low-level OpenAI streaming helper (REST + SSE) */
-async function* openaiStream(body: any) {
-  const res = await fetch(OPENAI_URL, {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(body),
+    signal,
   });
-  if (!res.ok || !res.body) throw new Error(`OpenAI HTTP ${res.status}`);
+
+  if (!res.ok || !res.body) {
+    const txt = await res.text().catch(() => "");
+    console.warn("[OpenAI] stream error:", res.status, txt.slice(0, 200));
+    throw new Error(`OpenAI stream error: ${res.status}`);
+  }
 
   const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let carry = "";
-  while (true) {
+  const dec = new TextDecoder();
+  const toolCalls: Record<
+    string,
+    { id: string; type: "function"; function: { name: string; arguments: string } }
+  > = {};
+  let full = "";
+  let finished = false;
+
+  while (!finished) {
     const { value, done } = await reader.read();
     if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    carry += chunk;
-    while (true) {
-      const idx = carry.indexOf("\n\n");
-      if (idx === -1) break;
-      const raw = carry.slice(0, idx);
-      carry = carry.slice(idx + 2);
-      const lines = raw.split("\n").filter((l) => l.startsWith("data: "));
-      for (const line of lines) {
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") {
-          yield { done: true };
-          return;
+    const chunk = dec.decode(value, { stream: true });
+    const lines = chunk.split(/\r?\n/);
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (payload === "[DONE]") {
+        finished = true;
+        break;
+      }
+      try {
+        const obj = JSON.parse(payload);
+        const delta = obj.choices?.[0]?.delta;
+        if (!delta) continue;
+
+        // Text deltas
+        if (typeof delta.content === "string") {
+          full += delta.content;
+          onContentDelta(delta.content);
         }
-        try {
-          yield JSON.parse(data);
-        } catch {
-          // ignore keep-alives
+
+        // Tool call deltas
+        if (delta.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            const id = tc.id;
+            if (!id) continue;
+            if (!toolCalls[id]) {
+              toolCalls[id] = {
+                id,
+                type: "function",
+                function: { name: "", arguments: "" },
+              };
+            }
+            if (tc.function?.name) toolCalls[id].function.name = tc.function.name;
+            if (typeof tc.function?.arguments === "string") {
+              toolCalls[id].function.arguments += tc.function.arguments;
+            }
+          }
         }
+      } catch {
+        // ignore malformed line
       }
     }
   }
+
+  return { content: full, toolCalls: Object.values(toolCalls) };
 }
 
-/** ---------- Route ---------- */
-
-export async function POST(req: NextRequest) {
-  const payload = await req.json().catch(() => ({}));
-  const { messages = [], preferences } = payload || {};
-  const userText = lastUserText(messages);
-
-  const baseMsgs: ChatMessage[] = [
-    { role: "system", content: STYLIST_SYSTEM_PROMPT },
-    { role: "system", content: prefsToSystem(preferences) },
-    ...(Array.isArray(messages) ? messages : []),
-  ];
-
-  const tools = (toolSchemas || []).map((fn) => ({
+/* =========================
+ * Tool Schemas
+ * ========================= */
+const toolSchemas = [
+  {
     type: "function",
-    function: { name: fn.name, description: fn.description, parameters: fn.schema },
-  }));
+    function: {
+      name: "search_products",
+      description: "Search live retailers for a specific fashion item query. Return up to 6 normalized products.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          country: { type: "string" },
+          currency: { type: "string" },
+          size: { type: "string" },
+          color: { type: "string" },
+          limit: { type: "number" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fx_convert",
+      description: "Convert a price to a target currency.",
+      parameters: {
+        type: "object",
+        properties: {
+          amount: { type: "number" },
+          from: { type: "string" },
+          to: { type: "string" },
+        },
+        required: ["amount", "from", "to"],
+      },
+    },
+  },
+];
+
+/* =========================
+ * Route
+ * ========================= */
+export async function POST(req: NextRequest) {
+  // Always respond with an SSE stream — never hang.
+  const { messages: clientMessages, preferences, imageUrl } = await req.json();
+  const prefs: Prefs = preferences || {};
+  const sysPrefs = prefsToSystem(prefs);
+
+  const baseMessages: ChatMessage[] = [
+    { role: "system", content: STYLIST_SYSTEM_PROMPT },
+    { role: "system", content: sysPrefs },
+    ...(Array.isArray(clientMessages) ? clientMessages : []),
+  ];
+  if (imageUrl) baseMessages.push({ role: "user", content: `Image provided for palette/fit context: ${imageUrl}` });
 
   const stream = new ReadableStream({
     async start(controller) {
-      // initial liveness
-      controller.enqueue(sse("ready", { ok: true }));
-      const pinger = setInterval(() => controller.enqueue(sse("ping", { t: Date.now() })), 15000);
-      const end = (ok = true) => {
-        try { controller.enqueue(sse("done", { ok })); } catch {}
-        clearInterval(pinger);
-        controller.close();
-      };
+      const send = (evt: any) => controller.enqueue(pushBytes(evt));
+      const keepAlive = setInterval(() => send({ type: "ping" }), 15000);
 
-      // 0) **Optimistic draft** — reply instantly using our local generator + tools
-      try {
-        const draft = await optimisticDraft(preferences, userText);
-        for (const chunk of draft.match(/.{1,220}/g) || []) {
-          controller.enqueue(sse("assistant_draft_delta", { text: chunk }));
-        }
-        controller.enqueue(sse("assistant_draft_done", {}));
-      } catch {
-        // even if this fails, continue to model path
-      }
+      const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+      const OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || "";
+      const OPENAI_PROJECT_ID = process.env.OPENAI_PROJECT_ID || "";
+      const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-      // 1) **Model path** — try OpenAI; if anything fails, finalize with the optimistic draft already sent
-      if (!HAS_OPENAI) {
-        // no key → finalize with draft only
-        // (The optimistic draft already streamed. We still send a final event to satisfy the UI.)
-        controller.enqueue(sse("assistant_final", { text: "" }));
-        end(true);
-        return;
-      }
-
-      const toolCalls: Record<string, { name: string; arguments: string }> = {};
-      let accText = "";
+      // Local buffer of the optimistic draft lines — reused as assistant_final fallback
+      let optimisticDraft = "";
 
       try {
-        // 1st hop: stream draft + collect tool calls
-        for await (const evt of openaiStream({
-          model: "gpt-4o-mini",
-          temperature: 0.7,
-          stream: true,
-          tool_choice: "auto",
-          tools,
-          messages: baseMsgs,
-        })) {
-          const choice = (evt as any).choices?.[0];
-          if (!choice) continue;
+        // 1) ready
+        send({ type: "ready" });
 
-          const delta = choice.delta || {};
+        // 2) Optimistic draft (fast, tool-guided) so UI never feels stuck
+        const lastUser = [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
+        const style = prefs.styleKeywords ? ` ${prefs.styleKeywords}` : "";
+        const heuristicQuery = `${lastUser.slice(0, 160)}${style ? " | " + style : ""}`.trim();
 
-          if (typeof delta.content === "string" && delta.content) {
-            accText += delta.content;
-            controller.enqueue(sse("assistant_delta", { text: delta.content }));
-          }
-
-          const tcs = delta.tool_calls as ToolCallDelta[] | undefined;
-          if (tcs?.length) {
-            for (const d of tcs) {
-              const id = d.id!;
-              const name = d.function?.name || toolCalls[id]?.name || "unknown";
-              const argsChunk = d.function?.arguments || "";
-              toolCalls[id] = {
-                name,
-                arguments: (toolCalls[id]?.arguments || "") + argsChunk,
-              };
-            }
-          }
-
-          if (choice.finish_reason) break;
-        }
-      } catch {
-        // model failed; finalize with whatever we already drafted
-        controller.enqueue(sse("assistant_final", { text: accText || "" }));
-        end(false);
-        return;
-      }
-
-      // tools?
-      const entries = Object.entries(toolCalls);
-      if (entries.length) {
-        const toolMsgs: ChatMessage[] = [];
-
-        for (const [id, { name, arguments: argStr }] of entries) {
-          const args = safeJSON(argStr);
-          controller.enqueue(sse("tool_call", { id, name, args }));
-          try {
-            const toolName: ToolName = isToolName(name) ? name : "retailer_search";
-            const result = await runTool(toolName, args, { preferences });
-            controller.enqueue(sse("tool_result", { id, ok: true, result }));
-            toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify(result) });
-          } catch (err: any) {
-            controller.enqueue(sse("tool_result", { id, ok: false, error: err?.message || "Tool error" }));
-            toolMsgs.push({ role: "tool", tool_call_id: id, content: JSON.stringify({ error: "Tool error" }) });
-          }
-        }
-
-        // 2nd hop: non-stream final w/ tool results + critique rules
+        let draftLines: string[] = [];
         try {
-          const res = await fetch(OPENAI_URL, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              temperature: 0.4,
-              stream: false,
-              messages: [
-                ...baseMsgs,
-                { role: "assistant", content: accText },
-                ...toolMsgs,
-                {
-                  role: "system",
-                  content: [
-                    "Refine the assistant answer with these checks:",
-                    "1) Each item has brand + exact name, price, retailer, tool-derived link.",
-                    "2) Body-type reasons explicit (rise, neckline, hem, fabric).",
-                    "3) Respect budget; include total and a save option if needed.",
-                    "4) Alternates for shoes + outerwear.",
-                    "5) 'Capsule & Tips' (2–3 remixes + 2 tips).",
-                    "6) No invented links.",
-                  ].join("\n"),
-                },
-              ],
-            }),
+          const picks = await searchProducts({
+            query: heuristicQuery || "black wool coat women",
+            country: (prefs.country as any) || "NL",
+            limit: 3,
+            preferEU: true,
           });
-          const json = await res.json();
-          const finalText = json?.choices?.[0]?.message?.content || accText || "";
-          controller.enqueue(sse("assistant_final", { text: finalText }));
-          end(true);
-          return;
+          if (picks.length) {
+            draftLines = [
+              "Outfit:",
+              ...picks.map(
+                (p) =>
+                  `- Hero: ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${
+                    p.retailer ?? new URL(p.url).hostname
+                  } | ${await affiliateLink(p.url, p.retailer)} | ${p.imageUrl ?? ""}`
+              ),
+              "Alternates:",
+              "- Shoes: searching…",
+              "- Outerwear: searching…",
+            ];
+          }
         } catch {
-          controller.enqueue(sse("assistant_final", { text: accText || "" }));
-          end(false);
+          // ignore, fallback to static demo-ish draft below
+        }
+
+        if (!draftLines.length) {
+          draftLines = [
+            "Outfit:",
+            "- Top: The Row — Wesler Merino T-Shirt | 590 EUR | Matches | https://www.matchesfashion.com/products/the-row-wesler-merino-t-shirt | ",
+            "- Bottom: Levi's — 501 Original Straight | 110 EUR | Levi.com EU | https://www.levi.com/NL/en_NL/search?q=501 | ",
+            "- Outerwear: Mango — Classic Cotton Trench | 119.99 EUR | Mango | https://shop.mango.com/nl/dames/jassen/trench-classic | ",
+            "- Shoes: ZARA — Leather Penny Loafers | 69.95 EUR | ZARA | https://www.zara.com/nl/en/leather-penny-loafers-p0.html | ",
+            "- Bag: A.P.C. — Grace Small Leather Bag | 520 EUR | A.P.C. | https://www.apcstore.com/en_eu/grace-small | ",
+            "Alternates:",
+            "- Shoes: Alexander Wang — Ava Slingback 75 | 495 EUR | Farfetch | https://www.farfetch.com/shopping/women/alexander-wang-ava-slingback-75-item-123.aspx | ",
+            "- Outerwear: Agnona — Double-Face Cashmere Coat | 3200 EUR | SSENSE | https://www.ssense.com/en-eu/women/product/agnona/double-face-cashmere-coat/1234567 | ",
+          ];
+        }
+
+        // Stream draft lines and capture optimisticDraft text for fallback
+        optimisticDraft = draftLines.join("\n");
+        for (const line of draftLines) {
+          send({ type: "assistant_draft_delta", data: line + "\n" });
+          // micro-yield to keep UI flowing
+          // @ts-ignore
+          await new Promise((r) => setTimeout(r, 8));
+        }
+        send({ type: "assistant_draft_done" });
+
+        // 3) If missing key → return draft as final + error so developer can fix env quickly
+        if (!OPENAI_API_KEY) {
+          console.warn("[RunwayTwin] Missing OPENAI_API_KEY — returning optimistic draft as final.");
+          send({ type: "error", data: "Missing OPENAI_API_KEY on the server." });
+          send({ type: "assistant_final", data: optimisticDraft || "Temporary draft unavailable." });
+          send({ type: "done" });
+          clearInterval(keepAlive);
+          controller.close();
           return;
         }
-      }
 
-      // No tool calls → finalize with streamed model text (or empty if none)
-      controller.enqueue(sse("assistant_final", { text: accText || "" }));
-      end(true);
+        const headers: Record<string, string> = {
+          "content-type": "application/json",
+          authorization: `Bearer ${OPENAI_API_KEY}`,
+        };
+        if (OPENAI_ORG_ID) headers["OpenAI-Organization"] = OPENAI_ORG_ID;
+        if (OPENAI_PROJECT_ID) headers["OpenAI-Project"] = OPENAI_PROJECT_ID;
+
+        // 4) First pass: stream model output and accumulate tool calls
+        let streamedText = "";
+        let toolCalls: any[] = [];
+        try {
+          const { toolCalls: tc } = await streamOpenAI(
+            baseMessages,
+            toolSchemas,
+            model,
+            headers,
+            new AbortController().signal,
+            (delta) => {
+              // Surface as additional draft deltas to keep the chat feeling alive
+              streamedText += delta;
+              send({ type: "assistant_draft_delta", data: delta });
+            }
+          );
+          toolCalls = tc || [];
+        } catch (e: any) {
+          console.warn("[RunwayTwin] OpenAI stream failed — falling back to draft.", e?.message);
+          send({ type: "error", data: "Upstream model stream failed; using draft." });
+        }
+
+        // Announce tool calls (meta)
+        if (toolCalls.length) {
+          for (const call of toolCalls) {
+            send({ type: "tool_call", data: { id: call.id, name: call.function?.name } });
+          }
+        }
+
+        // 5) Execute tools best-effort
+        const toolResults: ChatMessage[] = [];
+        for (const call of toolCalls) {
+          let resultPayload: any = null;
+          try {
+            if (call.function?.name === "search_products") {
+              const args = JSON.parse(call.function.arguments || "{}");
+              const results = await searchProducts({
+                query: args.query || "",
+                country: args.country,
+                currency: args.currency,
+                size: args.size,
+                color: args.color,
+                limit: Math.min(6, Number(args.limit || 6)),
+                preferEU: true,
+              });
+              resultPayload = { ok: true, results };
+            } else if (call.function?.name === "fx_convert") {
+              const args = JSON.parse(call.function.arguments || "{}");
+              const out = fxConvert(Number(args.amount), args.from, args.to);
+              resultPayload = { ok: true, amount: out, currency: args.to };
+            } else {
+              resultPayload = { ok: false, error: "unknown_tool" };
+            }
+          } catch (err: any) {
+            resultPayload = { ok: false, error: String(err?.message || err) };
+          }
+          send({ type: "tool_result", data: { tool: call.function?.name, result: resultPayload } });
+          toolResults.push({
+            role: "tool",
+            content: JSON.stringify(resultPayload),
+            name: call.function?.name,
+            tool_call_id: call.id,
+          });
+        }
+
+        // 6) Second pass (non-stream) for deterministic assistant_final
+        let finalText = "";
+        try {
+          const body = {
+            model,
+            temperature: 0.4,
+            messages: [...baseMessages, ...toolResults],
+          };
+          const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+          });
+          const status = res.status;
+          let data: any = null;
+          try {
+            data = await res.json();
+          } catch {
+            // ignore parse error
+          }
+          if (status >= 200 && status < 300) {
+            finalText = data?.choices?.[0]?.message?.content || "";
+          } else {
+            console.warn("[OpenAI] finalization failed:", status, JSON.stringify(data).slice(0, 200));
+            send({ type: "error", data: `Model finalization failed (${status}). Using draft.` });
+          }
+        } catch (err: any) {
+          console.warn("[OpenAI] finalization exception:", err?.message);
+          send({ type: "error", data: "Model finalization error; using draft." });
+        }
+
+        // If finalText is empty for any reason, fall back to the optimistic draft (critical fix).
+        if (!finalText || !finalText.trim()) finalText = optimisticDraft || streamedText || "Outfit:\n- (draft unavailable)";
+
+        // 7) Emit final + done
+        send({ type: "assistant_final", data: finalText });
+        send({ type: "done" });
+      } catch (err: any) {
+        // Global safety net — still send a usable final so the UI shows content.
+        console.error("[RunwayTwin] route fatal:", err?.message);
+        const fallback = optimisticDraft || "Outfit:\n- Top: — | — | — | —\n\n(An error occurred, but streaming remained responsive.)";
+        send({ type: "error", data: String(err?.message || err) });
+        send({ type: "assistant_final", data: fallback });
+        send({ type: "done" });
+      } finally {
+        clearInterval(keepAlive);
+        controller.close();
+      }
     },
   });
 
   return new Response(stream, {
-    status: 200,
     headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
     },
   });
 }
-
