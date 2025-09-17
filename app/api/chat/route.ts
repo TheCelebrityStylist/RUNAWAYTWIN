@@ -1,7 +1,8 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { encodeSSE } from "@/lib/sse/reader";
+// ⬇️ fix: use relative path instead of "@/lib/sse/reader"
+import { encodeSSE } from "../../../lib/sse/reader";
 import { searchProducts, affiliateLink, fxConvert } from "./tools";
 
 export const runtime = "edge";
@@ -215,7 +216,7 @@ export async function POST(req: NextRequest) {
         // 1) ready
         send({ type: "ready" });
 
-        // 2) Optimistic draft (tool-guided) — FIXED: no await inside non-async map
+        // 2) Optimistic draft (tool-guided) with proper async mapping
         const lastUser = [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
         const style = prefs.styleKeywords ? ` ${prefs.styleKeywords}` : "";
         const heuristicQuery = `${lastUser.slice(0, 160)}${style ? " | " + style : ""}`.trim();
@@ -247,7 +248,7 @@ export async function POST(req: NextRequest) {
             ];
           }
         } catch {
-          // ignore; we'll fallback to static draft below
+          // ignore; fallback below
         }
 
         if (!draftLines.length) {
@@ -267,12 +268,12 @@ export async function POST(req: NextRequest) {
         optimisticDraft = draftLines.join("\n");
         for (const line of draftLines) {
           send({ type: "assistant_draft_delta", data: line + "\n" });
-          // @ts-ignore intentional tiny delay for chunk cadence
+          // @ts-ignore small delay for pleasant chunking
           await new Promise((r) => setTimeout(r, 8));
         }
         send({ type: "assistant_draft_done" });
 
-        // 3) Missing key → draft becomes final (so UI never empties)
+        // 3) No key → finalize with optimistic draft (UI never empties)
         if (!OPENAI_API_KEY) {
           console.warn("[RunwayTwin] Missing OPENAI_API_KEY — returning optimistic draft as final.");
           send({ type: "error", data: "Missing OPENAI_API_KEY on the server." });
@@ -371,9 +372,7 @@ export async function POST(req: NextRequest) {
           let data: any = null;
           try {
             data = await res.json();
-          } catch {
-            // ignore parse error
-          }
+          } catch {}
           if (status >= 200 && status < 300) {
             finalText = data?.choices?.[0]?.message?.content || "";
           } else {
