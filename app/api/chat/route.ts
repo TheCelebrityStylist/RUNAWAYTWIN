@@ -187,11 +187,11 @@ export async function POST(req: NextRequest) {
 
         await send(writer, { type: "tool_result", data: { tool: call.function?.name, result: resultPayload } });
 
+        // IMPORTANT: tool messages must be exactly { role: 'tool', content, tool_call_id }
         toolResults.push({
           role: "tool",
-          name: call.function?.name,
-          tool_call_id: call.id,
           content: JSON.stringify(resultPayload),
+          tool_call_id: call.id,
         });
       }
 
