@@ -1,14 +1,14 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
-import { searchProducts, fxConvert, Product } from "../tools";   // app/api/tools.ts
-import { encodeSSE } from "../../lib/sse/reader";                 // app/lib/sse/reader.ts
+import { searchProducts, fxConvert, Product } from "../tools";     // <- app/api/tools.ts (SerpAPI → Web → Demo)
+import { encodeSSE } from "../../lib/sse/reader";                   // <- app/lib/sse/reader.ts
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 
 export const runtime = "edge";
 
-/* ========================================================================
+/* ──────────────────────────────────────────────────────────────
    Types (SDK-free for Edge)
-   ======================================================================== */
+   ────────────────────────────────────────────────────────────── */
 type Role = "system" | "user" | "assistant";
 type ChatMessage = { role: Role; content: string };
 
@@ -30,9 +30,9 @@ type Prefs = {
 const te = new TextEncoder();
 const sse = (evt: any) => te.encode(encodeSSE(evt));
 
-/* ========================================================================
+/* ──────────────────────────────────────────────────────────────
    Helpers
-   ======================================================================== */
+   ────────────────────────────────────────────────────────────── */
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) {
@@ -59,12 +59,8 @@ function lastUserText(msgs: ChatMessage[]): string {
   return "";
 }
 
-function curFor(p: Prefs) {
-  return p.currency || (p.country === "US" ? "USD" : "EUR");
-}
-
 function prefsToSystem(p: Prefs): string {
-  const cur = curFor(p);
+  const cur = p.currency || (p.country === "US" ? "USD" : "EUR");
   return [
     `User Profile`,
     `- Gender: ${p.gender ?? "-"}`,
@@ -81,27 +77,20 @@ function prefsToSystem(p: Prefs): string {
 
 function bulletsFromProducts(ps: Product[]) {
   return ps
-    .map((p) => {
-      let host = "";
-      try { host = new URL(p.url).hostname; } catch {}
-      return `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? host} | ${p.url} | ${p.imageUrl ?? ""}`;
-    })
+    .map(
+      (p) =>
+        `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${
+          p.retailer ?? new URL(p.url).hostname
+        } | ${p.url} | ${p.imageUrl ?? ""}`
+    )
     .join("\n");
 }
 
-function msTimeout<T>(p: Promise<T>, ms: number, label = "timeout"): Promise<T> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
-  return new Promise<T>((resolve, reject) => {
-    p.then((v) => { clearTimeout(t); resolve(v); })
-     .catch((e) => { clearTimeout(t); reject(e); });
-  });
-}
-
-/* ========================================================================
-   OpenAI (REST, non-stream) – for FINAL compose
-   ======================================================================== */
-async function openaiComplete(messages: ChatMessage[], model: string, key: string) {
+async function openaiComplete(
+  messages: ChatMessage[],
+  model: string,
+  key: string
+): Promise<string> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -122,26 +111,24 @@ async function openaiComplete(messages: ChatMessage[], model: string, key: strin
   return (j?.choices?.[0]?.message?.content as string) || "";
 }
 
-/* ========================================================================
-   Route – SSE: ready → (draft streaming) → final → done
-   ======================================================================== */
+/* ──────────────────────────────────────────────────────────────
+   Route — SSE: ready → draft → final → done (no tool bubbles)
+   ────────────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
   let body: any = {};
-  try { body = await req.json(); } catch { /* ignore */ }
+  try {
+    body = await req.json();
+  } catch {
+    /* ignore */
+  }
 
-  const clientMessages: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
+  const clientMessages: ChatMessage[] = Array.isArray(body?.messages)
+    ? body.messages
+    : [];
   const preferences: Prefs = (body?.preferences || {}) as Prefs;
 
   const baseMessages: ChatMessage[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
-    {
-      role: "system",
-      content:
-        `You are "The Ultimate Celebrity Stylist AI" — warm, premium, aspirational, concise, never repetitive. ` +
-        `Greet warmly, never re-ask once given. When you have enough info, give a complete outfit with brand/item/price/retailer/link/image and fit notes. ` +
-        `Always add alternates for shoes + outerwear, budget total + 'Save' options if needed, plus 'Capsule & Tips'. ` +
-        `End with: "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎".`,
-    },
     { role: "system", content: prefsToSystem(preferences) },
     ...clientMessages,
   ];
@@ -157,77 +144,73 @@ export async function POST(req: NextRequest) {
       try {
         push({ type: "ready" });
 
-        // 1) Conversational, premium optimistic draft (fast, never waits for APIs)
+        // 1) ✨ Conversational optimistic draft (never blocks on APIs)
         const ask = lastUserText(baseMessages);
-        const cur = curFor(preferences);
-        const greet =
-          "Hi! I’m your celebrity stylist. I’m pulling a head-to-toe look right now—links, fit notes, and capsule tricks included.";
-        const brief =
+        const cur = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
+        const warmGreeting =
+          "Hi! I’m your celebrity stylist. I’ll pull a head-to-toe look and explain exactly why it flatters you.";
+        const infoLine =
           preferences.bodyType || preferences.styleKeywords || ask
-            ? `Brief: ${[preferences.bodyType, preferences.styleKeywords, ask].filter(Boolean).join(" • ")}${preferences.budget ? ` • budget ~${preferences.budget} ${cur}` : ""}`
-            : "Tell me body type + occasion + any muse (e.g., “Zendaya for a gallery opening”).";
-        push({ type: "assistant_draft_delta", data: `${greet}\n` });
-        push({ type: "assistant_draft_delta", data: `${brief}\n\n` });
+            ? `Working with your brief${preferences.bodyType ? ` (${preferences.bodyType})` : ""}${
+                preferences.styleKeywords ? `, style: ${preferences.styleKeywords}` : ""
+              }${preferences.budget ? `, budget ~${preferences.budget} ${cur}` : ""}…`
+            : "Tell me your body type + occasion + any muse (e.g., “Zendaya for a gallery opening”).";
 
-        // 2) Product search (SerpAPI → Web → Demo). Fail-soft; always returns something.
+        push({ type: "assistant_draft_delta", data: `${warmGreeting}\n` });
+        push({ type: "assistant_draft_delta", data: `${infoLine}\n\n` });
+
+        // 2) 🔎 Product search (SerpAPI → Web → Demo). Always returns something.
         const query =
           [ask, preferences.styleKeywords].filter(Boolean).join(" | ").trim() ||
-          "elevated minimal look with structured top, wide-leg trousers, trench, leather loafers";
-        const currency = cur;
+          "elevated minimal look: structured top, wide-leg trouser, trench, leather loafer";
+        const currency =
+          preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
 
-        let products: Product[] = [];
-        try {
-          products = await msTimeout(
-            searchProducts({
-              query,
-              country: preferences.country || "NL",
-              currency,
-              limit: 8,
-              preferEU: (preferences.country || "NL") !== "US",
-            }),
-            16000,
-            "product-search"
-          );
-        } catch (e: any) {
-          console.warn("[RunwayTwin] product search failed:", e?.message || e);
-          products = [];
-        }
+        const products = await searchProducts({
+          query,
+          country: preferences.country || "NL",
+          currency,
+          limit: 8,
+          preferEU: (preferences.country || "NL") !== "US",
+        });
 
-        if (!products.length) {
-          // tiny safety net — guarantee something renderable
-          products = await searchProducts({
-            query: "classic trench coat black loafers minimal tote",
-            country: preferences.country || "NL",
-            currency,
-            limit: 6,
-            preferEU: (preferences.country || "NL") !== "US",
-          }).catch(() => []) || [];
-        }
-
+        // Tiny preview into the draft so the UI feels alive
         if (products.length) {
-          const preview = products.slice(0, 3).map((p) => `• ${p.brand}: ${p.title}`).join("\n");
-          push({ type: "assistant_draft_delta", data: `Found options:\n${preview}\n\n` });
+          const prev = products
+            .slice(0, 3)
+            .map((p) => `• ${p.brand}: ${p.title}`)
+            .join("\n");
+          push({
+            type: "assistant_draft_delta",
+            data: `Found shoppable options:\n${prev}\n\n`,
+          });
         }
 
         push({ type: "assistant_draft_done" });
 
-        // 3) Compose FINAL via OpenAI. Fail-soft to a deterministic, shoppable fallback.
+        // 3) 🧠 Compose FINAL with OpenAI (uses candidate products). Fail-soft if OpenAI is down.
         let finalText = "";
         try {
           if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
           const rules = [
-            "Use the candidate products below ONLY for links. Never invent URLs.",
-            "Return: Top, Bottom (or Dress), Outerwear, Shoes, Accessories.",
-            "Explain exactly why each flatters the body type (rise, drape, neckline, hem, silhouette, fabrication, proportion).",
-            "Respect budget; show total; add 'Save' alternates if total exceeds budget.",
-            "Include alternates for shoes and outerwear with links.",
+            "You are The Ultimate Celebrity Stylist AI: warm, premium, concise—never repetitive.",
+            "If the user mentions a celebrity, infer their signature style automatically and adapt.",
+            "Return a complete outfit: Top, Bottom (or Dress), Outerwear, Shoes, Accessories.",
+            "For EACH item include: Brand + Exact Item, Price + currency, Retailer, Link, and Image (if available).",
+            "Explain why each flatters the user's body type (rise, drape, neckline, hem, silhouette, fabrication, proportion).",
+            "Respect budget; show total; if over, add 'Save' alternates with links.",
+            "Always include alternates for shoes AND outerwear with links.",
             "Add 'Capsule & Tips' (2–3 remix ideas + 2 succinct tips).",
-            "Tone: premium, warm, punchy, never repetitive.",
-            "Close with the upsell line.",
+            "Never invent links—only use URLs given in Candidate Products. If perfect stock is missing, say so and offer the closest in-stock with links.",
+            "End with: “Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎”",
+            "Keep tone premium, friendly, punchy.",
           ].join(" ");
 
-          const productBlock = `Candidate Products:\n${bulletsFromProducts(products.slice(0, 10))}`;
+          // Avoid exploding tokens by limiting to first 10 candidates
+          const productBlock = `Candidate Products (use real links below):\n${bulletsFromProducts(
+            products.slice(0, 10)
+          )}`;
 
           const finalizeMessages: ChatMessage[] = [
             ...baseMessages,
@@ -235,15 +218,9 @@ export async function POST(req: NextRequest) {
             { role: "system", content: productBlock },
           ];
 
-          // OpenAI call with a firm but reasonable timeout
-          finalText = await msTimeout(
-            openaiComplete(finalizeMessages, MODEL, OPENAI_API_KEY),
-            20000,
-            "openai-final"
-          );
+          finalText = await openaiComplete(finalizeMessages, MODEL, OPENAI_API_KEY);
         } catch (e: any) {
-          console.warn("[RunwayTwin] finalize failed:", e?.message || e);
-          // Fallback: still great + shoppable (never leaves user empty-handed)
+          // 🔁 Fallback: deterministic, still useful + shoppable
           const tot = products.reduce(
             (sum, p) => sum + (typeof p.price === "number" ? p.price : 0),
             0
@@ -254,7 +231,7 @@ export async function POST(req: NextRequest) {
             ...products.slice(0, 5).map(
               (p) =>
                 `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${
-                  p.retailer ?? ((): string => { try { return new URL(p.url).hostname; } catch { return ""; } })()
+                  p.retailer ?? ""
                 } | ${p.url}`
             ),
             "",
@@ -262,16 +239,16 @@ export async function POST(req: NextRequest) {
             "",
             "Capsule & Tips:",
             "- Pair the top with tailored trousers and sleek loafers for weekday polish.",
-            "- Swap loafers for ankle boots if you want more edge or rain protection.",
-            "- Tip: steam outerwear for a clean drape and elongating lines.",
-            "- Tip: for pear shapes, balance shoulder structure with a flowing bottom.",
+            "- Swap loafers for ankle boots if it’s rainy or you want more edge.",
+            "- Tip: keep hems crisp and drape steamed for elongated lines.",
+            "- Tip: balance shoulder structure with a flowing bottom for pear shapes.",
             "",
             "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
           ].filter(Boolean);
           finalText = lines.join("\n");
         }
 
-        // 4) Final → done
+        // 4) ✅ Final answer + done
         push({ type: "assistant_final", data: finalText });
         push({ type: "done" });
       } catch (err: any) {
@@ -279,7 +256,7 @@ export async function POST(req: NextRequest) {
         push({
           type: "assistant_final",
           data:
-            "I hit a hiccup preparing your look, but your brief is saved. Try again—I'll stream a fresh outfit with live links immediately.",
+            "I hit a hiccup preparing your look, but your brief is saved. Try again—I'll stream live options with links immediately.",
         });
         push({ type: "done" });
       } finally {
