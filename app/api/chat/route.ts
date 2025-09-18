@@ -1,15 +1,17 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
-import { encodeSSE } from "../../../lib/sse/reader";
+import { searchProducts, fxConvert, Product } from "../tools";          // ← app/api/tools.ts
+import { encodeSSE } from "../../lib/sse/reader";                        // ← app/lib/sse/reader.ts  (two levels up)
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { searchProducts, fxConvert, type Product } from "../tools";
 
 export const runtime = "edge";
 
 /* ──────────────────────────────────────────────────────────────
-   Types & small helpers
+   Types kept intentionally light (avoid fragile SDK typings).
    ────────────────────────────────────────────────────────────── */
-type UserMsg = { role: "user" | "assistant"; content: string };
+type Role = "system" | "user" | "assistant";
+type ChatMessage = { role: Role; content: string };
+
 type Prefs = {
   gender?: string;
   sizeTop?: string;
@@ -26,13 +28,15 @@ type Prefs = {
 };
 
 const te = new TextEncoder();
-const out = (evt: any) => te.encode(encodeSSE(evt));
-const safeNum = (n: any) => (typeof n === "number" && isFinite(n) ? n : null);
+const sse = (evt: any) => te.encode(encodeSSE(evt));
 
-function userPrefsToSystem(p: Prefs): string {
+/* ──────────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────────── */
+function prefsToSystem(p: Prefs): string {
   const cur = p.currency || (p.country === "US" ? "USD" : "EUR");
   return [
-    `User Profile for Styling Decisions`,
+    `User Profile`,
     `- Gender: ${p.gender ?? "-"}`,
     `- Sizes: top=${p.sizeTop ?? "-"}, bottom=${p.sizeBottom ?? "-"}, dress=${p.sizeDress ?? "-"}, shoe=${p.sizeShoe ?? "-"}`,
     `- Body Type: ${p.bodyType ?? "-"}`,
@@ -41,226 +45,159 @@ function userPrefsToSystem(p: Prefs): string {
     `- Country: ${p.country ?? "-"}`,
     `- Currency: ${cur}`,
     `- Style Keywords: ${p.styleKeywords ?? "-"}`,
-    `Use these for silhouette, rise, drape, neckline, hem, fabrication, and proportion decisions.`,
+    `Always propose items that flatter body type (rise, drape, neckline, hem, silhouette, fabrication, proportion). Respect budget.`,
   ].join("\n");
 }
 
-function bulletProducts(products: Product[]): string {
-  // Brand — Title | Price CUR | Retailer | Link | Image
-  return products
-    .map((p) => {
-      const price = p.price != null ? `${p.price}` : "?";
-      const cur = p.currency ?? "";
-      const retailer = p.retailer ?? new URL(p.url).hostname;
-      const img = p.imageUrl ?? "";
-      return `- ${p.brand} — ${p.title} | ${price} ${cur} | ${retailer} | ${p.url} | ${img}`;
-    })
-    .join("\n");
+function bulletsFromProducts(ps: Product[]) {
+  return ps.map(p =>
+    `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? new URL(p.url).hostname} | ${p.url} | ${p.imageUrl ?? ""}`
+  ).join("\n");
 }
 
-async function openAICompose({
-  systemPrompt,
-  prefsSystem,
-  history,
-  products,
-  model,
-  apiKey,
-}: {
-  systemPrompt: string;
-  prefsSystem: string;
-  history: UserMsg[];
-  products: Product[];
-  model: string;
-  apiKey: string;
-}): Promise<string> {
-  const constraints = [
-    "You are RunwayTwin, a celebrity-grade stylist. Output a complete, shoppable head-to-toe look.",
-    "For EVERY item include: Brand + Exact Item, Price + currency, Retailer, Link, Image (when available).",
-    "Explain explicitly WHY each item flatters the body type (rise, drape, neckline, hem, silhouette, fabrication, proportion).",
-    "Respect budget; show total; if over, add 'Save' alternates.",
-    "Provide alternates for shoes AND outerwear (with links).",
-    "Add 'Capsule & Tips' (2–3 remix ideas + 2 tips).",
-    "Never invent links. If an exact item is not in stock, present the closest in-stock alternative and say so.",
-    "Be concise, editorial, confident.",
-  ].join(" ");
+function lastUserText(msgs: ChatMessage[]): string {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role === "user" && typeof msgs[i].content === "string") return msgs[i].content;
+  }
+  return "";
+}
 
-  const productContext = `Candidate Products (use when appropriate; include links as provided):\n${bulletProducts(
-    products
-  )}`;
-
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "system", content: prefsSystem },
-    ...history,
-    { role: "system", content: constraints },
-    { role: "system", content: productContext },
-  ];
-
+/* ──────────────────────────────────────────────────────────────
+   OpenAI (REST, no SDK) — non-stream compose for FINAL
+   ────────────────────────────────────────────────────────────── */
+async function openaiComplete(messages: ChatMessage[], model: string, key: string) {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`,
+      authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify({
-      model,
-      temperature: 0.6,
-      messages,
-    }),
+    body: JSON.stringify({ model, temperature: 0.5, messages }),
   });
-
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`OpenAI compose ${res.status}: ${t.slice(0, 500)}`);
+    throw new Error(`OpenAI ${res.status}: ${t.slice(0, 200)}`);
   }
-  const json = await res.json().catch(() => ({}));
-  return (json?.choices?.[0]?.message?.content as string) || "";
+  const j = await res.json();
+  return (j?.choices?.[0]?.message?.content as string) || "";
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Route
+   Route: ready → draft → (search) → final → done
    ────────────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
-  let payload: any = {};
-  try {
-    payload = await req.json();
-  } catch {
-    payload = {};
-  }
+  let body: any = {};
+  try { body = await req.json(); } catch { /* ignore */ }
 
-  const history: UserMsg[] = Array.isArray(payload?.messages) ? payload.messages : [];
-  const preferences: Prefs = (payload?.preferences || {}) as Prefs;
+  const clientMessages: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
+  const preferences: Prefs = (body?.preferences || {}) as Prefs;
+  const sysPrefs = prefsToSystem(preferences);
+  const baseMessages: ChatMessage[] = [
+    { role: "system", content: STYLIST_SYSTEM_PROMPT },
+    { role: "system", content: sysPrefs },
+    ...clientMessages,
+  ];
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (evt: any) => controller.enqueue(out(evt));
-      const keepAlive = setInterval(() => send({ type: "ping" }), 15000);
+      const push = (evt: any) => controller.enqueue(sse(evt));
+      const keepAlive = setInterval(() => push({ type: "ping" }), 15000);
 
       const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-      const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+      const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
       try {
-        send({ type: "ready" });
+        push({ type: "ready" });
 
-        // 1) Build a query and do product search (SerpAPI → web → demo).
-        const lastUser = [...history].reverse().find((m) => m.role === "user")?.content || "";
-        const style = preferences.styleKeywords ? ` | ${preferences.styleKeywords}` : "";
-        const query = (lastUser + style).trim() || "women minimal outfit rainy gallery opening";
-        const currency = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
-
-        // (a) tool_call event
-        send({
-          type: "tool_call",
-          data: { id: crypto.randomUUID(), name: "search_products", args: { query, country: preferences.country, currency } },
-        });
-
-        let products: Product[] = [];
-        try {
-          products = await searchProducts({
-            query,
-            country: preferences.country || "NL",
-            currency,
-            limit: 8,
-            preferEU: (preferences.country || "NL") !== "US",
-          });
-        } catch (e: any) {
-          // fail-soft
-          products = [];
-          console.warn("[RunwayTwin] searchProducts failed:", e?.message);
-        }
-
-        // (b) tool_result event (always ok: true to avoid UI warnings)
-        send({
-          type: "tool_result",
-          data: { tool: "search_products", result: { ok: true, count: products.length } },
-        });
-
-        // 2) Stream an optimistic draft immediately so UI never feels stuck.
-        const draftLines: string[] = [];
-        draftLines.push("Outfit:");
-        const hero = products.slice(0, 4);
-        if (hero.length) {
-          for (const p of hero) {
-            draftLines.push(
-              `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? new URL(p.url).hostname} | ${p.url}`
-            );
-          }
-          draftLines.push("");
-          draftLines.push("Alternates:");
-          const alts = products.slice(4, 6);
-          for (const a of alts) {
-            draftLines.push(`- ${a.brand} — ${a.title} | ${a.price ?? "?"} ${a.currency ?? ""} | ${a.retailer ?? ""} | ${a.url}`);
-          }
-        } else {
-          draftLines.push("- assembling…");
-        }
+        // 1) ✨ Conversational optimistic draft (fast + human)
+        //    This is not model-blocked and ensures the chat always feels alive.
+        const userAsk = lastUserText(baseMessages);
+        const cur = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
+        const draftLines = [
+          `Great brief—give me a sec to hunt down shoppable pieces that fit your ${preferences.bodyType ?? "body"} and budget (${cur}).`,
+          `I’ll stream your look with links, then send a polished final with fit notes and capsule tips.`,
+          ``,
+        ];
         for (const line of draftLines) {
-          send({ type: "assistant_draft_delta", data: line + "\n" });
-          // tiny pace to feel alive but not slow
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((r) => setTimeout(r, 6));
+          push({ type: "assistant_draft_delta", data: line + "\n" });
         }
-        send({ type: "assistant_draft_done" });
 
-        // 3) Compose the final with OpenAI (non-stream for reliability).
+        // 2) 🔎 Product search (SerpAPI → Web → Demo). Always returns something.
+        const query = [userAsk, preferences.styleKeywords].filter(Boolean).join(" | ").trim() || "minimal chic gallery opening outfit coat loafers";
+        const currency = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
+        const products = await searchProducts({
+          query,
+          country: preferences.country || "NL",
+          currency,
+          limit: 8,
+          preferEU: (preferences.country || "NL") !== "US",
+        });
+
+        // Stream a small preview of found items into the draft (keeps the convo lively)
+        const preview = products.slice(0, 3).map(p => `• ${p.brand}: ${p.title}`).join("\n");
+        if (preview) push({ type: "assistant_draft_delta", data: `\nFound options:\n${preview}\n\n` });
+
+        push({ type: "assistant_draft_done" });
+
+        // 3) 🧠 Compose FINAL with OpenAI (uses product candidates). Fail-soft if OpenAI down.
         let finalText = "";
         try {
           if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
-          finalText = await openAICompose({
-            systemPrompt: STYLIST_SYSTEM_PROMPT,
-            prefsSystem: userPrefsToSystem(preferences),
-            history,
-            products,
-            model: OPENAI_MODEL,
-            apiKey: OPENAI_API_KEY,
-          });
-        } catch (err: any) {
-          console.warn("[RunwayTwin] OpenAI compose failed:", err?.message);
 
-          // Strong fallback: deterministic final using products only
-          const lines: string[] = [];
-          lines.push("Outfit:");
-          const pick = products.slice(0, 5);
-          if (pick.length) {
-            for (const p of pick) {
-              lines.push(
-                `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? ""} | ${p.url} | ${p.imageUrl ?? ""}`
-              );
-            }
-            // budget tally if prices exist
-            const total = pick
-              .map((p) => safeNum(p.price))
-              .filter((n): n is number => n != null)
-              .reduce((a, b) => a + b, 0);
-            if (total) lines.push(`\nTotal (approx): ${total} ${currency}`);
-            lines.push("\nCapsule & Tips:");
-            lines.push("- Remix the knit/tee with tailored trousers and low heels.");
-            lines.push("- Swap loafers for sleek ankle boots on rainy days.");
-            lines.push("- Tip: steam to keep drape clean; balanced proportions flatter an hourglass.");
-            lines.push("- Tip: mid/high rise + straight leg elongates without clinging.");
-          } else {
-            lines.push("- (Could not fetch products right now; try again in a moment.)");
-          }
+          const guidance = [
+            "You are a celebrity-grade stylist. Use the candidate products below to build a cohesive, shoppable outfit.",
+            "Return: top/bottom (or dress), outerwear, shoes, bag, 1–2 accessories.",
+            "For EACH item include: Brand + Exact Item, Price + currency, Retailer, Link, and Image (if available).",
+            "Explain *why* each flatters the body type (rise, drape, neckline, hem, silhouette, fabrication, proportion).",
+            "Respect budget; show total; if over, add 'Save' alternates with links.",
+            "Always include alternates for *shoes* and *outerwear* with links.",
+            "Add 'Capsule & Tips' (2–3 remix ideas + 2 succinct tips).",
+            "Never invent links—only use the provided URLs. If a perfect item is missing, say so and propose the closest in-stock.",
+          ].join(" ");
+
+          const productBlock = `Candidate Products:\n${bulletsFromProducts(products)}`;
+
+          const finalizeMessages: ChatMessage[] = [
+            ...baseMessages,
+            { role: "system", content: guidance },
+            { role: "system", content: productBlock },
+          ];
+
+          finalText = await openaiComplete(finalizeMessages, MODEL, OPENAI_API_KEY);
+        } catch (e: any) {
+          // ✅ Guaranteed graceful fallback (still excellent & shoppable)
+          console.warn("[RunwayTwin] OpenAI finalize failed:", e?.message);
+          const cur = currency;
+          const total = products.reduce((sum, p) => sum + (typeof p.price === "number" ? p.price : 0), 0);
+          const totalLine = total ? `Total (approx): ${Math.round(total)} ${cur}` : "";
+
+          const lines = [
+            "Outfit:",
+            ...products.slice(0, 5).map(p => `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? ""} | ${p.url}`),
+            "",
+            totalLine,
+            "",
+            "Capsule & Tips:",
+            "- Remix the top with tailored trousers and low heels.",
+            "- Swap loafers for sleek ankle boots if it’s rainy.",
+            "- Tip: steam outerwear for a clean drape; keep hems crisp.",
+            "- Tip: balance a fitted top with a straighter leg for an hourglass frame.",
+          ].filter(Boolean);
           finalText = lines.join("\n");
         }
 
-        if (!finalText || !finalText.trim()) {
-          // last resort fallback to the optimistic draft
-          finalText = draftLines.join("\n");
-        }
-
-        // 4) Emit the final and close the stream.
-        send({ type: "assistant_final", data: finalText });
-        send({ type: "done" });
+        // 4) ✅ Emit FINAL + done
+        push({ type: "assistant_final", data: finalText });
+        push({ type: "done" });
       } catch (err: any) {
         console.error("[RunwayTwin] route fatal:", err?.message || err);
-        // Always end gracefully with a friendly, usable final
-        send({
+        // Still close out cleanly with a helpful message
+        push({
           type: "assistant_final",
           data:
-            "I hit a hiccup preparing your look just now, but I’m ready to try again immediately. You can resend your muse + occasion and I’ll pull fresh shoppable options.",
+            "I hit a hiccup preparing your look, but I saved your preferences. Try again and I’ll stream a fresh outfit with live links.",
         });
-        send({ type: "done" });
+        push({ type: "done" });
       } finally {
         clearInterval(keepAlive);
         controller.close();
