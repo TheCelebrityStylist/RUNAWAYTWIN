@@ -43,8 +43,15 @@ function parseSSE(chunk: string, handle: SSEHandler, carry = "") {
   return buf;
 }
 
+const INITIAL_GREETING: Msg = {
+  id: "stylist-welcome",
+  role: "assistant",
+  content:
+    "Hello love — I’m your Ultimate Celebrity Stylist AI. Share your body type, the occasion, and any muses or style cravings, and I’ll craft a shoppable head-to-toe look when you’re ready.",
+};
+
 export function useStylistChat(endpoint = "/api/chat") {
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>(() => [INITIAL_GREETING]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);

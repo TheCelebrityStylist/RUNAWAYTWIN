@@ -86,6 +86,164 @@ function bulletsFromProducts(ps: Product[]) {
     .join("\n");
 }
 
+const BODY_TYPE_KEYWORDS: Record<string, string[]> = {
+  Pear: ["pear", "triangle", "bottom-heavy", "curvy hips"],
+  Apple: ["apple", "round", "midsection", "apple-shaped"],
+  Hourglass: ["hourglass", "balanced", "defined waist", "curvy"],
+  Rectangle: ["rectangle", "straight", "athletic", "column"],
+  "Inverted Triangle": ["inverted triangle", "broad shoulders", "athletic shoulders"],
+};
+
+const OCCASION_KEYWORDS: { label: string; hints: string[] }[] = [
+  { label: "everyday", hints: ["everyday", "daily", "errand"] },
+  { label: "work", hints: ["work", "office", "boardroom", "meeting", "presentation"] },
+  { label: "evening", hints: ["evening", "night", "cocktail"] },
+  { label: "date night", hints: ["date", "dinner", "romantic"] },
+  { label: "gala", hints: ["gala", "red carpet"] },
+  { label: "party", hints: ["party", "celebration", "birthday"] },
+  { label: "wedding", hints: ["wedding", "ceremony"] },
+  { label: "travel", hints: ["travel", "vacation", "resort", "holiday"] },
+  { label: "weekend casual", hints: ["casual", "brunch", "weekend", "street"] },
+  { label: "event", hints: ["event", "opening", "show", "launch"] },
+];
+
+const CELEBRITY_HINTS = [
+  "Zendaya",
+  "Jennifer Lawrence",
+  "Blake Lively",
+  "Hailey Bieber",
+  "Timothée Chalamet",
+  "Taylor Russell",
+  "Rihanna",
+  "Beyoncé",
+  "Rosie Huntington-Whiteley",
+  "Rosie HW",
+  "Kendall Jenner",
+  "Bella Hadid",
+  "Anya Taylor-Joy",
+  "Florence Pugh",
+];
+
+function toTitleCase(input: string) {
+  return input
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function detectBodyType(text: string, fallback?: string | null): string | null {
+  if (fallback) return toTitleCase(fallback.trim());
+  const explicit = text.match(/body\s*(?:type|shape)\s*[:\-]\s*([a-z\s]+)/i);
+  if (explicit) return toTitleCase(explicit[1].trim());
+
+  const lower = text.toLowerCase();
+  for (const [label, keywords] of Object.entries(BODY_TYPE_KEYWORDS)) {
+    if (keywords.some((kw) => lower.includes(kw))) return label;
+  }
+  return null;
+}
+
+function detectOccasion(text: string): string | null {
+  const explicit = text.match(/occasion\s*[:\-]\s*([^\n.,]+)/i);
+  if (explicit) return explicit[1].trim();
+
+  const forMatch = text.match(/\bfor (?:an?|the)?\s+([^\n.,]+)/i);
+  if (forMatch) {
+    const candidate = forMatch[1].trim();
+    if (candidate && candidate.length > 3 && !/^me$/i.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  const lower = text.toLowerCase();
+  for (const entry of OCCASION_KEYWORDS) {
+    if (entry.hints.some((hint) => lower.includes(hint))) return entry.label;
+  }
+  return null;
+}
+
+function detectMuse(text: string): string | null {
+  const direct = text.match(
+    /(?:dress|style|look)\s+(?:me\s+)?(?:like|as)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i
+  );
+  if (direct) return direct[1].trim();
+
+  for (const name of CELEBRITY_HINTS) {
+    if (text.toLowerCase().includes(name.toLowerCase())) return name;
+  }
+  return null;
+}
+
+function buildIntakeSummary({
+  bodyType,
+  occasion,
+  muse,
+  styleKeywords,
+  budget,
+  currency,
+  hasBodyType,
+  hasOccasion,
+}: {
+  bodyType: string | null;
+  occasion: string | null;
+  muse: string | null;
+  styleKeywords?: string | null;
+  budget?: number | null;
+  currency: string;
+  hasBodyType: boolean;
+  hasOccasion: boolean;
+}) {
+  const missing: string[] = [];
+  if (!hasBodyType) missing.push("body type");
+  if (!hasOccasion) missing.push("occasion");
+
+  const lines = [
+    "Intake Snapshot:",
+    `- Body type: ${bodyType ?? "unknown"}`,
+    `- Occasion: ${occasion ?? "unknown"}`,
+    `- Celebrity muse: ${muse ?? "unspecified"}`,
+    `- Style keywords: ${styleKeywords?.trim() || "n/a"}`,
+    `- Budget: ${budget ? `${budget} ${currency}` : "not stated"}`,
+  ];
+
+  if (missing.length) {
+    lines.push(
+      `Guidance: Stay conversational, acknowledge what you know, and ask gracefully for the missing ${missing.join(
+        " & "
+      )}. Do not output the structured template yet.`
+    );
+  } else {
+    lines.push(
+      "Guidance: You have everything needed. Deliver the full structured plan. Lead with 1–2 luxe sentences nodding to the muse, occasion, and body type before the 'Outfit:' heading."
+    );
+  }
+
+  lines.push("If this summary conflicts with the conversation, defer to the conversation context.");
+
+  return lines.join("\n");
+}
+
+function describeBodyTypeBenefit(bodyType: string | null) {
+  const lower = (bodyType || "").toLowerCase();
+  if (lower.includes("pear")) return "balances proportion by highlighting shoulders and elongating the leg line.";
+  if (lower.includes("apple")) return "cinches the waist and adds structure away from the midsection.";
+  if (lower.includes("rectangle")) return "builds soft curves while keeping the silhouette sleek.";
+  if (lower.includes("inverted")) return "softens the shoulder line and adds flow through the lower half.";
+  if (lower.includes("hourglass")) return "honours your natural waist and fluid curves.";
+  return "flatters your proportions with intentional tailoring.";
+}
+
+function pickProduct(
+  products: Product[],
+  keywords: string[]
+): Product | undefined {
+  const lowerKeywords = keywords.map((k) => k.toLowerCase());
+  return products.find((p) => {
+    const hay = `${p.title} ${p.brand}`.toLowerCase();
+    return lowerKeywords.some((kw) => hay.includes(kw));
+  });
+}
+
 async function openaiComplete(
   messages: ChatMessage[],
   model: string,
@@ -147,21 +305,59 @@ export async function POST(req: NextRequest) {
         // 1) ✨ Conversational optimistic draft (never blocks on APIs)
         const ask = lastUserText(baseMessages);
         const cur = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
-        const warmGreeting =
-          "Hi! I’m your celebrity stylist. I’ll pull a head-to-toe look and explain exactly why it flatters you.";
-        const infoLine =
-          preferences.bodyType || preferences.styleKeywords || ask
-            ? `Working with your brief${preferences.bodyType ? ` (${preferences.bodyType})` : ""}${
-                preferences.styleKeywords ? `, style: ${preferences.styleKeywords}` : ""
-              }${preferences.budget ? `, budget ~${preferences.budget} ${cur}` : ""}…`
-            : "Tell me your body type + occasion + any muse (e.g., “Zendaya for a gallery opening”).";
+        const transcript = clientMessages
+          .map((m) => contentToText(m.content))
+          .filter(Boolean)
+          .join(" \n");
+        const bodyType = detectBodyType(`${transcript}\n${ask}`, preferences.bodyType);
+        const occasion = detectOccasion(`${ask}\n${transcript}`);
+        const muse = detectMuse(`${ask}\n${transcript}`);
+        const hasBodyType = Boolean(bodyType);
+        const hasOccasion = Boolean(occasion);
+        const missingParts: string[] = [];
+        if (!hasBodyType) missingParts.push("body type");
+        if (!hasOccasion) missingParts.push("occasion");
+
+        const warmGreeting = muse
+          ? `Hello love — channeling ${muse} energy for you.`
+          : "Hello love — your ultimate celebrity stylist is on it.";
+        const infoLine = hasBodyType && hasOccasion
+          ? `Tailoring a ${occasion} look${bodyType ? ` for your ${bodyType.toLowerCase()} shape` : ""}${
+              preferences.budget ? ` around ${preferences.budget} ${cur}` : ""
+            }${preferences.styleKeywords ? `, vibe: ${preferences.styleKeywords}` : ""}.`
+          : missingParts.length
+          ? `I just need your ${missingParts.join(" & ")} so I can sculpt the exact look${
+              muse ? ` in ${muse}'s signature style` : ""
+            }.`
+          : "Share any extra direction and I’ll tailor the look instantly.";
+
+        const intakeSummary = buildIntakeSummary({
+          bodyType,
+          occasion,
+          muse,
+          styleKeywords: preferences.styleKeywords,
+          budget: preferences.budget ?? null,
+          currency: cur,
+          hasBodyType,
+          hasOccasion,
+        });
 
         push({ type: "assistant_draft_delta", data: `${warmGreeting}\n` });
         push({ type: "assistant_draft_delta", data: `${infoLine}\n\n` });
 
         // 2) 🔎 Product search (SerpAPI → Web → Demo). Always returns something.
         const query =
-          [ask, preferences.styleKeywords].filter(Boolean).join(" | ").trim() ||
+          [
+            ask,
+            muse ? `${muse} style ${occasion ?? ""}`.trim() : "",
+            bodyType ? `${bodyType} body type styling` : "",
+            preferences.styleKeywords || "",
+            preferences.gender ? `${preferences.gender} ${occasion ?? "look"}`.trim() : "",
+            preferences.budget ? `under ${preferences.budget} ${cur}` : "",
+          ]
+            .filter(Boolean)
+            .join(" | ")
+            .trim() ||
           "elevated minimal look: structured top, wide-leg trouser, trench, leather loafer";
         const currency =
           preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
@@ -194,17 +390,17 @@ export async function POST(req: NextRequest) {
           if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
           const rules = [
-            "You are The Ultimate Celebrity Stylist AI: warm, premium, concise—never repetitive.",
-            "If the user mentions a celebrity, infer their signature style automatically and adapt.",
+            "You are The Ultimate Celebrity Stylist AI: warm, premium, aspirational, and never repetitive.",
+            "Follow the intake snapshot provided. If it's time for the full plan, begin with 1–2 luxe sentences that nod to the muse, occasion, weather if stated, and body type before the 'Outfit:' heading.",
             "Return a complete outfit: Top, Bottom (or Dress), Outerwear, Shoes, Accessories.",
-            "For EACH item include: Brand + Exact Item, Price + currency, Retailer, Link, and Image (if available).",
-            "Explain why each flatters the user's body type (rise, drape, neckline, hem, silhouette, fabrication, proportion).",
-            "Respect budget; show total; if over, add 'Save' alternates with links.",
-            "Always include alternates for shoes AND outerwear with links.",
-            "Add 'Capsule & Tips' (2–3 remix ideas + 2 succinct tips).",
-            "Never invent links—only use URLs given in Candidate Products. If perfect stock is missing, say so and offer the closest in-stock with links.",
-            "End with: “Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎”",
-            "Keep tone premium, friendly, punchy.",
+            "Each outfit line must read '<Category>: <Brand> — <Exact Item> | <Price> <Currency> | <Retailer> | <URL> | <ImageURL or N/A>' and use real Candidate Products.",
+            "If any required link or image is missing from candidates, say so and mark it as N/A rather than inventing details.",
+            "Explain why the look flatters the body type with fabric, rise, drape, tailoring, and proportions, weaving in the celebrity muse's signature vibe.",
+            "Respect the stated budget. Show the total; when over budget, add Save Picks with real links and sharper price points.",
+            "Always include Alternates for shoes AND outerwear with links, even if they echo items from the outfit.",
+            "Capsule & Tips must feature three remix bullets and two styling tips tied to the look.",
+            "Respond to follow-up tweaks conversationally while keeping the structure. Reference previous recommendations when swapping pieces.",
+            "Close every full response with: 'Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎'.",
           ].join(" ");
 
           // Avoid exploding tokens by limiting to first 10 candidates
@@ -214,6 +410,7 @@ export async function POST(req: NextRequest) {
 
           const finalizeMessages: ChatMessage[] = [
             ...baseMessages,
+            { role: "system", content: intakeSummary },
             { role: "system", content: rules },
             { role: "system", content: productBlock },
           ];
@@ -225,27 +422,74 @@ export async function POST(req: NextRequest) {
             (sum, p) => sum + (typeof p.price === "number" ? p.price : 0),
             0
           );
-          const approx = tot ? `Approx total: ~${Math.round(tot)} ${currency}` : "";
-          const lines = [
-            "Outfit:",
-            ...products.slice(0, 5).map(
-              (p) =>
-                `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${
-                  p.retailer ?? ""
-                } | ${p.url}`
-            ),
-            "",
-            approx,
-            "",
-            "Capsule & Tips:",
-            "- Pair the top with tailored trousers and sleek loafers for weekday polish.",
-            "- Swap loafers for ankle boots if it’s rainy or you want more edge.",
-            "- Tip: keep hems crisp and drape steamed for elongated lines.",
-            "- Tip: balance shoulder structure with a flowing bottom for pear shapes.",
-            "",
-            "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
-          ].filter(Boolean);
-          finalText = lines.join("\n");
+          const approxTotal = tot > 0 ? Math.round(tot) : null;
+          const greetingLine = muse
+            ? `Hello love — here’s an instant ${occasion ?? ""} lineup inspired by ${muse}.`.trim()
+            : "Hello love — here’s an instant lineup while I refresh the full catalog.";
+
+          if (!hasBodyType || !hasOccasion) {
+            const needed = missingParts.join(" & ");
+            finalText = [
+              greetingLine,
+              needed
+                ? `Share your ${needed} and I’ll deliver a head-to-toe look with links the moment it lands.`
+                : "Give me a touch more context and I’ll dress you to perfection.",
+              "",
+              "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
+            ]
+              .filter(Boolean)
+              .join("\n");
+          } else {
+            const primary = products.slice(0, 5);
+            const shoesAlt =
+              pickProduct(products, ["boot", "heel", "sandal", "flat", "sneaker", "loafer", "pump"]) || products[3];
+            const outerAlt =
+              pickProduct(products, ["coat", "jacket", "trench", "blazer", "outerwear"]) || products[4];
+
+            const benefit = describeBodyTypeBenefit(bodyType);
+            const lines = [
+              greetingLine,
+              "",
+              "Outfit:",
+              ...primary.map(
+                (p, idx) =>
+                  `- Item ${idx + 1}: ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${
+                    p.retailer ?? ""
+                  } | ${p.url} | ${p.imageUrl ?? ""}`
+              ),
+              "",
+              "Alternates:",
+              shoesAlt
+                ? `- Shoes: ${shoesAlt.brand} — ${shoesAlt.title} | ${shoesAlt.price ?? "?"} ${
+                    shoesAlt.currency ?? ""
+                  } | ${shoesAlt.retailer ?? ""} | ${shoesAlt.url}`
+                : "- Shoes: N/A",
+              outerAlt
+                ? `- Outerwear: ${outerAlt.brand} — ${outerAlt.title} | ${outerAlt.price ?? "?"} ${
+                    outerAlt.currency ?? ""
+                  } | ${outerAlt.retailer ?? ""} | ${outerAlt.url}`
+                : "- Outerwear: N/A",
+              "",
+              "Why it Flatters:",
+              `- Each piece ${benefit}`,
+              "- Proportions keep the look polished and occasion-appropriate.",
+              "",
+              "Budget:",
+              `- Total: ${
+                approxTotal ? `${approxTotal} ${currency}` : "TBC"
+              } (Budget: ${preferences.budget ? `${preferences.budget} ${currency}` : "—"})`,
+              "",
+              "Capsule & Tips:",
+              "- Remix: Pair the top with sharp tailoring for weekday polish.",
+              "- Remix: Swap in denim and loafers for relaxed days.",
+              "- Remix: Layer with a knit over the shoulders for travel ease.",
+              "- Tip: Steam hems and sleeves for a crisp line.",
+              `- Tip: ${benefit}`,
+              "",
+              "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
+            ].filter(Boolean);
+            finalText = lines.join("\n");
+          }
         }
 
         // 4) ✅ Final answer + done

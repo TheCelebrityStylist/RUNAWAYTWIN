@@ -281,7 +281,7 @@ const webAdapter: ProductAdapter = {
 /* =========================
  * Adapter registry
  * ========================= */
-const ADAPTERS: ProductAdapter[] = [demoAdapter, webAdapter];
+const ADAPTERS: ProductAdapter[] = [webAdapter, demoAdapter];
 
 /* =========================
  * Public API (imported by route.ts)
@@ -289,15 +289,27 @@ const ADAPTERS: ProductAdapter[] = [demoAdapter, webAdapter];
 export async function searchProducts(params: SearchProductsArgs): Promise<Product[]> {
   const limit = clampLimit(params.limit);
   const safe: SearchProductsArgs = { ...params, limit };
+  const collected: Product[] = [];
+
   for (const a of ADAPTERS) {
     try {
       const res = await a.searchProducts(safe);
-      if (res?.length) return res.slice(0, limit);
+      if (res?.length) {
+        collected.push(...res);
+        if (collected.length >= limit) break;
+      }
     } catch (e: any) {
       console.warn(`[tools] ${a.name}.searchProducts failed:`, e?.message);
     }
   }
-  return [];
+
+  if (!collected.length) return [];
+
+  return uniqBy(collected, (p) => p.url)
+    .map((p) => ({ p, s: scoreByRegion(p.url, params.preferEU) }))
+    .sort((a, b) => b.s - a.s)
+    .map((x) => x.p)
+    .slice(0, limit);
 }
 export async function checkStock(productIdOrUrl: string, country?: string) {
   for (const a of ADAPTERS) {
