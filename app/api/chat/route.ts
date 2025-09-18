@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { encodeSSE } from "../../../lib/sse/reader"; // ✅ path check
+import { encodeSSE } from "../../../lib/sse/reader"; 
 import { searchProducts, fxConvert } from "./tools";
 
 export const runtime = "edge";
@@ -51,8 +51,8 @@ function safeJSON<T>(s: string, fallback: T): T {
   }
 }
 
-function send(ctrl: TransformStreamDefaultController, msg: any) {
-  ctrl.enqueue(encodeSSE(msg));
+function send(writer: WritableStreamDefaultWriter, msg: any) {
+  return writer.write(encodeSSE(msg));
 }
 
 // =============== Route Handler ===============
@@ -70,11 +70,6 @@ export async function POST(req: NextRequest) {
   const writer = stream.writable.getWriter();
 
   (async () => {
-    const ctrl = {
-      enqueue: (chunk: any) => writer.write(chunk),
-      close: () => writer.close(),
-    };
-
     try {
       // === Initial model call ===
       const completion = await openai.chat.completions.create({
@@ -120,12 +115,12 @@ export async function POST(req: NextRequest) {
 
       const assistantMsg = completion.choices[0].message;
 
-      // === Execute tool calls (fail-soft) ===
+      // === Execute tool calls ===
       const toolResults: ChatMessage[] = [];
       const toolCalls = assistantMsg.tool_calls || [];
 
       for (const call of toolCalls) {
-        send(ctrl, {
+        await send(writer, {
           type: "tool_call",
           data: { id: call.id, name: call.function?.name },
         });
@@ -171,7 +166,7 @@ export async function POST(req: NextRequest) {
           resultPayload = { ok: true, results: [] };
         }
 
-        send(ctrl, {
+        await send(writer, {
           type: "tool_result",
           data: { tool: call.function?.name, result: resultPayload },
         });
@@ -194,12 +189,15 @@ export async function POST(req: NextRequest) {
       for await (const chunk of finalCompletion) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
-          send(ctrl, { type: "chat", data: content });
+          await send(writer, { type: "chat", data: content });
         }
       }
     } catch (err: any) {
       console.error("[RunwayTwin] Chat error:", err);
-      send(ctrl, { type: "error", data: { message: err?.message || "unknown" } });
+      await send(writer, {
+        type: "error",
+        data: { message: err?.message || "unknown" },
+      });
     } finally {
       writer.close();
     }
