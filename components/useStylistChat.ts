@@ -45,9 +45,37 @@ function parseSSE(chunk: string, handle: SSEHandler, carry = "") {
 
 export function useStylistChat(endpoint = "/api/chat") {
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraftState] = useState("");
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const draftRef = useRef("");
+
+  type DraftUpdater = string | ((prev: string) => string);
+
+  const updateDraft = useCallback((value: DraftUpdater) => {
+    const current = draftRef.current;
+    const next =
+      typeof value === "function"
+        ? (value as (prev: string) => string)(current)
+        : value;
+    draftRef.current = next;
+    setDraftState(next);
+  }, []);
+
+  const coerceText = useCallback((value: unknown): string => {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      return value.map((entry) => coerceText(entry)).join("");
+    }
+    if (typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      if ("text" in record) return coerceText(record.text);
+      if ("content" in record) return coerceText(record.content);
+      return "";
+    }
+    return String(value);
+  }, []);
 
   const send = useCallback(
     async ({ text, imageUrl, preferences }: SendOptions) => {
@@ -60,7 +88,7 @@ export function useStylistChat(endpoint = "/api/chat") {
         meta: imageUrl ? { imageUrl } : undefined,
       };
       setMessages((m) => [...m, user]);
-      setDraft("");
+      updateDraft("");
       setLoading(true);
 
       abortRef.current?.abort();
@@ -93,6 +121,25 @@ export function useStylistChat(endpoint = "/api/chat") {
           : { role: "user", content: text || "" };
 
       let res: Response;
+      let settled = false;
+
+      const finalize = (raw?: unknown) => {
+        if (settled) return;
+
+        const fromEvent = coerceText(raw);
+        const fallback = fromEvent.trim().length ? fromEvent : draftRef.current;
+        const finalText = typeof fallback === "string" ? fallback : "";
+
+        if (finalText.trim().length) {
+          setMessages((m) => [
+            ...m,
+            { id: crypto.randomUUID(), role: "assistant", content: finalText },
+          ]);
+        }
+
+        updateDraft("");
+        settled = true;
+      };
       try {
         res = await fetch(endpoint, {
           method: "POST",
@@ -140,7 +187,7 @@ export function useStylistChat(endpoint = "/api/chat") {
             break;
           case "assistant_draft_delta":
           case "assistant_delta":
-            setDraft((d) => d + (data?.text || ""));
+            updateDraft((d) => d + coerceText(data?.text));
             break;
           case "assistant_draft_done":
             break;
@@ -162,18 +209,15 @@ export function useStylistChat(endpoint = "/api/chat") {
             ]);
             break;
           case "assistant_final":
-            setMessages((m) => [
-              ...m,
-              { id: crypto.randomUUID(), role: "assistant", content: data?.text || "" },
-            ]);
-            setDraft("");
+            finalize(data?.text);
             break;
           case "error":
             setMessages((m) => [
               ...m,
               { id: crypto.randomUUID(), role: "assistant", content: "Sorry—something went wrong. Try again." },
             ]);
-            setDraft("");
+            updateDraft("");
+            settled = true;
             break;
           case "done":
             setLoading(false);
@@ -190,23 +234,41 @@ export function useStylistChat(endpoint = "/api/chat") {
           const chunk = decoder.decode(value, { stream: true });
           carry = parseSSE(chunk, onEvent, carry);
         }
-      } catch (err) {
-        setMessages((m) => [
-          ...m,
-          { id: crypto.randomUUID(), role: "assistant", content: "Stream aborted. Please try again." },
-        ]);
+      } catch (err: any) {
+        if (!settled) {
+          if (err?.name === "AbortError") {
+            // User aborted — silently clear the draft.
+            updateDraft("");
+          } else {
+            setMessages((m) => [
+              ...m,
+              { id: crypto.randomUUID(), role: "assistant", content: "Stream aborted. Please try again." },
+            ]);
+            updateDraft("");
+          }
+          settled = true;
+        }
       } finally {
         clearInterval(heartbeat);
+        if (!settled) {
+          if (draftRef.current.trim().length) {
+            finalize();
+          } else {
+            updateDraft("");
+            settled = true;
+          }
+        }
         setLoading(false);
       }
     },
-    [endpoint, messages]
+    [coerceText, endpoint, messages, updateDraft]
   );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
     setLoading(false);
-  }, []);
+    updateDraft("");
+  }, [updateDraft]);
 
   return { messages, draft, send, stop, loading };
 }
