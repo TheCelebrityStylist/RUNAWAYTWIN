@@ -131,6 +131,9 @@ export function useStylistChat(endpoint = "/api/chat") {
         }
       }, 5_000);
 
+      const extractText = (payload: any) =>
+        typeof payload === "string" ? payload : payload?.text || "";
+
       const onEvent: SSEHandler = (event, data) => {
         lastBeat = Date.now();
 
@@ -140,7 +143,7 @@ export function useStylistChat(endpoint = "/api/chat") {
             break;
           case "assistant_draft_delta":
           case "assistant_delta":
-            setDraft((d) => d + (data?.text || ""));
+            setDraft((d) => d + extractText(data));
             break;
           case "assistant_draft_done":
             break;
@@ -164,14 +167,19 @@ export function useStylistChat(endpoint = "/api/chat") {
           case "assistant_final":
             setMessages((m) => [
               ...m,
-              { id: crypto.randomUUID(), role: "assistant", content: data?.text || "" },
+              { id: crypto.randomUUID(), role: "assistant", content: extractText(data) },
             ]);
             setDraft("");
             break;
           case "error":
             setMessages((m) => [
               ...m,
-              { id: crypto.randomUUID(), role: "assistant", content: "Sorry—something went wrong. Try again." },
+              {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content:
+                  extractText(data) || "Sorry—something went wrong. Try again.",
+              },
             ]);
             setDraft("");
             break;
