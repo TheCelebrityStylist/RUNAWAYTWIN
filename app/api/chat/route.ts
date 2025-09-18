@@ -1,232 +1,160 @@
 // FILE: app/api/chat/route.ts
-import OpenAI from "openai";
 import { NextRequest } from "next/server";
-import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
+import { searchProducts, fxConvert, Product } from "../tools";
 import { encodeSSE } from "../../../lib/sse/reader";
-import { searchProducts, fxConvert } from "../tools"; // ← change to "./tools" only if your tools file lives in app/api/chat/
+import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 
 export const runtime = "edge";
 
-/* ──────────────────────────────────────────────────────────────
-   OpenAI client (Edge-safe)
-   ────────────────────────────────────────────────────────────── */
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-
-/* ──────────────────────────────────────────────────────────────
-   Types
-   ────────────────────────────────────────────────────────────── */
-type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
-
-type Preferences = {
+type Prefs = {
   gender?: string;
-  top?: string;
-  bottom?: string;
-  dress?: string;
-  shoe?: string;
+  sizeTop?: string;
+  sizeBottom?: string;
+  sizeDress?: string;
+  sizeShoe?: string;
   bodyType?: string;
-  budget?: string;
+  budget?: number;
   country?: string;
   currency?: string;
   styleKeywords?: string;
 };
 
-type SearchArgs = {
-  query?: string;
-  country?: string;
-  currency?: string;
-  size?: string;
-  color?: string;
-  limit?: number;
-};
+const te = new TextEncoder();
+const send = (evt: any) => te.encode(encodeSSE(evt));
 
-type FxArgs = {
-  amount?: number;
-  from?: string;
-  to?: string;
-};
-
-/* ──────────────────────────────────────────────────────────────
-   Utils
-   ────────────────────────────────────────────────────────────── */
-function safeJSON<T>(s: string, fallback: T): T {
-  try { return JSON.parse(s) as T; } catch { return fallback; }
+function prefsToSystem(p: Prefs) {
+  const cur = p.currency || (p.country === "US" ? "USD" : "EUR");
+  return [
+    `User Profile`,
+    `- Gender: ${p.gender ?? "-"}`,
+    `- Sizes: top=${p.sizeTop ?? "-"}, bottom=${p.sizeBottom ?? "-"}, dress=${p.sizeDress ?? "-"}, shoe=${p.sizeShoe ?? "-"}`,
+    `- Body Type: ${p.bodyType ?? "-"}`,
+    `- Budget: ${p.budget ? `${p.budget} ${cur}` : "-"}`,
+    `- Country: ${p.country ?? "-"}`,
+    `- Currency: ${cur}`,
+    `- Style Keywords: ${p.styleKeywords ?? "-"}`,
+    `Honor budget and body-type fit (rise, drape, neckline, hem, silhouette, fabrication, proportion).`,
+  ].join("\n");
 }
 
-// The SDK can return message.content as string OR an array of parts.
-// Normalize to plain text so our tool calls always receive a string.
-function contentToText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return (content as any[])
-      .map((part) => {
-        if (typeof part === "string") return part;
-        if (part?.text && typeof part.text === "string") return part.text;
-        if (part?.content && typeof part.content === "string") return part.content;
-        return "";
-      })
-      .filter(Boolean)
-      .join(" ");
-  }
-  return "";
+function asBullets(products: Product[]) {
+  return products.map(p =>
+    `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? (new URL(p.url).hostname)} | ${p.url} | ${p.imageUrl ?? ""}`
+  ).join("\n");
 }
 
-async function send(writer: WritableStreamDefaultWriter, evt: any) {
-  await writer.write(encodeSSE(evt));
-}
-
-/* ──────────────────────────────────────────────────────────────
-   Route
-   ────────────────────────────────────────────────────────────── */
-export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const messages = Array.isArray(body?.messages) ? body.messages : [];
-  const preferences: Preferences = body?.preferences || {};
-
-  const baseMessages: ChatMessage[] = [
-    { role: "system", content: STYLIST_SYSTEM_PROMPT },
-    ...messages,
-  ];
-
-  const stream = new TransformStream();
-  const writer = stream.writable.getWriter();
-
-  (async () => {
-    try {
-      // First pass: let the model decide if it wants tools
-      const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        stream: false,
-        messages: baseMessages,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "search_products",
-              description: "Search for fashion products across adapters and return normalized items.",
-              parameters: {
-                type: "object",
-                properties: {
-                  query: { type: "string" },
-                  country: { type: "string" },
-                  currency: { type: "string" },
-                  size: { type: "string" },
-                  color: { type: "string" },
-                  limit: { type: "number" },
-                },
-              },
-            },
-          },
-          {
-            type: "function",
-            function: {
-              name: "fx_convert",
-              description: "Convert a price into another currency (static FX).",
-              parameters: {
-                type: "object",
-                properties: {
-                  amount: { type: "number" },
-                  from: { type: "string" },
-                  to: { type: "string" },
-                },
-              },
-            },
-          },
-        ],
-      });
-
-      const assistantMsg = completion.choices[0].message;
-
-      // Execute tool calls (fail-soft so the UI never shows a hard error)
-      const toolResults: ChatMessage[] = [];
-      const toolCalls = assistantMsg.tool_calls || [];
-
-      for (const call of toolCalls) {
-        await send(writer, { type: "tool_call", data: { id: call.id, name: call.function?.name } });
-
-        let resultPayload: any = { ok: true };
-        try {
-          if (call.function?.name === "search_products") {
-            const args = safeJSON<SearchArgs>(call.function.arguments, {});
-            const lastUser = [...baseMessages].reverse().find((m) => m.role === "user");
-            const fallback = contentToText(lastUser?.content);
-            const q = (typeof args.query === "string" && args.query.trim().length > 0)
-              ? args.query
-              : fallback;
-
-            const results = await searchProducts({
-              query: q,
-              country: args.country || preferences.country,
-              currency:
-                args.currency ||
-                preferences.currency ||
-                (preferences.country === "US" ? "USD" : "EUR"),
-              size: args.size ?? null,
-              color: args.color ?? null,
-              limit: Math.min(6, Number(args.limit || 6)),
-              preferEU: (preferences.country || "NL") !== "US",
-            });
-
-            resultPayload = { ok: true, results };
-          } else if (call.function?.name === "fx_convert") {
-            const args = safeJSON<FxArgs>(call.function.arguments, {});
-            const amount = Number(args.amount || 0);
-            const from = String(args.from || "EUR");
-            const to = String(
-              args.to ||
-                preferences.currency ||
-                (preferences.country === "US" ? "USD" : "EUR")
-            );
-            resultPayload = { ok: true, amount: fxConvert(amount, from, to), currency: to };
-          } else {
-            resultPayload = { ok: true, note: "unknown_tool_ignored" };
-          }
-        } catch (err: any) {
-          console.warn("[RunwayTwin] tool execution error:", err?.message || err);
-          resultPayload = { ok: true, results: [] }; // fail-soft
-        }
-
-        await send(writer, { type: "tool_result", data: { tool: call.function?.name, result: resultPayload } });
-
-        // IMPORTANT: tool messages must be exactly { role: 'tool', content, tool_call_id }
-        toolResults.push({
-          role: "tool",
-          content: JSON.stringify(resultPayload),
-          tool_call_id: call.id,
-        });
-      }
-
-      // Second pass: finalize with tool results; stream to client
-      const finalStream = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        stream: true,
-        messages: [...baseMessages, assistantMsg, ...toolResults],
-      });
-
-      for await (const chunk of finalStream) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          await send(writer, { type: "assistant_draft_delta", data: content });
-        }
-      }
-
-      await send(writer, { type: "assistant_draft_done" });
-      await send(writer, { type: "done" });
-    } catch (err: any) {
-      console.error("[RunwayTwin] Chat error:", err);
-      // graceful fallback: still close the stream properly
-      await send(writer, { type: "error", data: { message: err?.message || "unknown" } });
-      await send(writer, { type: "done" });
-    } finally {
-      writer.close();
-    }
-  })();
-
-  return new Response(stream.readable, {
+async function openaiComplete(messages: any[], model: string, apiKey: string) {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
     headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ model, temperature: 0.6, messages }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`OpenAI ${res.status} ${t.slice(0, 200)}`);
+  }
+  const json = await res.json();
+  return json?.choices?.[0]?.message?.content || "";
+}
+
+export async function POST(req: NextRequest) {
+  let body: any = {}; try { body = await req.json(); } catch {}
+  const messages: { role: "user" | "assistant"; content: string }[] = Array.isArray(body?.messages) ? body.messages : [];
+  const preferences: Prefs = (body?.preferences || {}) as Prefs;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const push = (evt: any) => controller.enqueue(send(evt));
+      const keepAlive = setInterval(() => push({ type: "ping" }), 15000);
+
+      const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+      const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+      try {
+        push({ type: "ready" });
+
+        // 1) Optimistic draft (instant)
+        const lastUser = [...messages].reverse().find(m => m.role === "user")?.content || "";
+        const q = [lastUser, preferences.styleKeywords].filter(Boolean).join(" | ");
+        let draft = `Outfit:\n(searching…)\n`;
+        push({ type: "assistant_draft_delta", data: draft });
+        push({ type: "assistant_draft_done" });
+
+        // 2) Product search (SerpAPI → web → demo)
+        const currency = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
+        const products = await searchProducts({
+          query: q || "women trench coat minimal black loafers",
+          country: preferences.country || "NL",
+          currency,
+          limit: 6,
+          preferEU: (preferences.country || "NL") !== "US",
+        });
+
+        // 3) Compose with OpenAI (non-stream, reliable)
+        let finalText = "";
+        try {
+          if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
+          const sys = prefsToSystem(preferences);
+          const toolNote = [
+            "You have candidate shoppable products below (brand, item, price, currency, retailer, link, image).",
+            "Pick a coherent head-to-toe look: top/bottom (or dress), outerwear, shoes, bag, 1–2 accessories.",
+            "For each item include: Brand + Exact Item, Price + currency, Retailer, Link, Image (if available).",
+            "Explain body-type flattering reasons (rise, drape, neckline, hem, silhouette, fabrication, proportion).",
+            "Respect budget; show total; if over budget, add 'Save' alternates.",
+            "Include alternates for shoes + outerwear with links.",
+            "Add 'Capsule & Tips' (2–3 remix ideas + 2 tips).",
+            "Never invent links.",
+          ].join(" ");
+          const productBlock = `Candidate Products:\n${asBullets(products)}`;
+
+          const convo = [
+            { role: "system", content: STYLIST_SYSTEM_PROMPT },
+            { role: "system", content: sys },
+            ...(messages as any[]),
+            { role: "system", content: toolNote },
+            { role: "system", content: productBlock },
+          ];
+
+          finalText = await openaiComplete(convo, MODEL, OPENAI_API_KEY);
+        } catch (e: any) {
+          console.warn("[RunwayTwin] OpenAI compose failed:", e?.message);
+          // Fallback: generate a plain list from products if OpenAI is down
+          const lines = [
+            "Outfit:",
+            ...products.slice(0, 5).map(p => `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? ""} | ${p.url}`),
+            "",
+            "Capsule & Tips:",
+            "- Remix the top with tailored trousers and low heels.",
+            "- Swap the loafers for sleek ankle boots on rainy days.",
+            "- Tip: keep hems clean; steamed drape elongates.",
+            "- Tip: balance fitted top with straighter bottom for hourglass.",
+          ];
+          finalText = lines.join("\n");
+        }
+
+        // 4) Emit final
+        push({ type: "assistant_final", data: finalText });
+        push({ type: "done" });
+      } catch (err: any) {
+        console.error("[RunwayTwin] route fatal:", err?.message || err);
+        push({ type: "assistant_final", data: "I hit a hiccup preparing your look, but I'm ready to try again immediately." });
+        push({ type: "done" });
+      } finally {
+        clearInterval(keepAlive);
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
     },
   });
 }
