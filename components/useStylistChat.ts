@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import type { Prefs as PanelPrefs } from "./preferences/PreferencesPanel";
 
 export type Msg = {
   id: string;
@@ -10,11 +11,138 @@ export type Msg = {
   meta?: any;
 };
 
+type NormalizedPrefs = {
+  gender?: string;
+  sizeTop?: string;
+  sizeBottom?: string;
+  sizeDress?: string;
+  sizeShoe?: string;
+  bodyType?: string;
+  budget?: number;
+  country?: string;
+  currency?: string;
+  styleKeywords?: string;
+  heightCm?: number;
+  weightKg?: number;
+};
+
 type SendOptions = {
   text?: string;
   imageUrl?: string;
-  preferences?: any;
+  preferences?: PanelPrefs | NormalizedPrefs;
 };
+
+function detectCurrency(input: string) {
+  if (/[€]/.test(input) || /\bEUR\b/i.test(input)) return "EUR";
+  if (/[£]/.test(input) || /\bGBP\b/i.test(input)) return "GBP";
+  if (/[¥]/.test(input) || /\bJPY\b/i.test(input)) return "JPY";
+  if (/[\$]/.test(input) || /\bUSD\b/i.test(input)) return "USD";
+  const iso = input.match(/\b([A-Z]{3})\b/);
+  return iso ? iso[1].toUpperCase() : undefined;
+}
+
+function parseBudget(input: unknown): { budget?: number; currency?: string } {
+  if (typeof input === "number") return { budget: input };
+  if (typeof input !== "string") return {};
+
+  const currency = detectCurrency(input);
+  const numbers = input.match(/\d+(?:[.,]\d+)?/g);
+  if (!numbers) return { currency };
+
+  const values = numbers
+    .map((num) => {
+      const normalized = num
+        .replace(/[\s,](?=\d{3}(?:\D|$))/g, "")
+        .replace(/,(\d{1,2})$/, ".$1");
+      return parseFloat(normalized);
+    })
+    .filter((n) => !Number.isNaN(n));
+
+  if (!values.length) return { currency };
+  const budget = Math.max(...values);
+  return { budget: Number.isFinite(budget) ? Math.round(budget) : undefined, currency };
+}
+
+function joinKeywords(input: unknown): string | undefined {
+  if (!input) return undefined;
+  if (typeof input === "string") return input.trim() || undefined;
+  if (Array.isArray(input)) {
+    return input
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean)
+      .join(", ") || undefined;
+  }
+  return undefined;
+}
+
+function normalizePreferences(preferences?: PanelPrefs | NormalizedPrefs) {
+  if (!preferences) return undefined;
+
+  const maybeNormalized =
+    typeof (preferences as NormalizedPrefs).sizeTop === "string" ||
+    typeof (preferences as NormalizedPrefs).styleKeywords === "string" ||
+    typeof (preferences as NormalizedPrefs).budget === "number";
+
+  if (maybeNormalized && !(preferences as any).sizes) {
+    return preferences as NormalizedPrefs;
+  }
+
+  const result: NormalizedPrefs = {};
+
+  const gender = (preferences as PanelPrefs).gender;
+  if (typeof gender === "string" && gender && gender !== "unspecified") {
+    result.gender = gender;
+  }
+
+  const sizes = (preferences as PanelPrefs).sizes || ({} as PanelPrefs["sizes"]);
+  const top = (sizes as PanelPrefs["sizes"]).top || (preferences as any).sizeTop;
+  const bottom = (sizes as PanelPrefs["sizes"]).bottom || (preferences as any).sizeBottom;
+  const dress = (sizes as PanelPrefs["sizes"]).dress || (preferences as any).sizeDress;
+  const shoe = (sizes as PanelPrefs["sizes"]).shoe || (preferences as any).sizeShoe;
+
+  if (typeof top === "string" && top.trim()) result.sizeTop = top.trim();
+  if (typeof bottom === "string" && bottom.trim()) result.sizeBottom = bottom.trim();
+  if (typeof dress === "string" && dress.trim()) result.sizeDress = dress.trim();
+  if (typeof shoe === "string" && shoe.trim()) result.sizeShoe = shoe.trim();
+
+  const bodyType = (preferences as PanelPrefs).bodyType || (preferences as any).bodyType;
+  if (typeof bodyType === "string" && bodyType.trim()) {
+    result.bodyType = bodyType.trim();
+  }
+
+  const country = (preferences as PanelPrefs).country || (preferences as any).country;
+  if (typeof country === "string" && country.trim()) {
+    result.country = country.trim();
+  }
+
+  const styleKeywords = joinKeywords((preferences as PanelPrefs).styleKeywords ?? (preferences as any).styleKeywords);
+  if (styleKeywords) {
+    result.styleKeywords = styleKeywords;
+  }
+
+  const budgetDetails = parseBudget((preferences as PanelPrefs).budget ?? (preferences as any).budget);
+  if (budgetDetails.budget && Number.isFinite(budgetDetails.budget)) {
+    result.budget = budgetDetails.budget;
+  } else if (typeof (preferences as any).budget === "number") {
+    result.budget = (preferences as any).budget;
+  }
+
+  const explicitCurrency = (preferences as any).currency;
+  if (typeof explicitCurrency === "string" && explicitCurrency.trim()) {
+    result.currency = explicitCurrency.trim().toUpperCase();
+  } else if (budgetDetails.currency) {
+    result.currency = budgetDetails.currency;
+  }
+
+  if (typeof (preferences as any).heightCm === "number") {
+    result.heightCm = (preferences as any).heightCm;
+  }
+  if (typeof (preferences as any).weightKg === "number") {
+    result.weightKg = (preferences as any).weightKg;
+  }
+
+  return Object.keys(result).length ? result : undefined;
+}
 
 type SSEHandler = (event: string, data: any) => void;
 
@@ -99,13 +227,19 @@ export function useStylistChat(endpoint = "/api/chat") {
             }
           : { role: "user", content: text || "" };
 
+      const preparedPrefs = normalizePreferences(preferences);
+
       let res: Response;
       try {
         res = await fetch(endpoint, {
           method: "POST",
           signal: abortRef.current.signal,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: [...history, last], preferences }),
+          body: JSON.stringify(
+            preparedPrefs
+              ? { messages: [...history, last], preferences: preparedPrefs }
+              : { messages: [...history, last] }
+          ),
         });
       } catch (err) {
         setMessages((m) => [
