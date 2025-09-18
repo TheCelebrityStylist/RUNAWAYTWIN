@@ -1,11 +1,14 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { encodeSSE } from "../../../lib/sse/reader"; // lib is at project root
-import { searchProducts, affiliateLink, fxConvert } from "../tools"; // ← tools is one folder up (app/api/tools.ts)
+import { encodeSSE } from "../../../lib/sse/reader";
+import { searchProducts, affiliateLink, fxConvert } from "../tools";
 
 export const runtime = "edge";
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Types
+ * ────────────────────────────────────────────────────────────────────────── */
 type Prefs = {
   gender?: string;
   sizeTop?: string;
@@ -21,16 +24,27 @@ type Prefs = {
   currency?: string;
 };
 
+type ToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+};
+
 type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   name?: string;
   tool_call_id?: string;
+  // important: include tool_calls on the assistant that requested tools
+  tool_calls?: ToolCall[];
 };
 
 const te = new TextEncoder();
 const push = (evt: any) => te.encode(encodeSSE(evt));
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Helpers
+ * ────────────────────────────────────────────────────────────────────────── */
 function prefsToSystem(p: Prefs): string {
   const cur = p.currency || (p.country === "US" ? "USD" : "EUR");
   return [
@@ -47,6 +61,21 @@ function prefsToSystem(p: Prefs): string {
   ].join("\n");
 }
 
+function safeJSON<T = any>(text: string, fallback: T): T {
+  try {
+    // OpenAI sometimes streams partials; trim weird trailing commas/braces safely
+    const cleaned = (text || "").trim()
+      .replace(/\n/g, " ")
+      .replace(/,(\s*[}\]])/g, "$1"); // remove trailing commas
+    return JSON.parse(cleaned || "{}");
+  } catch {
+    return fallback;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * OpenAI stream (collect tool_calls + content)
+ * ────────────────────────────────────────────────────────────────────────── */
 async function streamOpenAI(
   messages: ChatMessage[],
   toolsSchema: any[],
@@ -54,47 +83,74 @@ async function streamOpenAI(
   headers: Record<string, string>,
   signal: AbortSignal,
   onContentDelta: (text: string) => void
-): Promise<{ toolCalls: any[]; content: string }> {
+): Promise<{ assistantMsg: ChatMessage }> {
   const body = { model, stream: true, temperature: 0.6, messages, tools: toolsSchema, tool_choice: "auto" };
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST", headers, body: JSON.stringify(body), signal,
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    signal,
   });
+
   if (!res.ok || !res.body) {
     const txt = await res.text().catch(() => "");
-    console.warn("[OpenAI] stream error:", res.status, txt.slice(0, 400));
+    console.warn("[OpenAI] stream error:", res.status, txt.slice(0, 500));
     throw new Error(`OpenAI stream error: ${res.status}`);
   }
+
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  const toolCalls: Record<string, { id: string; type: "function"; function: { name: string; arguments: string } }> = {};
-  let full = ""; let finished = false;
-  while (!finished) {
-    const { value, done } = await reader.read();
-    if (done) break;
+
+  // accumulate content + tool call deltas
+  const toolCalls: Record<string, ToolCall> = {};
+  let content = "";
+  let done = false;
+
+  while (!done) {
+    const { value, done: streamDone } = await reader.read();
+    if (streamDone) break;
     const chunk = dec.decode(value, { stream: true });
+
     for (const line of chunk.split(/\r?\n/)) {
       if (!line.startsWith("data:")) continue;
       const payload = line.slice(5).trim();
-      if (payload === "[DONE]") { finished = true; break; }
+      if (payload === "[DONE]") { done = true; break; }
       try {
         const obj = JSON.parse(payload);
         const delta = obj.choices?.[0]?.delta;
         if (!delta) continue;
-        if (typeof delta.content === "string") { full += delta.content; onContentDelta(delta.content); }
+
+        if (typeof delta.content === "string") {
+          content += delta.content;
+          onContentDelta(delta.content);
+        }
+
         if (delta.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            const id = tc.id; if (!id) continue;
+          for (const part of delta.tool_calls) {
+            const id = part.id || part.index?.toString() || crypto.randomUUID();
             if (!toolCalls[id]) toolCalls[id] = { id, type: "function", function: { name: "", arguments: "" } };
-            if (tc.function?.name) toolCalls[id].function.name = tc.function.name;
-            if (typeof tc.function?.arguments === "string") toolCalls[id].function.arguments += tc.function.arguments;
+            if (part.function?.name) toolCalls[id].function.name = part.function.name;
+            if (typeof part.function?.arguments === "string") {
+              toolCalls[id].function.arguments += part.function.arguments;
+            }
           }
         }
-      } catch { /* ignore malformed */ }
+      } catch { /* ignore malformed SSE frame */ }
     }
   }
-  return { content: full, toolCalls: Object.values(toolCalls) };
+
+  const assistantMsg: ChatMessage = {
+    role: "assistant",
+    content,
+    tool_calls: Object.values(toolCalls),
+  };
+
+  return { assistantMsg };
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Tool schemas (names must match handlers below)
+ * ────────────────────────────────────────────────────────────────────────── */
 const toolSchemas = [
   {
     type: "function",
@@ -119,7 +175,7 @@ const toolSchemas = [
     type: "function",
     function: {
       name: "fx_convert",
-      description: "Convert a price to a target currency (simple static table).",
+      description: "Convert a price to a target currency (static FX table).",
       parameters: {
         type: "object",
         properties: {
@@ -133,14 +189,22 @@ const toolSchemas = [
   },
 ];
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Route
+ * ────────────────────────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
   let body: any = {}; try { body = await req.json(); } catch {}
+
   const clientMessages: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
   const preferences: Prefs = (body?.preferences || {}) as Prefs;
   const imageUrl: string | undefined = typeof body?.imageUrl === "string" ? body.imageUrl : undefined;
 
   const sysPrefs = prefsToSystem(preferences);
-  const baseMessages: ChatMessage[] = [{ role: "system", content: STYLIST_SYSTEM_PROMPT }, { role: "system", content: sysPrefs }, ...clientMessages];
+  const baseMessages: ChatMessage[] = [
+    { role: "system", content: STYLIST_SYSTEM_PROMPT },
+    { role: "system", content: sysPrefs },
+    ...clientMessages,
+  ];
   if (imageUrl) baseMessages.push({ role: "user", content: `Image provided for palette/fit context: ${imageUrl}` });
 
   const stream = new ReadableStream({
@@ -158,17 +222,18 @@ export async function POST(req: NextRequest) {
       try {
         send({ type: "ready" });
 
-        // Optimistic draft
+        /* ── Optimistic draft (adapter-led, immediate) ───────────────────── */
         const lastUser = [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
         const style = preferences.styleKeywords ? ` ${preferences.styleKeywords}` : "";
         const heuristicQuery = `${lastUser.slice(0, 160)}${style ? " | " + style : ""}`.trim();
 
         let draftLines: string[] = [];
         try {
+          const cur = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
           const picks = await searchProducts({
             query: heuristicQuery || "black wool coat women",
-            country: (preferences.country as any) || "NL",
-            currency: preferences.currency || (preferences.country === "US" ? "USD" : "EUR"),
+            country: preferences.country || "NL",
+            currency: cur,
             limit: 3,
             preferEU: (preferences.country || "NL") !== "US",
           });
@@ -198,20 +263,25 @@ export async function POST(req: NextRequest) {
             "- Shoes: ZARA — Leather Penny Loafers | 69.95 EUR | ZARA | https://www.zara.com/nl/en/leather-penny-loafers-p0.html | ",
             "- Bag: A.P.C. — Grace Small Leather Bag | 520 EUR | A.P.C. | https://www.apcstore.com/en_eu/grace-small | ",
             "Alternates:",
-            "- Shoes: Alexander Wang — Ava Slingback 75 | 495 EUR | Farfetch | https://www.farfetch.com/shopping/women/alexander-wang-ava-slingback-75-item-123.aspx | ",
-            "- Outerwear: Agnona — Double-Face Cashmere Coat | 3200 EUR | SSENSE | https://www.ssense.com/en-eu/women/product/agnona/double-face-cashmere-coat/1234567 | ",
+            "- Shoes: Alexander Wang — Ava Slingback 75 | 495 EUR | Farfetch | https://www.farfetch.com/ | ",
+            "- Outerwear: Agnona — Double-Face Cashmere Coat | 3200 EUR | SSENSE | https://www.ssense.com/ | ",
           ];
         }
 
         optimisticDraft = draftLines.join("\n");
-        for (const line of draftLines) { send({ type: "assistant_draft_delta", data: line + "\n" }); await new Promise((r) => setTimeout(r, 8)); }
+        for (const line of draftLines) {
+          send({ type: "assistant_draft_delta", data: line + "\n" });
+          await new Promise((r) => setTimeout(r, 8));
+        }
         send({ type: "assistant_draft_done" });
 
         if (!OPENAI_API_KEY) {
           console.warn("[RunwayTwin] Missing OPENAI_API_KEY — returning optimistic draft as final.");
-          send({ type: "error", data: "Missing OPENAI_API_KEY on the server." });
           send({ type: "assistant_final", data: optimisticDraft || "Temporary draft unavailable." });
-          send({ type: "done" }); clearInterval(keepAlive); controller.close(); return;
+          send({ type: "done" });
+          clearInterval(keepAlive);
+          controller.close();
+          return;
         }
 
         const headers: Record<string, string> = {
@@ -221,66 +291,112 @@ export async function POST(req: NextRequest) {
         if (OPENAI_ORG_ID) headers["OpenAI-Organization"] = OPENAI_ORG_ID;
         if (OPENAI_PROJECT_ID) headers["OpenAI-Project"] = OPENAI_PROJECT_ID;
 
-        let streamedText = ""; let toolCalls: any[] = [];
+        /* ── Streaming pass ─────────────────────────────────────────────── */
+        let assistantMsg: ChatMessage = { role: "assistant", content: "" };
         try {
-          const { toolCalls: tc } = await streamOpenAI(
-            baseMessages, toolSchemas, model, headers, new AbortController().signal,
-            (delta) => { streamedText += delta; send({ type: "assistant_draft_delta", data: delta }); }
+          const res = await streamOpenAI(
+            baseMessages,
+            toolSchemas,
+            model,
+            headers,
+            new AbortController().signal,
+            (delta) => send({ type: "assistant_draft_delta", data: delta })
           );
-          toolCalls = tc || [];
+          assistantMsg = res.assistantMsg;
         } catch (e: any) {
-          console.warn("[RunwayTwin] OpenAI stream failed — using draft.", e?.message);
-          send({ type: "error", data: "Upstream model stream failed; using draft." });
+          console.warn("[RunwayTwin] model stream failed; continuing with draft. Reason:", e?.message);
+          // we will still finalize with the optimistic draft
+          assistantMsg = { role: "assistant", content: "" };
         }
 
-        if (toolCalls.length) for (const call of toolCalls) send({ type: "tool_call", data: { id: call.id, name: call.function?.name } });
-
+        /* ── Execute tool calls (fail-soft) ─────────────────────────────── */
         const toolResults: ChatMessage[] = [];
+        const toolCalls = assistantMsg.tool_calls || [];
+
         for (const call of toolCalls) {
-          let resultPayload: any = null;
+          send({ type: "tool_call", data: { id: call.id, name: call.function?.name } });
+
+          let resultPayload: any = { ok: true };
           try {
             if (call.function?.name === "search_products") {
-              const args = JSON.parse(call.function.arguments || "{}");
+              const args = safeJSON(call.function.arguments, {});
+              const q = (args.query as string) || [...baseMessages].reverse().find((m) => m.role === "user")?.content || "";
               const results = await searchProducts({
-                query: args.query || "",
-                country: args.country, currency: args.currency, size: args.size, color: args.color,
+                query: q,
+                country: args.country || preferences.country,
+                currency: args.currency || preferences.currency || (preferences.country === "US" ? "USD" : "EUR"),
+                size: args.size ?? null,
+                color: args.color ?? null,
                 limit: Math.min(6, Number(args.limit || 6)),
                 preferEU: (preferences.country || "NL") !== "US",
               });
               resultPayload = { ok: true, results };
             } else if (call.function?.name === "fx_convert") {
-              const args = JSON.parse(call.function.arguments || "{}");
-              const out = fxConvert(Number(args.amount), args.from, args.to);
-              resultPayload = { ok: true, amount: out, currency: args.to };
+              const args = safeJSON(call.function.arguments, {});
+              const out = fxConvert(Number(args.amount || 0), String(args.from || "EUR"), String(args.to || "EUR"));
+              resultPayload = { ok: true, amount: out, currency: args.to || "EUR" };
             } else {
-              resultPayload = { ok: false, error: "unknown_tool" };
+              resultPayload = { ok: true, note: "unknown_tool_ignored" };
             }
           } catch (err: any) {
-            resultPayload = { ok: false, error: String(err?.message || err) };
+            // fail-soft: still ok=true with empty results so UI doesn't flash a scary error
+            console.warn("[RunwayTwin] tool execution error:", err?.message || err);
+            resultPayload = { ok: true, results: [] };
           }
+
           send({ type: "tool_result", data: { tool: call.function?.name, result: resultPayload } });
-          toolResults.push({ role: "tool", content: JSON.stringify(resultPayload), name: call.function?.name, tool_call_id: call.id });
+
+          toolResults.push({
+            role: "tool",
+            name: call.function?.name,
+            tool_call_id: call.id,
+            content: JSON.stringify(resultPayload),
+          });
         }
 
-        // Finalization pass (non-stream)
+        /* ── Finalization pass (non-stream; include assistant tool_calls!) ─ */
         let finalText = "";
         try {
-          const body = { model, temperature: 0.4, messages: [...baseMessages, ...toolResults] };
-          const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers, body: JSON.stringify(body) });
-          const status = res.status; let data: any = null; try { data = await res.json(); } catch {}
-          if (status >= 200 && status < 300) finalText = data?.choices?.[0]?.message?.content || "";
-          else { console.warn("[OpenAI] finalization failed:", status, JSON.stringify(data).slice(0, 400)); send({ type: "error", data: `Model finalization failed (${status}). Using draft.` }); }
-        } catch (err: any) { console.warn("[OpenAI] finalization exception:", err?.message); send({ type: "error", data: "Model finalization error; using draft." }); }
+          const finalizeBody = {
+            model,
+            temperature: 0.4,
+            messages: [...baseMessages, assistantMsg, ...toolResults],
+          };
+          const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(finalizeBody),
+          });
+          const status = resp.status;
+          const data = await resp.json().catch(() => ({}));
+          if (status >= 200 && status < 300) {
+            finalText = data?.choices?.[0]?.message?.content || "";
+          } else {
+            console.warn("[OpenAI] finalization failed:", status, JSON.stringify(data).slice(0, 500));
+          }
+        } catch (err: any) {
+          console.warn("[OpenAI] finalization exception:", err?.message);
+        }
 
-        if (!finalText || !finalText.trim()) finalText = optimisticDraft || streamedText || "Outfit:\n- (draft unavailable)";
-        send({ type: "assistant_final", data: finalText }); send({ type: "done" });
+        if (!finalText || !finalText.trim()) {
+          finalText = assistantMsg.content?.trim()
+            ? assistantMsg.content
+            : (optimisticDraft || "Outfit:\n- (draft unavailable)");
+        }
+
+        send({ type: "assistant_final", data: finalText });
+        send({ type: "done" });
       } catch (err: any) {
-        const fallback = optimisticDraft || "Outfit:\n- Top: — | — | — | —\n\n(An error occurred, but streaming remained responsive.)";
+        // absolute fallback — never leave the client hanging
+        const fallback = optimisticDraft || "Outfit:\n- Top: — | — | — | —\n\n(Recovered from an unexpected error.)";
         console.error("[RunwayTwin] route fatal:", err?.message);
-        send({ type: "error", data: String(err?.message || err) });
+        // Don't spam user with hard error if we can still return a draft
         send({ type: "assistant_final", data: fallback });
         send({ type: "done" });
-      } finally { clearInterval(keepAlive); controller.close(); }
+      } finally {
+        clearInterval(keepAlive);
+        controller.close();
+      }
     },
   });
 
