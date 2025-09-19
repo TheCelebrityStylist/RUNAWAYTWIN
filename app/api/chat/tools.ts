@@ -24,6 +24,10 @@ export type Product = {
   url: string;
   imageUrl?: string | null;
   availability?: string | null;
+  category?: string | null;
+  tags?: string[];
+  color?: string | null;
+  description?: string | null;
 };
 
 export type SearchProductsArgs = {
@@ -150,31 +154,368 @@ function scrapeMinimalFromHtml(url: string, html: string): Partial<Product> {
  * ========================= */
 const DEMO_DATA: Product[] = [
   {
-    id: "the-row-tee",
+    id: "safiyaa-livia-top",
+    brand: "Safiyaa",
+    title: "Livia Off-the-Shoulder Stretch-Crepe Top",
+    price: 795,
+    currency: "EUR",
+    retailer: "Matchesfashion",
+    url: "https://www.matchesfashion.com/products/safiyaa-livia-off-the-shoulder-stretch-crepe-top-1306495",
+    imageUrl: "https://assets.runwaytwin-demo.com/safiyaa-livia-top.jpg",
+    availability: "InStock",
+    category: "Top",
+    tags: ["zendaya", "gala", "evening", "structured", "corset", "hourglass", "pear"],
+    description: "Structured corset top that frames the shoulders and nips the waist.",
+  },
+  {
+    id: "safiyaa-viviana-skirt",
+    brand: "Safiyaa",
+    title: "Viviana Stretch-Crepe Maxi Skirt",
+    price: 845,
+    currency: "EUR",
+    retailer: "Matchesfashion",
+    url: "https://www.matchesfashion.com/products/safiyaa-viviana-stretch-crepe-maxi-skirt-1306497",
+    imageUrl: "https://assets.runwaytwin-demo.com/safiyaa-viviana-skirt.jpg",
+    availability: "InStock",
+    category: "Bottom",
+    tags: ["zendaya", "gala", "evening", "column", "hourglass", "pear"],
+    description: "Floor-sweeping skirt that elongates the frame with a fluid column cut.",
+  },
+  {
+    id: "alex-vauthier-opera-coat",
+    brand: "Alexandre Vauthier",
+    title: "Satin Duchesse Opera Coat",
+    price: 2250,
+    currency: "EUR",
+    retailer: "Alexandre Vauthier",
+    url: "https://www.alexandrevauthier.com/en/collections/coats/opera-coat",
+    imageUrl: "https://assets.runwaytwin-demo.com/alexandre-vauthier-opera-coat.jpg",
+    availability: "InStock",
+    category: "Outerwear",
+    tags: ["zendaya", "gala", "evening", "outerwear", "cape"],
+    description: "Dramatic satin coat with sculpted shoulders and sweeping hem.",
+  },
+  {
+    id: "jimmy-choo-bing-100",
+    brand: "Jimmy Choo",
+    title: "Bing 100 Crystal-Embellished Patent Pumps",
+    price: 895,
+    currency: "EUR",
+    retailer: "Jimmy Choo",
+    url: "https://row.jimmychoo.com/en/women/shoes/bing-100-crystal-embellished-patent-pumps/BING100PAT.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/jimmy-choo-bing-100.jpg",
+    availability: "InStock",
+    category: "Shoes",
+    tags: ["zendaya", "gala", "evening", "heels", "pump", "hourglass"],
+    description: "Sculptural patent pumps with crystal strap that mirrors couture styling.",
+  },
+  {
+    id: "tyler-ellis-perry-clutch",
+    brand: "Tyler Ellis",
+    title: "Perry Satin Clutch with Crystal Trim",
+    price: 1380,
+    currency: "EUR",
+    retailer: "Tyler Ellis",
+    url: "https://tylerellis.com/collections/perry/products/perry-clutch-satin-crystal",
+    imageUrl: "https://assets.runwaytwin-demo.com/tyler-ellis-perry-clutch.jpg",
+    availability: "InStock",
+    category: "Accessories",
+    tags: ["zendaya", "gala", "evening", "bag", "clutch"],
+    description: "Structured minaudière finished with pavé crystal hardware.",
+  },
+  {
+    id: "amina-muaddi-begum",
+    brand: "Amina Muaddi",
+    title: "Begum 95 Crystal PVC Pumps",
+    price: 795,
+    currency: "EUR",
+    retailer: "Amina Muaddi",
+    url: "https://aminamuaddi.com/products/begum-95-pump-clear",
+    imageUrl: "https://assets.runwaytwin-demo.com/amina-muaddi-begum.jpg",
+    availability: "InStock",
+    category: "Shoes",
+    tags: ["zendaya", "gala", "alternate", "heels"],
+    description: "Clear stiletto with signature crystal brooch for modern glamour.",
+  },
+  {
+    id: "ralph-lauren-velvet-blazer",
+    brand: "Ralph Lauren Collection",
+    title: "Velvet Peak-Lapel Evening Blazer",
+    price: 1390,
+    currency: "EUR",
+    retailer: "Ralph Lauren",
+    url: "https://www.ralphlauren.eu/en/women-clothing-blazers/velvet-peak-lapel-evening-jacket/613681.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/ralph-lauren-velvet-blazer.jpg",
+    availability: "InStock",
+    category: "Outerwear",
+    tags: ["zendaya", "gala", "alternate", "outerwear"],
+    description: "Tailored velvet blazer with exaggerated lapels for red-carpet polish.",
+  },
+  {
+    id: "reformation-olena-top",
+    brand: "Reformation",
+    title: "Olena Silk Corset Top",
+    price: 198,
+    currency: "EUR",
+    retailer: "Reformation",
+    url: "https://www.thereformation.com/products/olena-top/1300823.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/reformation-olena-top.jpg",
+    availability: "InStock",
+    category: "Top",
+    tags: ["zendaya", "gala", "save", "corset", "pear", "hourglass"],
+    description: "Boned silk top that mimics couture structure on a smaller budget.",
+  },
+  {
+    id: "reformation-julietta-skirt",
+    brand: "Reformation",
+    title: "Julietta Silk Maxi Skirt",
+    price: 248,
+    currency: "EUR",
+    retailer: "Reformation",
+    url: "https://www.thereformation.com/products/julietta-skirt/1300714.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/reformation-julietta-skirt.jpg",
+    availability: "InStock",
+    category: "Bottom",
+    tags: ["zendaya", "gala", "save", "column"],
+    description: "Bias-cut silk skirt that glides over curves for formal nights.",
+  },
+  {
+    id: "stories-satin-duster",
+    brand: "& Other Stories",
+    title: "Satin Belted Duster Coat",
+    price: 189,
+    currency: "EUR",
+    retailer: "& Other Stories",
+    url: "https://www.stories.com/en_eur/clothing/coats/product.satin-belted-duster-coat-black.1109060001.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/stories-satin-duster.jpg",
+    availability: "InStock",
+    category: "Outerwear",
+    tags: ["zendaya", "gala", "save", "outerwear"],
+    description: "Fluid satin coat that drapes elegantly over evening looks.",
+  },
+  {
+    id: "schutz-altina-sandal",
+    brand: "Schutz",
+    title: "Altina Metallic Sandals",
+    price: 220,
+    currency: "EUR",
+    retailer: "Schutz",
+    url: "https://global.schutz-shoes.com/products/altina-metallic-sandal-gold",
+    imageUrl: "https://assets.runwaytwin-demo.com/schutz-altina-sandal.jpg",
+    availability: "InStock",
+    category: "Shoes",
+    tags: ["zendaya", "gala", "save", "heels"],
+    description: "Strappy metallic heel that elongates the leg line.",
+  },
+  {
+    id: "cult-gaia-eos-clutch",
+    brand: "Cult Gaia",
+    title: "Eos Box Clutch",
+    price: 395,
+    currency: "EUR",
+    retailer: "Cult Gaia",
+    url: "https://cultgaia.com/products/eos-box-clutch-gold",
+    imageUrl: "https://assets.runwaytwin-demo.com/cult-gaia-eos-clutch.jpg",
+    availability: "InStock",
+    category: "Accessories",
+    tags: ["zendaya", "gala", "save", "bag", "clutch"],
+    description: "Glossy box clutch with sculptural edges for modern glamour.",
+  },
+  {
+    id: "the-row-wesler",
     brand: "The Row",
     title: "Wesler Merino T-Shirt",
-    price: 590, currency: "EUR", retailer: "Matches",
+    price: 590,
+    currency: "EUR",
+    retailer: "Matches",
     url: "https://www.matchesfashion.com/products/the-row-wesler-merino-t-shirt",
     imageUrl: "https://assets.runwaytwin-demo.com/the-row-wesler.jpg",
     availability: "InStock",
+    category: "Top",
+    tags: ["minimal", "jennifer lawrence", "everyday", "top"],
+    description: "Fine merino tee with clean lines for elevated basics.",
   },
   {
-    id: "levi-501",
+    id: "khaite-eddie-trouser",
+    brand: "Khaite",
+    title: "Eddie High-Rise Wool Trousers",
+    price: 980,
+    currency: "EUR",
+    retailer: "Khaite",
+    url: "https://khaite.com/products/eddie-trouser-black",
+    imageUrl: "https://assets.runwaytwin-demo.com/khaite-eddie-trouser.jpg",
+    availability: "InStock",
+    category: "Bottom",
+    tags: ["jennifer lawrence", "everyday", "work", "bottom"],
+    description: "Fluid pleated trouser that elongates the leg with quiet luxury energy.",
+  },
+  {
+    id: "levis-501",
     brand: "Levi's",
     title: "501 Original Straight Jeans (Indigo)",
-    price: 110, currency: "EUR", retailer: "Levi.com EU",
+    price: 110,
+    currency: "EUR",
+    retailer: "Levi.com EU",
     url: "https://www.levi.com/NL/en_NL/search?q=501",
     imageUrl: "https://assets.runwaytwin-demo.com/levis-501.jpg",
     availability: "InStock",
+    category: "Bottom",
+    tags: ["casual", "jennifer lawrence", "everyday", "denim"],
+    description: "Straight-leg denim that anchors minimalist day dressing.",
+  },
+  {
+    id: "the-row-balter-coat",
+    brand: "The Row",
+    title: "Balder Double-Faced Wool Coat",
+    price: 3850,
+    currency: "EUR",
+    retailer: "The Row",
+    url: "https://www.therow.com/en-eu/balder-coat-black",
+    imageUrl: "https://assets.runwaytwin-demo.com/the-row-balder-coat.jpg",
+    availability: "InStock",
+    category: "Outerwear",
+    tags: ["jennifer lawrence", "everyday", "work", "outerwear"],
+    description: "Oversized double-faced coat that defines Jennifer Lawrence’s polished minimalism.",
   },
   {
     id: "mango-trench",
     brand: "Mango",
     title: "Classic Cotton Trench Coat",
-    price: 119.99, currency: "EUR", retailer: "Mango",
+    price: 119.99,
+    currency: "EUR",
+    retailer: "Mango",
     url: "https://shop.mango.com/nl/dames/jassen/trench-classic",
     imageUrl: "https://assets.runwaytwin-demo.com/mango-trench.jpg",
     availability: "InStock",
+    category: "Outerwear",
+    tags: ["transitional", "everyday", "outerwear"],
+    description: "Belted trench that sharpens casual layers.",
+  },
+  {
+    id: "manolo-bb-70",
+    brand: "Manolo Blahnik",
+    title: "BB 70 Suede Pumps",
+    price: 595,
+    currency: "EUR",
+    retailer: "Manolo Blahnik",
+    url: "https://www.manoloblahnik.com/eu/bb-70-blue-suede-pump-004650.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/manolo-bb-70.jpg",
+    availability: "InStock",
+    category: "Shoes",
+    tags: ["jennifer lawrence", "everyday", "work", "heels"],
+    description: "Moderate heel that keeps minimalist looks polished yet wearable.",
+  },
+  {
+    id: "loewe-puzzle-tote",
+    brand: "Loewe",
+    title: "Puzzle Edge Small Leather Tote",
+    price: 3200,
+    currency: "EUR",
+    retailer: "Loewe",
+    url: "https://www.loewe.com/eur/en/women/bags/puzzle-edge-bag-in-classic-calfskin/1990094717.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/loewe-puzzle-edge.jpg",
+    availability: "InStock",
+    category: "Accessories",
+    tags: ["jennifer lawrence", "everyday", "bag", "accessory"],
+    description: "Soft-structured tote that keeps the look luxe but practical.",
+  },
+  {
+    id: "toteme-signature-coat",
+    brand: "Totême",
+    title: "Signature Wool-Blend Coat",
+    price: 910,
+    currency: "EUR",
+    retailer: "Totême",
+    url: "https://www.toteme-studio.com/en-eu/signature-coat-beige",
+    imageUrl: "https://assets.runwaytwin-demo.com/toteme-signature-coat.jpg",
+    availability: "InStock",
+    category: "Outerwear",
+    tags: ["jennifer lawrence", "everyday", "alternate", "outerwear"],
+    description: "Double-faced wool coat with relaxed shoulders for minimalist layering.",
+  },
+  {
+    id: "common-projects-achellea",
+    brand: "Common Projects",
+    title: "Achilles Low Leather Sneakers",
+    price: 410,
+    currency: "EUR",
+    retailer: "Common Projects",
+    url: "https://www.commonprojects.com/collections/women/products/achilles-low-white",
+    imageUrl: "https://assets.runwaytwin-demo.com/common-projects-achilles.jpg",
+    availability: "InStock",
+    category: "Shoes",
+    tags: ["jennifer lawrence", "alternate", "everyday", "shoes"],
+    description: "Minimal leather sneaker that keeps the palette polished yet relaxed.",
+  },
+  {
+    id: "arket-merino-tee",
+    brand: "ARKET",
+    title: "Fine Merino Wool Tee",
+    price: 59,
+    currency: "EUR",
+    retailer: "ARKET",
+    url: "https://www.arket.com/en_eur/women/knitwear/product.fine-merino-wool-t-shirt-black.0951435001.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/arket-merino-tee.jpg",
+    availability: "InStock",
+    category: "Top",
+    tags: ["jennifer lawrence", "save", "everyday", "top"],
+    description: "Lightweight merino tee that mimics The Row’s refined drape.",
+  },
+  {
+    id: "arket-wide-leg-trouser",
+    brand: "ARKET",
+    title: "Tailored Wide-Leg Trousers",
+    price: 89,
+    currency: "EUR",
+    retailer: "ARKET",
+    url: "https://www.arket.com/en_eur/women/trousers/product.wide-leg-trousers-black.0824690002.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/arket-wide-leg-trouser.jpg",
+    availability: "InStock",
+    category: "Bottom",
+    tags: ["jennifer lawrence", "save", "everyday", "bottom"],
+    description: "High-rise trouser that streamlines the leg while staying effortless.",
+  },
+  {
+    id: "cos-wool-wrap-coat",
+    brand: "COS",
+    title: "Wool-Blend Wrap Coat",
+    price: 250,
+    currency: "EUR",
+    retailer: "COS",
+    url: "https://www.cos.com/en_eur/women/coats-and-jackets/coats/product.wrap-coat-green.1173699001.html",
+    imageUrl: "https://assets.runwaytwin-demo.com/cos-wool-wrap-coat.jpg",
+    availability: "InStock",
+    category: "Outerwear",
+    tags: ["jennifer lawrence", "save", "everyday", "outerwear"],
+    description: "Soft wrap coat that mirrors Totême’s drape at a friendlier price.",
+  },
+  {
+    id: "veja-esplar",
+    brand: "Veja",
+    title: "Esplar Leather Sneakers",
+    price: 130,
+    currency: "EUR",
+    retailer: "Veja",
+    url: "https://www.veja-store.com/en-eu/esplar-leather-extra-white",
+    imageUrl: "https://assets.runwaytwin-demo.com/veja-esplar.jpg",
+    availability: "InStock",
+    category: "Shoes",
+    tags: ["jennifer lawrence", "save", "everyday", "sneaker"],
+    description: "Clean white sneaker that keeps the silhouette grounded and chic.",
+  },
+  {
+    id: "polene-numero-un",
+    brand: "Polène",
+    title: "Numéro Un Nano Bag",
+    price: 420,
+    currency: "EUR",
+    retailer: "Polène",
+    url: "https://www.polene-paris.com/en/products/numero-un-nano-texture-noir",
+    imageUrl: "https://assets.runwaytwin-demo.com/polene-numero-un.jpg",
+    availability: "InStock",
+    category: "Accessories",
+    tags: ["jennifer lawrence", "save", "everyday", "bag"],
+    description: "Mini satchel with sculpted folds that nod to quiet luxury styling.",
   },
 ];
 const demoAdapter: ProductAdapter = {
@@ -184,13 +525,50 @@ const demoAdapter: ProductAdapter = {
     const limit = clampLimit(params.limit);
     if (!q) return DEMO_DATA.slice(0, limit);
     const tokens = q.split(/\s+/).filter(Boolean);
-    const hits = DEMO_DATA.filter((p) => {
+
+    const scored = DEMO_DATA.map((p) => {
       const hay = `${p.brand} ${p.title} ${p.retailer}`.toLowerCase();
-      return tokens.every((t) => hay.includes(t));
+      const tags = (p.tags || []).map((t) => t.toLowerCase());
+      const category = (p.category || "").toLowerCase();
+      let score = 0;
+      for (const token of tokens) {
+        if (!token) continue;
+        if (hay.includes(token)) score += 2;
+        if (category.includes(token)) score += 1.5;
+        if (tags.some((t) => t.includes(token))) score += 4;
+        if (["gala", "red", "carpet"].includes(token) && tags.includes("gala")) {
+          score += 6;
+        }
+        if (["evening", "cocktail"].includes(token) && tags.includes("evening")) {
+          score += 4;
+        }
+        if (["everyday", "casual", "day"].includes(token) && tags.includes("everyday")) {
+          score += 3;
+        }
+        if (["hourglass", "pear", "apple", "rectangle"].includes(token)) {
+          if (tags.some((tag) => tag.includes(token))) score += 2;
+        }
+        if (["zendaya", "jennifer", "lawrence", "blake", "lively"].includes(token)) {
+          if (tags.some((tag) => tag.includes(token))) score += 5;
+        }
+      }
+      return {
+        product: p,
+        score,
+        region: scoreByRegion(p.url, params.preferEU),
+      };
     });
-    const ranked = hits.map((p) => ({ p, s: scoreByRegion(p.url, params.preferEU) }))
-      .sort((a, b) => b.s - a.s).map((x) => x.p);
-    return (ranked.length ? ranked : DEMO_DATA).slice(0, limit);
+
+    const filtered = scored
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.region - a.region;
+      })
+      .map((entry) => entry.product);
+
+    const base = filtered.length ? filtered : DEMO_DATA;
+    return base.slice(0, limit);
   },
   async checkStock(productIdOrUrl: string) {
     const hit = DEMO_DATA.find((p) => p.id === productIdOrUrl || p.url === productIdOrUrl);
