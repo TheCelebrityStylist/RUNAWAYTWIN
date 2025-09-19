@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useStylistChat, Msg } from "./useStylistChat";
 import PreferencesPanel, { Prefs } from "./preferences/PreferencesPanel";
 import LookBuilder from "./look/LookBuilder";
+import AssistantMessage from "./chat/AssistantMessage";
 
 type Props = { initialPreferences: Prefs };
 
@@ -76,23 +77,23 @@ export default function StylistChat({ initialPreferences }: Props) {
           </header>
 
           <div ref={viewportRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {messages.map((m: Msg) => (
-              <div key={m.id} className={m.role === "user" ? "text-right" : "text-left"}>
-                <div
-                  className={
-                    "inline-block max-w-[80%] whitespace-pre-wrap leading-relaxed rounded-2xl px-4 py-3 " +
-                    (m.role === "user"
-                      ? "bg-black text-white"
-                      : m.role === "tool"
-                      ? "bg-[var(--rt-ivory)] text-[var(--rt-charcoal)]"
-                      : "border")
-                  }
-                  style={m.role === "assistant" ? { borderColor: "var(--rt-border)", background: "white" } : undefined}
-                >
-                  {m.content}
+            {messages.map((m: Msg) => {
+              const isAssistant = m.role === "assistant";
+              const base = "inline-block max-w-[82%] rounded-2xl px-4 py-3 leading-relaxed";
+              const cls = isAssistant
+                ? `${base} border bg-white`
+                : m.role === "user"
+                ? `${base} whitespace-pre-wrap bg-black text-white`
+                : `${base} whitespace-pre-wrap bg-[var(--rt-ivory)] text-[var(--rt-charcoal)]`;
+
+              return (
+                <div key={m.id} className={m.role === "user" ? "text-right" : "text-left"}>
+                  <div className={cls} style={isAssistant ? { borderColor: "var(--rt-border)" } : undefined}>
+                    {isAssistant ? <AssistantMessage text={m.content} /> : m.content}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {!!draft && (
               <div className="text-left">
