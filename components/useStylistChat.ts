@@ -339,6 +339,10 @@ export function useStylistChat(endpoint = "/api/chat") {
           const chunk = decoder.decode(value, { stream: true });
           carry = parseSSE(chunk, onEvent, carry);
         }
+        if (carry) {
+          parseSSE("\n\n", onEvent, carry);
+          carry = "";
+        }
       } catch (err) {
         setMessages((m) => [
           ...m,

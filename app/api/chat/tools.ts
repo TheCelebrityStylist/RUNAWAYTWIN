@@ -837,15 +837,17 @@ export async function searchProducts(params: SearchProductsArgs): Promise<Produc
   const safe: SearchProductsArgs = { ...params, limit };
   const collected: Product[] = [];
 
-  for (const a of ADAPTERS) {
+  for (const adapter of ADAPTERS) {
     try {
-      const res = await a.searchProducts(safe);
+      const res = await adapter.searchProducts(safe);
       if (res?.length) {
-        collected.push(...res);
-        if (collected.length >= limit) break;
+        // Keep a light cap per adapter so we don't overwhelm the caller while still
+        // letting multiple sources contribute candidates for styling heuristics.
+        const cap = Math.max(limit, 6);
+        collected.push(...res.slice(0, cap));
       }
     } catch (e: any) {
-      console.warn(`[tools] ${a.name}.searchProducts failed:`, e?.message);
+      console.warn(`[tools] ${adapter.name}.searchProducts failed:`, e?.message);
     }
   }
 
@@ -890,4 +892,8 @@ export function fxConvert(amount: number, from: string, to: string) {
   const f = FX[from?.toUpperCase()] ?? 1;
   const t = FX[to?.toUpperCase()] ?? 1;
   return Math.round((amount / f) * t * 100) / 100;
+}
+
+export function getCatalogProductById(id: string): Product | undefined {
+  return DEMO_DATA.find((p) => p.id === id);
 }
