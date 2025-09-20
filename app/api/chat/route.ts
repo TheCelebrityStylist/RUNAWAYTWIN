@@ -1,6 +1,7 @@
 // FILE: app/api/chat/route.ts
 import { NextRequest } from "next/server";
-import { searchProducts, fxConvert, Product } from "../tools";     // <- app/api/tools.ts (SerpAPI → Web → Demo)
+import { searchProducts, fxConvert } from "../tools";     // <- app/api/tools.ts (SerpAPI → Web → Demo)
+import type { Product } from "../tools";
 import { encodeSSE } from "../../lib/sse/reader";                   // <- app/lib/sse/reader.ts
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 
@@ -223,6 +224,76 @@ function buildIntakeSummary({
   return lines.join("\n");
 }
 
+const GREETING_TOKENS = [
+  "hi",
+  "hello",
+  "hey",
+  "hiya",
+  "heya",
+  "hola",
+  "ciao",
+  "bonjour",
+  "bonsoir",
+  "thanks",
+  "thank",
+  "morning",
+  "evening",
+  "afternoon",
+  "appreciate",
+];
+
+const STYLE_TRIGGER_TOKENS = [
+  "dress",
+  "outfit",
+  "style",
+  "wear",
+  "look",
+  "ideas",
+  "idea",
+  "gala",
+  "event",
+  "wedding",
+  "party",
+  "jean",
+  "coat",
+  "shoe",
+  "shoes",
+  "top",
+  "bottom",
+  "accessories",
+  "budget",
+  "need",
+  "help",
+  "want",
+  "prefer",
+  "make",
+  "plan",
+  "capsule",
+  "swap",
+  "change",
+  "pair",
+  "recommend",
+  "recommendation",
+  "options",
+  "option",
+  "update",
+  "refine",
+];
+
+function isGreetingLike(text: string): boolean {
+  if (!text) return false;
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized || normalized.length > 60) return false;
+  const tokens = normalized.split(" ").filter(Boolean);
+  if (!tokens.some((t) => GREETING_TOKENS.includes(t))) return false;
+  if (tokens.some((t) => STYLE_TRIGGER_TOKENS.includes(t))) return false;
+  return tokens.length <= 6;
+}
+
 function describeBodyTypeBenefit(bodyType: string | null) {
   const lower = (bodyType || "").toLowerCase();
   if (lower.includes("pear")) return "balances proportion by highlighting shoulders and elongating the leg line.";
@@ -245,12 +316,16 @@ function bodyKeyFrom(bodyType: string | null): BodyKey {
   return "default";
 }
 
+type OutfitCategory = "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Accessories";
+
 function normalizeMuseName(muse: string | null): string | null {
   if (!muse) return null;
   const lower = muse.toLowerCase();
   if (lower.includes("zendaya")) return "Zendaya";
   if (lower.includes("jennifer") && lower.includes("lawrence")) return "Jennifer Lawrence";
   if (lower.includes("blake") && lower.includes("lively")) return "Blake Lively";
+  if (lower.includes("hailey") && lower.includes("bieber")) return "Hailey Bieber";
+  if (lower.includes("hailey")) return "Hailey Bieber";
   return muse;
 }
 
@@ -399,6 +474,68 @@ const CURATED_LOOKS: CuratedLook[] = [
       ],
     },
   },
+  {
+    muses: ["hailey bieber", "hailey"],
+    occasions: ["everyday", "weekend casual"],
+    hero: {
+      top: "toteme-contour-ribbed-tank",
+      bottom: "agolde-90s-pinched-jean",
+      outerwear: "wardrobe-nyc-double-breasted-coat",
+      shoes: "saint-laurent-le-loafer",
+      accessories: "bottega-mini-jodie",
+    },
+    alternates: {
+      shoes: "autry-medalist-sneaker",
+      outerwear: "frankie-shop-bea-blazer",
+    },
+    save: [
+      { category: "Top", productId: "mango-ribbed-tank" },
+      { category: "Bottom", productId: "levi-ribcage-straight" },
+      { category: "Outerwear", productId: "stories-oversized-wool-coat" },
+      { category: "Shoes", productId: "vagabond-ayden-loafer" },
+      { category: "Accessories", productId: "charles-keith-luna-bag" },
+    ],
+    vibe: "effortless West Coast street polish with sculpted lines",
+    palette: "bone, camel, inky black",
+    why: {
+      hourglass: [
+        "Contour tank skims the bust while nipping the waist so your curves stay intentional.",
+        "Pinch-waist denim smooths the hip and drops into a long, lean line à la Hailey.",
+        "Camel coat falls clean from the shoulder, framing your shape without bulk.",
+      ],
+      pear: [
+        "Squared neckline broadens the shoulder line to balance fuller hips.",
+        "High-rise denim floats over curves while the sleek loafer keeps the leg looking endless.",
+        "Mini Jodie tucks under the arm so focus lifts toward your waist and décolleté.",
+      ],
+      rectangle: [
+        "Ribbed knit adds contour while the pinched waistband creates instant definition.",
+        "Structured coat and soft bag build dimension so the silhouette feels sculpted, not boxy.",
+        "Glossy loafers add a refined anchor that sharpens the overall line.",
+      ],
+      apple: [
+        "Straight denim anchors the lower half without clinging through the midsection.",
+        "Leaving the coat open draws vertical lines that skim the torso effortlessly.",
+        "Loafer lift lengthens the leg so the eye travels upward.",
+      ],
+      default: [
+        "Neutral layering and razor-sharp tailoring mirror Hailey’s signature street polish.",
+        "Mix of luxe textures—ribbed knit, premium denim, calfskin—keeps minimalism elevated.",
+        "Iconic accessories pull the look together so it photographs like a VIP errand run.",
+      ],
+    },
+    capsule: {
+      remix: [
+        "Pair the tank with leather trousers and the loafers for late-night cocktails.",
+        "Swap in the Autry sneakers and a baseball cap for Sunday coffee runs.",
+        "Belt the camel coat over a silk slip dress for after-dark dinners.",
+      ],
+      tips: [
+        "Steam the coat hem and jean cuff so every line stays razor sharp.",
+        "Stack delicate gold jewellery and slick hair back to echo Hailey’s finish.",
+      ],
+    },
+  },
 ];
 
 function matchCuratedLook(muse: string | null, occasion: string | null): CuratedLook | null {
@@ -427,6 +564,146 @@ function formatAlternateLine(category: string, product: Product) {
   return `- ${category}: ${product.brand} — ${product.title} | ${price} ${currency} | ${retailer} | ${product.url}`;
 }
 
+const CATEGORY_PATTERNS: { key: OutfitCategory; patterns: RegExp[] }[] = [
+  { key: "Dress", patterns: [/\bdress\b/, /\bgown\b/, /\bslip\b/] },
+  {
+    key: "Top",
+    patterns: [
+      /\btop\b/,
+      /\bshirt\b/,
+      /\bblouse\b/,
+      /t[-\s]?shirt/,
+      /\btank\b/,
+      /\bknit\b/,
+      /\bsweater\b/,
+      /\bbodysuit\b/,
+      /\bcardigan\b/,
+      /\btee\b/,
+      /\bcorset\b/,
+      /\bhalter\b/,
+    ],
+  },
+  {
+    key: "Bottom",
+    patterns: [
+      /\btrouser\b/,
+      /\bpant\b/,
+      /\bjean\b/,
+      /\bskirt\b/,
+      /\bshort\b/,
+      /\bculotte\b/,
+      /\blegging\b/,
+      /\bwide[-\s]?leg\b/,
+    ],
+  },
+  {
+    key: "Outerwear",
+    patterns: [
+      /\bcoat\b/,
+      /\bjacket\b/,
+      /\bblazer\b/,
+      /\btrench\b/,
+      /\bduster\b/,
+      /\bovercoat\b/,
+      /\bparka\b/,
+      /\bbomber\b/,
+      /\banorak\b/,
+      /\bouterwear\b/,
+    ],
+  },
+  {
+    key: "Shoes",
+    patterns: [
+      /\bboot\b/,
+      /\bsandal\b/,
+      /\bheel\b/,
+      /\bpump\b/,
+      /\bloafer\b/,
+      /\bflat\b/,
+      /\bsneaker\b/,
+      /\bmule\b/,
+      /\bslingback\b/,
+      /\bstiletto\b/,
+      /\bplatform\b/,
+    ],
+  },
+  {
+    key: "Accessories",
+    patterns: [
+      /\bbag\b/,
+      /\bclutch\b/,
+      /\btote\b/,
+      /\bpouch\b/,
+      /\bearring\b/,
+      /\bnecklace\b/,
+      /\bbracelet\b/,
+      /\bring\b/,
+      /\bbelt\b/,
+      /\bsunglass\b/,
+      /\bscarf\b/,
+      /\bchoker\b/,
+      /\bwatch\b/,
+      /\bhair\b/,
+    ],
+  },
+];
+
+function guessCategory(product: Product): OutfitCategory | null {
+  const direct = product.category?.toLowerCase();
+  if (direct) {
+    for (const { key } of CATEGORY_PATTERNS) {
+      if (direct.includes(key.toLowerCase())) return key;
+    }
+  }
+
+  const haystack = [
+    product.title,
+    product.description,
+    product.brand,
+    ...(product.tags || []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  for (const { key, patterns } of CATEGORY_PATTERNS) {
+    if (patterns.some((pattern) => pattern.test(haystack))) return key;
+  }
+  return null;
+}
+
+function categoryTitleFor(product: Product): string {
+  return guessCategory(product) ?? "Item";
+}
+
+function shortProductName(product: Product): string {
+  const cleanTitle = product.title
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const words = cleanTitle.split(/\s+/);
+  const trimmed = words.length > 6 ? `${words.slice(0, 6).join(" ")}…` : cleanTitle;
+  return [product.brand, trimmed].filter(Boolean).join(" ").trim();
+}
+
+function museSignatureTip(museName: string | null | undefined): string | null {
+  if (!museName) return null;
+  const lower = museName.toLowerCase();
+  if (lower.includes("zendaya"))
+    return "Tip: Finish with sculptural jewellery and a sleek beauty look to mirror Zendaya’s red-carpet polish.";
+  if (lower.includes("jennifer") && lower.includes("lawrence"))
+    return "Tip: Keep accessories tonal and minimal to honour Jennifer Lawrence’s quiet-luxury uniform.";
+  if (lower.includes("blake") && lower.includes("lively"))
+    return "Tip: Introduce one playful colour-pop accessory the way Blake loves to for instant glamour.";
+  if (lower.includes("hailey"))
+    return "Tip: Go for glossy neutral makeup and razor-sharp tailoring to nail Hailey Bieber’s street-style ease.";
+  if (lower.includes("rihanna"))
+    return "Tip: Add a high-low twist—think sporty layer or bold accessory—to channel Rihanna’s fearless mix.";
+  if (lower.includes("beyonc"))
+    return "Tip: Elevate the finish with statement jewels and luminous skin à la Beyoncé.";
+  return `Tip: Keep the finishing touches intentional to echo ${museName}’s signature polish.`;
+}
+
 function convertPrice(amount: number, from: string | null | undefined, to: string) {
   if (!Number.isFinite(amount)) return 0;
   if (!from || from.toUpperCase() === to.toUpperCase()) return amount;
@@ -435,6 +712,213 @@ function convertPrice(amount: number, from: string | null | undefined, to: strin
 
 function formatNumber(value: number) {
   return Math.round(value).toLocaleString("en-US");
+}
+
+function buildProductFallbackPlan({
+  products,
+  bodyType,
+  museName,
+  occasion,
+  currency,
+  budget,
+}: {
+  products: Product[];
+  bodyType: string | null;
+  museName?: string | null;
+  occasion?: string | null;
+  currency: string;
+  budget?: number | null;
+}): string {
+  if (!products.length) {
+    return [
+      "Hello love — I’m refreshing the racks with new finds.",
+      "Give me one more cue and I’ll spin a tailored lineup immediately.",
+      "",
+      "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
+    ].join("\n");
+  }
+
+  const buckets: Record<OutfitCategory, Product[]> = {
+    Top: [],
+    Bottom: [],
+    Dress: [],
+    Outerwear: [],
+    Shoes: [],
+    Accessories: [],
+  };
+
+  for (const product of products) {
+    const key = guessCategory(product);
+    if (key) buckets[key].push(product);
+  }
+
+  let top: Product | null = buckets.Top[0] ?? null;
+  let bottom: Product | null = buckets.Bottom[0] ?? null;
+  let dress: Product | null = null;
+  if (!top || !bottom) {
+    dress = buckets.Dress[0] ?? null;
+    if (dress) {
+      top = null;
+      bottom = null;
+    }
+  }
+
+  const outerwear = buckets.Outerwear[0] ?? null;
+  const shoes = buckets.Shoes[0] ?? null;
+  const accessories = buckets.Accessories[0] ?? null;
+
+  const used = new Set<string>();
+  const markUsed = (product: Product | null) => {
+    if (!product) return;
+    used.add(product.id);
+    used.add(product.url);
+  };
+  [top, bottom, dress, outerwear, shoes, accessories].forEach(markUsed);
+
+  const altShoes = buckets.Shoes.find((p) => p && (!shoes || p.id !== shoes.id)) || null;
+  const altOuter = buckets.Outerwear.find((p) => p && (!outerwear || p.id !== outerwear.id)) || null;
+
+  const heroProducts: Product[] = [];
+  if (top) heroProducts.push(top);
+  if (bottom) heroProducts.push(bottom);
+  if (dress) heroProducts.push(dress);
+  if (outerwear) heroProducts.push(outerwear);
+  if (shoes) heroProducts.push(shoes);
+  if (accessories) heroProducts.push(accessories);
+
+  const total = heroProducts.reduce((sum, product) => {
+    if (product.price != null) {
+      return sum + convertPrice(product.price, product.currency, currency);
+    }
+    return sum;
+  }, 0);
+
+  const totalDisplay = total > 0 ? `${formatNumber(total)} ${currency}` : "TBC";
+  const budgetDisplay = budget ? `${formatNumber(budget)} ${currency}` : "—";
+  const overBudget = Boolean(budget && total > budget);
+
+  const benefit = describeBodyTypeBenefit(bodyType);
+  const trimmedBenefit = benefit.replace(/\.$/, "");
+  const occasionLabel = occasion ? occasion.toLowerCase() : "moment";
+  const museIntro = museName ? `Channeling ${museName}’s ${occasionLabel} energy,` : `For your ${occasionLabel} mood,`;
+  const bodyLine = bodyType
+    ? `this lineup celebrates your ${bodyType.toLowerCase()} figure so it ${trimmedBenefit}.`
+    : `this lineup keeps the proportions sleek and camera-ready.`;
+  const introLine = `${museIntro} ${bodyLine}`.replace(/\s+/g, " ").trim();
+
+  const why: string[] = [];
+  if (dress) {
+    why.push(`${shortProductName(dress)} sculpts a long, fluid column so it ${trimmedBenefit || "flatters every angle"}.`);
+  } else if (top && bottom) {
+    why.push(
+      `${shortProductName(top)} and ${shortProductName(bottom)} work together so the silhouette ${
+        trimmedBenefit || "stays balanced head-to-toe"
+      }.`
+    );
+  } else {
+    why.push(`Each hero piece ${trimmedBenefit || "keeps your proportions elevated"}.`);
+  }
+  if (outerwear) {
+    why.push(`${shortProductName(outerwear)} brings that model-off-duty structure without drowning your frame.`);
+  }
+  if (shoes) {
+    why.push(`${shortProductName(shoes)} lengthen the leg and keep every stride polished.`);
+  }
+  if (!why.length) {
+    why.push(`Each element ${trimmedBenefit || "keeps the silhouette refined"}.`);
+  }
+
+  const remixIdeas: string[] = [];
+  if (top && bottom) {
+    remixIdeas.push(
+      `Half-tuck the ${shortProductName(top)} into the ${shortProductName(bottom)} and add crisp trainers for effortless errands.`
+    );
+  }
+  if (dress) {
+    remixIdeas.push(`Layer the ${shortProductName(dress)} under a sharp blazer with slingback heels for dinner.`);
+  }
+  if (outerwear) {
+    remixIdeas.push(`Throw the ${shortProductName(outerwear)} over athleisure for polished travel days.`);
+  }
+  if (accessories) {
+    remixIdeas.push(`Carry the ${shortProductName(accessories)} with monochrome knits to keep the focus luxe.`);
+  }
+  const remixFallbacks = [
+    "Swap in high-waisted leather trousers and ankle boots for evening edge.",
+    "Trade the footwear for sleek white sneakers when you want true off-duty vibes.",
+    "Layer a cashmere crew over the core pieces once the temperature dips.",
+  ];
+  for (const idea of remixFallbacks) {
+    if (remixIdeas.length >= 3) break;
+    if (!remixIdeas.includes(idea)) remixIdeas.push(idea);
+  }
+  const remixLines = remixIdeas.slice(0, 3);
+
+  const tips: string[] = [];
+  if (trimmedBenefit) {
+    tips.push(`Tip: Prioritise tailoring that ${trimmedBenefit}.`);
+  }
+  const museTip = museSignatureTip(museName);
+  if (museTip) tips.push(museTip);
+  if (tips.length < 2) {
+    tips.push("Tip: Keep the palette tonal and textures elevated so the look photographs like a pro.");
+  }
+  const tipLines = tips.slice(0, 2);
+
+  const saveCandidates = products.filter((product) => !used.has(product.id) && !used.has(product.url));
+  const pricedSave = saveCandidates.filter((p) => typeof p.price === "number");
+  pricedSave.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+  const saveSource = pricedSave.length ? pricedSave : saveCandidates;
+  const saveLines = saveSource.slice(0, 3).map((p) => formatAlternateLine(categoryTitleFor(p), p));
+  if (!saveLines.length) {
+    saveLines.push("- N/A");
+  }
+
+  const lines: string[] = [];
+  if (introLine) lines.push(introLine);
+  lines.push("");
+  lines.push("Outfit:");
+  if (dress) {
+    lines.push(formatProductLine("Dress", dress));
+  } else {
+    lines.push(top ? formatProductLine("Top", top) : "- Top: N/A");
+    lines.push(bottom ? formatProductLine("Bottom", bottom) : "- Bottom: N/A");
+  }
+  lines.push(outerwear ? formatProductLine("Outerwear", outerwear) : "- Outerwear: N/A");
+  lines.push(shoes ? formatProductLine("Shoes", shoes) : "- Shoes: N/A");
+  lines.push(accessories ? formatProductLine("Accessories", accessories) : "- Accessories: N/A");
+  lines.push("");
+  lines.push("Alternates:");
+  lines.push(altShoes ? formatAlternateLine("Shoes", altShoes) : "- Shoes: N/A");
+  lines.push(altOuter ? formatAlternateLine("Outerwear", altOuter) : "- Outerwear: N/A");
+  lines.push("");
+  lines.push("Why it Flatters:");
+  for (const bullet of why.slice(0, 3)) {
+    lines.push(`- ${bullet}`);
+  }
+  lines.push("");
+  lines.push("Budget:");
+  lines.push(`- Total: ${totalDisplay} (Budget: ${budgetDisplay})`);
+  if (overBudget) {
+    lines.push("- Note: Tap the save picks below to glide back within budget.");
+  }
+  lines.push("");
+  lines.push("Save Picks:");
+  for (const save of saveLines) {
+    lines.push(save);
+  }
+  lines.push("");
+  lines.push("Capsule & Tips:");
+  for (const idea of remixLines) {
+    lines.push(`- Remix: ${idea}`);
+  }
+  for (const tip of tipLines) {
+    lines.push(`- ${tip.startsWith("Tip:") ? tip : `Tip: ${tip}`}`);
+  }
+  lines.push("");
+  lines.push("Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎");
+
+  return lines.join("\n");
 }
 
 function buildCuratedPlan({
@@ -563,17 +1047,6 @@ function buildCuratedPlan({
   return lines.join("\n");
 }
 
-function pickProduct(
-  products: Product[],
-  keywords: string[]
-): Product | undefined {
-  const lowerKeywords = keywords.map((k) => k.toLowerCase());
-  return products.find((p) => {
-    const hay = `${p.title} ${p.brand}`.toLowerCase();
-    return lowerKeywords.some((kw) => hay.includes(kw));
-  });
-}
-
 async function openaiComplete(
   messages: ChatMessage[],
   model: string,
@@ -635,6 +1108,7 @@ export async function POST(req: NextRequest) {
         // 1) ✨ Conversational optimistic draft (never blocks on APIs)
         const ask = lastUserText(baseMessages);
         const cur = preferences.currency || (preferences.country === "US" ? "USD" : "EUR");
+        const isGreetingOnly = isGreetingLike(ask);
         const transcript = clientMessages
           .map((m) => contentToText(m.content))
           .filter(Boolean)
@@ -674,6 +1148,53 @@ export async function POST(req: NextRequest) {
 
         push({ type: "assistant_draft_delta", data: `${warmGreeting}\n` });
         push({ type: "assistant_draft_delta", data: `${infoLine}\n\n` });
+
+        if (!hasBodyType || !hasOccasion) {
+          push({ type: "assistant_draft_done" });
+          const contextBits: string[] = [];
+          if (muse) contextBits.push(`Muse locked: ${muse}.`);
+          if (hasBodyType && bodyType) contextBits.push(`Body type: ${bodyType}.`);
+          if (preferences.styleKeywords) contextBits.push(`Vibe: ${preferences.styleKeywords}.`);
+          if (preferences.budget) contextBits.push(`Budget: ${preferences.budget} ${cur}.`);
+          const needLine = missingParts.length
+            ? `Share your ${missingParts.join(" & ")} and I’ll deliver the full shoppable lineup on the spot.`
+            : "Give me a touch more direction and I’ll style you instantly.";
+          const finalMessage = [
+            warmGreeting,
+            contextBits.join(" ").trim(),
+            needLine,
+            "",
+            "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
+          ]
+            .filter((line) => line && line.trim().length > 0)
+            .join("\n");
+          push({ type: "assistant_final", data: finalMessage });
+          push({ type: "done" });
+          return;
+        }
+
+        if (isGreetingOnly) {
+          push({ type: "assistant_draft_done" });
+          const occLabel = occasion ? occasion.toLowerCase() : "look";
+          const contextLine = muse
+            ? `Your ${muse} ${occLabel} direction is saved and ready whenever you want a tweak.`
+            : `Your ${occLabel} direction is saved and ready whenever you want a tweak.`;
+          const bodyLine = bodyType
+            ? `Just say the word if you’d like to refine it for your ${bodyType.toLowerCase()} silhouette or explore a new muse.`
+            : "Just say the word if you’d like a fresh muse, palette, or silhouette.";
+          const finalMessage = [
+            warmGreeting,
+            contextLine,
+            bodyLine,
+            "",
+            "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
+          ]
+            .filter((line) => line && line.trim().length > 0)
+            .join("\n");
+          push({ type: "assistant_final", data: finalMessage });
+          push({ type: "done" });
+          return;
+        }
 
         // 2) 🔎 Product search (SerpAPI → Web → Demo). Always returns something.
         const query =
@@ -783,60 +1304,14 @@ export async function POST(req: NextRequest) {
             if (curatedText) {
               finalText = curatedText;
             } else {
-              const greetingLine = muse
-                ? `Hello love — here’s an instant ${occasion ?? ""} lineup inspired by ${muse}.`.trim()
-                : "Hello love — here’s an instant lineup while I refresh the full catalog.";
-              const tot = products.reduce(
-                (sum, p) => sum + (typeof p.price === "number" ? p.price : 0),
-                0
-              );
-              const approxTotal = tot > 0 ? Math.round(tot) : null;
-              const shoesAlt =
-                pickProduct(products, ["boot", "heel", "sandal", "flat", "sneaker", "loafer", "pump"]) || products[3];
-              const outerAlt =
-                pickProduct(products, ["coat", "jacket", "trench", "blazer", "outerwear"]) || products[4];
-              const benefit = describeBodyTypeBenefit(bodyType);
-              const lines = [
-                greetingLine,
-                "",
-                "Outfit:",
-                ...products.slice(0, 5).map((p, idx) =>
-                  `- Item ${idx + 1}: ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${
-                    p.retailer ?? ""
-                  } | ${p.url} | ${p.imageUrl ?? ""}`
-                ),
-                "",
-                "Alternates:",
-                shoesAlt
-                  ? `- Shoes: ${shoesAlt.brand} — ${shoesAlt.title} | ${shoesAlt.price ?? "?"} ${
-                      shoesAlt.currency ?? ""
-                    } | ${shoesAlt.retailer ?? ""} | ${shoesAlt.url}`
-                  : "- Shoes: N/A",
-                outerAlt
-                  ? `- Outerwear: ${outerAlt.brand} — ${outerAlt.title} | ${outerAlt.price ?? "?"} ${
-                      outerAlt.currency ?? ""
-                    } | ${outerAlt.retailer ?? ""} | ${outerAlt.url}`
-                  : "- Outerwear: N/A",
-                "",
-                "Why it Flatters:",
-                `- Each piece ${benefit}`,
-                "- Proportions keep the look polished and occasion-appropriate.",
-                "",
-                "Budget:",
-                `- Total: ${
-                  approxTotal ? `${approxTotal} ${currency}` : "TBC"
-                } (Budget: ${preferences.budget ? `${preferences.budget} ${currency}` : "—"})`,
-                "",
-                "Capsule & Tips:",
-                "- Remix: Pair the top with sharp tailoring for weekday polish.",
-                "- Remix: Swap in denim and loafers for relaxed days.",
-                "- Remix: Layer with a knit over the shoulders for travel ease.",
-                "- Tip: Steam hems and sleeves for a crisp line.",
-                `- Tip: ${benefit}`,
-                "",
-                "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
-              ].filter(Boolean);
-              finalText = lines.join("\n");
+              finalText = buildProductFallbackPlan({
+                products,
+                bodyType,
+                museName: normalizedMuse ?? muse,
+                occasion: normalizedOccasion ?? occasion,
+                currency,
+                budget: preferences.budget ?? null,
+              });
             }
           }
         }
