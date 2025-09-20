@@ -100,11 +100,12 @@ const OCCASION_KEYWORDS: { label: string; hints: string[] }[] = [
   { label: "work", hints: ["work", "office", "boardroom", "meeting", "presentation"] },
   { label: "evening", hints: ["evening", "night", "cocktail"] },
   { label: "date night", hints: ["date", "dinner", "romantic"] },
-  { label: "gala", hints: ["gala", "red carpet"] },
+  { label: "gala", hints: ["gala", "red carpet", "premiere"] },
   { label: "party", hints: ["party", "celebration", "birthday"] },
   { label: "wedding", hints: ["wedding", "ceremony"] },
   { label: "travel", hints: ["travel", "vacation", "resort", "holiday"] },
   { label: "weekend casual", hints: ["casual", "brunch", "weekend", "street"] },
+  { label: "smart casual", hints: ["smart casual", "smart-casual", "smartcasual"] },
   { label: "event", hints: ["event", "opening", "show", "launch"] },
 ];
 
@@ -175,6 +176,95 @@ function detectMuse(text: string): string | null {
   return null;
 }
 
+type SceneDetails = {
+  location?: string | null;
+  temperatureC?: number | null;
+  condition?: string | null;
+};
+
+const CONDITION_KEYWORDS: { regex: RegExp; label: string }[] = [
+  { regex: /drizzle|rain|shower/i, label: "misty drizzle" },
+  { regex: /snow|frost/i, label: "snowy chill" },
+  { regex: /wind|breeze|gust/i, label: "crisp breeze" },
+  { regex: /sunny|sunlight|sunshine|bright/i, label: "sunny glow" },
+  { regex: /overcast|cloud|grey/i, label: "softly overcast" },
+  { regex: /humid|muggy/i, label: "warm humidity" },
+  { regex: /chill|cold|cool/i, label: "cool air" },
+  { regex: /heatwave|hot|balmy/i, label: "balmy heat" },
+];
+
+function extractSceneDetails(text: string, muse?: string | null): SceneDetails {
+  const sample = text || "";
+  const museKey = muse ? muse.toLowerCase() : "";
+
+  const locationMatch = sample.match(/\b(?:in|at|around|heading to|for)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/);
+  let location = locationMatch ? locationMatch[1].trim() : null;
+  if (location && museKey && location.toLowerCase().includes(museKey)) {
+    location = null;
+  }
+
+  let temperatureC: number | null = null;
+  const tempRegex = /(-?\d{1,2})(?:\s*[°º]\s*([CFcf])|\s*degrees?\s*(celsius|fahrenheit|c|f)?)/;
+  const tempMatch = sample.match(tempRegex);
+  if (tempMatch) {
+    const value = parseInt(tempMatch[1], 10);
+    const unit = (tempMatch[2] || tempMatch[3] || "c").toLowerCase();
+    if (Number.isFinite(value)) {
+      temperatureC = unit.startsWith("f") ? Math.round(((value - 32) * 5) / 9) : value;
+    }
+  }
+
+  let condition: string | null = null;
+  for (const entry of CONDITION_KEYWORDS) {
+    if (entry.regex.test(sample)) {
+      condition = entry.label;
+      break;
+    }
+  }
+
+  return { location, temperatureC, condition };
+}
+
+function sceneSummaryLine(
+  scene: SceneDetails | null | undefined,
+  occasion: string | null,
+  styleKeywords?: string | null
+): string | null {
+  if (!scene) {
+    if (!styleKeywords) return null;
+    return `- Scene: moodboard ${styleKeywords}`;
+  }
+  const parts: string[] = [];
+  if (scene.location) parts.push(scene.location);
+  if (typeof scene.temperatureC === "number") parts.push(`${scene.temperatureC}°C`);
+  if (scene.condition) parts.push(scene.condition);
+  if (occasion) parts.push(occasion.toLowerCase());
+  const descriptor = parts.join(" • ");
+  const mood = styleKeywords ? `moodboard ${styleKeywords}` : "";
+  const body = [descriptor, mood].filter(Boolean).join(" — ");
+  return body ? `- Scene: ${body}` : null;
+}
+
+function sceneNarrativeLine(
+  scene: SceneDetails | null | undefined,
+  occasion: string | null,
+  styleKeywords?: string | null
+): string | null {
+  if (!scene || (!scene.location && typeof scene.temperatureC !== "number" && !scene.condition)) {
+    if (!styleKeywords) return null;
+    return `Moodboard — ${styleKeywords}`;
+  }
+  const parts: string[] = [];
+  if (scene.location) parts.push(scene.location);
+  if (typeof scene.temperatureC === "number") parts.push(`${scene.temperatureC}°C`);
+  if (scene.condition) parts.push(scene.condition);
+  if (occasion) parts.push(occasion.toLowerCase());
+  const descriptor = parts.join(" • ");
+  const mood = styleKeywords ? `moodboard: ${styleKeywords}` : "";
+  const body = [descriptor, mood].filter(Boolean).join(" — ");
+  return body ? `Setting • ${body}` : null;
+}
+
 function buildIntakeSummary({
   bodyType,
   occasion,
@@ -184,6 +274,7 @@ function buildIntakeSummary({
   currency,
   hasBodyType,
   hasOccasion,
+  scene,
 }: {
   bodyType: string | null;
   occasion: string | null;
@@ -193,6 +284,7 @@ function buildIntakeSummary({
   currency: string;
   hasBodyType: boolean;
   hasOccasion: boolean;
+  scene?: SceneDetails | null;
 }) {
   const missing: string[] = [];
   if (!hasBodyType) missing.push("body type");
@@ -206,6 +298,11 @@ function buildIntakeSummary({
     `- Style keywords: ${styleKeywords?.trim() || "n/a"}`,
     `- Budget: ${budget ? `${budget} ${currency}` : "not stated"}`,
   ];
+
+  const sceneLine = sceneSummaryLine(scene ?? null, occasion, styleKeywords);
+  if (sceneLine) {
+    lines.push(sceneLine);
+  }
 
   if (missing.length) {
     lines.push(
@@ -332,14 +429,18 @@ function normalizeMuseName(muse: string | null): string | null {
 function normalizeOccasionLabel(occasion: string | null): string | null {
   if (!occasion) return null;
   const lower = occasion.toLowerCase();
-  if (lower.includes("gala") || lower.includes("red carpet")) return "gala";
+  if (lower.includes("gala") || lower.includes("red carpet") || lower.includes("premiere")) return "gala";
   if (lower.includes("evening") || lower.includes("cocktail") || lower.includes("night")) return "evening";
   if (lower.includes("work") || lower.includes("office") || lower.includes("boardroom")) return "work";
   if (lower.includes("wedding") || lower.includes("ceremony")) return "event";
+  if (lower.includes("opening") || lower.includes("gallery")) return "event";
   if (lower.includes("party")) return "evening";
+  if (lower.includes("smart-casual") || lower.includes("smart casual")) return "smart casual";
+  if (lower.includes("street style") || lower.includes("street")) return "weekend casual";
   if (lower.includes("travel")) return "travel";
   if (lower.includes("everyday") || lower.includes("daily") || lower.includes("casual") || lower.includes("day"))
     return "everyday";
+  if (lower.includes("event")) return "event";
   return lower.split(/[^a-z]+/)[0] || lower;
 }
 
@@ -347,11 +448,12 @@ type CuratedLook = {
   muses: string[];
   occasions: string[];
   hero: {
-    top: string;
-    bottom: string;
-    outerwear: string;
-    shoes: string;
-    accessories: string;
+    top?: string;
+    bottom?: string;
+    dress?: string;
+    outerwear?: string;
+    shoes?: string;
+    accessories?: string;
   };
   alternates: {
     shoes: string;
@@ -364,10 +466,26 @@ type CuratedLook = {
   capsule: { remix: string[]; tips: string[] };
 };
 
+const OCCASION_GROUPS = [
+  ["gala", "evening", "event", "red carpet"],
+  ["everyday", "weekend casual", "smart casual", "street"],
+  ["work", "office", "boardroom"],
+  ["party", "evening", "cocktail"],
+  ["travel", "resort", "vacation"],
+];
+
+function occasionsSimilar(a: string, b: string) {
+  if (a === b) return true;
+  for (const group of OCCASION_GROUPS) {
+    if (group.includes(a) && group.includes(b)) return true;
+  }
+  return false;
+}
+
 const CURATED_LOOKS: CuratedLook[] = [
   {
     muses: ["zendaya"],
-    occasions: ["gala", "evening"],
+    occasions: ["gala", "evening", "event"],
     hero: {
       top: "safiyaa-livia-top",
       bottom: "safiyaa-viviana-skirt",
@@ -476,7 +594,7 @@ const CURATED_LOOKS: CuratedLook[] = [
   },
   {
     muses: ["hailey bieber", "hailey"],
-    occasions: ["everyday", "weekend casual"],
+    occasions: ["everyday", "weekend casual", "smart casual"],
     hero: {
       top: "toteme-contour-ribbed-tank",
       bottom: "agolde-90s-pinched-jean",
@@ -538,14 +656,227 @@ const CURATED_LOOKS: CuratedLook[] = [
   },
 ];
 
+const DEFAULT_CATEGORY_FALLBACKS: Record<OutfitCategory | "Dress", string[]> = {
+  Top: ["safiyaa-livia-top", "the-row-wesler", "toteme-contour-ribbed-tank", "arket-merino-tee", "mango-ribbed-tank"],
+  Bottom: [
+    "safiyaa-viviana-skirt",
+    "khaite-eddie-trouser",
+    "agolde-90s-pinched-jean",
+    "levi-ribcage-straight",
+    "arket-wide-leg-trouser",
+  ],
+  Dress: [],
+  Outerwear: [
+    "alex-vauthier-opera-coat",
+    "the-row-balter-coat",
+    "wardrobe-nyc-double-breasted-coat",
+    "mango-trench",
+    "stories-oversized-wool-coat",
+    "frankie-shop-bea-blazer",
+  ],
+  Shoes: [
+    "jimmy-choo-bing-100",
+    "manolo-bb-70",
+    "saint-laurent-le-loafer",
+    "autry-medalist-sneaker",
+    "schutz-altina-sandal",
+    "vagabond-ayden-loafer",
+  ],
+  Accessories: [
+    "tyler-ellis-perry-clutch",
+    "cult-gaia-eos-clutch",
+    "loewe-puzzle-tote",
+    "bottega-mini-jodie",
+    "charles-keith-luna-bag",
+    "polene-numero-un",
+  ],
+};
+
+const CATEGORY_QUERY_HINTS: Record<OutfitCategory, string[]> = {
+  Top: ["structured top", "tailored blouse", "luxury knit", "bodysuit", "corset top"],
+  Bottom: ["high-waisted trouser", "wide-leg pant", "fluid skirt", "column skirt", "dressy trouser"],
+  Dress: ["evening gown", "red carpet dress", "silk slip dress", "draped gown", "statement dress"],
+  Outerwear: ["tailored coat", "sculpted blazer", "statement outerwear", "evening cape", "cropped jacket"],
+  Shoes: ["pointed pump", "strappy heel", "ankle boot", "platform sandal", "evening shoe"],
+  Accessories: ["designer clutch", "statement earring", "structured bag", "minimal gold jewelry", "evening bag"],
+};
+
+const FORMAL_OCCASION_HINTS = [
+  "gala",
+  "premiere",
+  "red carpet",
+  "black tie",
+  "evening",
+  "wedding",
+  "award",
+  "ball",
+];
+
+function shouldFavorDress(occasion: string | null, transcript: string): boolean {
+  const occ = (occasion || "").toLowerCase();
+  if (FORMAL_OCCASION_HINTS.some((hint) => occ.includes(hint))) return true;
+
+  const text = transcript.toLowerCase();
+  if (/(?:gown|evening dress|slip dress|ballgown|floor[-\s]?length)/.test(text)) return true;
+
+  return false;
+}
+
+function buildCategoryQuery({
+  category,
+  ask,
+  muse,
+  occasion,
+  bodyType,
+  styleKeywords,
+  budget,
+  currency,
+  scene,
+}: {
+  category: OutfitCategory;
+  ask: string;
+  muse?: string | null;
+  occasion?: string | null;
+  bodyType?: string | null;
+  styleKeywords?: string | null;
+  budget?: number | null;
+  currency: string;
+  scene?: SceneDetails | null;
+}): string {
+  const parts: string[] = [];
+  const seen = new Set<string>();
+  const push = (value?: string | null) => {
+    if (!value) return;
+    const trimmed = value.toString().trim();
+    if (!trimmed) return;
+    if (seen.has(trimmed)) return;
+    seen.add(trimmed);
+    parts.push(trimmed);
+  };
+
+  push(ask);
+  if (muse) push(`${muse} ${category.toLowerCase()}`);
+  if (occasion) push(`${occasion} ${category.toLowerCase()}`);
+  if (bodyType) push(`${bodyType} body type ${category.toLowerCase()}`);
+  if (styleKeywords) push(styleKeywords);
+  if (scene?.location) push(scene.location);
+  if (scene?.condition) push(`${scene.condition} friendly ${category.toLowerCase()}`);
+  if (budget) push(`under ${budget} ${currency}`);
+  for (const hint of CATEGORY_QUERY_HINTS[category] || []) push(hint);
+
+  return parts.slice(0, 8).join(" | ");
+}
+
+function heroIdForCategory(look: CuratedLook, category: OutfitCategory | "Dress"): string | undefined {
+  switch (category) {
+    case "Dress":
+      return look.hero.dress;
+    case "Top":
+      return look.hero.top;
+    case "Bottom":
+      return look.hero.bottom;
+    case "Outerwear":
+      return look.hero.outerwear;
+    case "Shoes":
+      return look.hero.shoes;
+    case "Accessories":
+      return look.hero.accessories;
+    default:
+      return undefined;
+  }
+}
+
+function fallbackIdsForCategory(
+  category: OutfitCategory | "Dress",
+  museName?: string | null,
+  curated?: CuratedLook | null
+): string[] {
+  const ids: string[] = [];
+  const push = (id?: string) => {
+    if (!id) return;
+    if (ids.includes(id)) return;
+    ids.push(id);
+  };
+
+  if (curated) {
+    push(heroIdForCategory(curated, category));
+    if (category === "Outerwear") push(curated.alternates.outerwear);
+    if (category === "Shoes") push(curated.alternates.shoes);
+    if (curated.save) {
+      for (const entry of curated.save) {
+        if (entry.category === category) push(entry.productId);
+      }
+    }
+  }
+
+  const museKey = museName ? museName.toLowerCase() : "";
+  if (museKey) {
+    for (const look of CURATED_LOOKS) {
+      if (look.muses.some((m) => museKey.includes(m))) {
+        push(heroIdForCategory(look, category));
+        if (category === "Outerwear") push(look.alternates.outerwear);
+        if (category === "Shoes") push(look.alternates.shoes);
+        if (look.save) {
+          for (const entry of look.save) {
+            if (entry.category === category) push(entry.productId);
+          }
+        }
+      }
+    }
+  }
+
+  for (const look of CURATED_LOOKS) {
+    push(heroIdForCategory(look, category));
+    if (category === "Outerwear") push(look.alternates.outerwear);
+    if (category === "Shoes") push(look.alternates.shoes);
+    if (look.save) {
+      for (const entry of look.save) {
+        if (entry.category === category) push(entry.productId);
+      }
+    }
+  }
+
+  for (const fallback of DEFAULT_CATEGORY_FALLBACKS[category] || []) {
+    push(fallback);
+  }
+
+  return ids;
+}
+
 function matchCuratedLook(muse: string | null, occasion: string | null): CuratedLook | null {
   const museKey = (muse || "").toLowerCase();
   const occKey = normalizeOccasionLabel(occasion);
+  let best: { look: CuratedLook; score: number } | null = null;
+
   for (const look of CURATED_LOOKS) {
-    const museOk = !look.muses.length || (museKey && look.muses.includes(museKey));
-    const occOk = !look.occasions.length || (occKey && look.occasions.includes(occKey));
-    if (museOk && occOk) return look;
+    let score = 0;
+
+    if (!look.muses.length) {
+      score += 0.5;
+    } else if (museKey && look.muses.some((m) => museKey.includes(m) || m.includes(museKey))) {
+      score += 3.5;
+    } else if (museKey) {
+      continue;
+    }
+
+    if (!look.occasions.length) {
+      score += 0.5;
+    } else if (occKey && look.occasions.some((label) => label === occKey)) {
+      score += 2.5;
+    } else if (occKey && look.occasions.some((label) => occasionsSimilar(label, occKey))) {
+      score += 1.8;
+    } else if (!occKey) {
+      score += 0.2;
+    } else {
+      score -= 1;
+    }
+
+    if (score > 0 && (!best || score > best.score)) {
+      best = { look, score };
+    }
   }
+
+  if (best && best.score >= 2.5) return best.look;
   return null;
 }
 
@@ -906,6 +1237,8 @@ function buildProductFallbackPlan({
   currency,
   budget,
   curatedLook,
+  styleKeywords,
+  scene,
 }: {
   products: Product[];
   bodyType: string | null;
@@ -914,25 +1247,37 @@ function buildProductFallbackPlan({
   currency: string;
   budget?: number | null;
   curatedLook?: CuratedLook | null;
+  styleKeywords?: string | null;
+  scene?: SceneDetails | null;
 }): string {
   const targetCurrency = (currency || "EUR").toUpperCase();
   const bodyKey = bodyKeyFrom(bodyType);
   const museInfo = museTraitFor(museName);
   const occasionLabel = occasion ? occasion.toLowerCase() : "moment";
+  const styleTokens = (styleKeywords || "")
+    .split(/[\s,]+/)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+  const sceneDetails = scene ?? null;
+  const isRainy = sceneDetails?.condition ? /rain|drizzle|mist/i.test(sceneDetails.condition) : false;
+  const isChilly = typeof sceneDetails?.temperatureC === "number" && sceneDetails.temperatureC <= 12;
+  const isWarm = typeof sceneDetails?.temperatureC === "number" && sceneDetails.temperatureC >= 24;
 
   const curatedIds = new Set<string>();
   if (curatedLook) {
-    curatedIds.add(curatedLook.hero.top);
-    curatedIds.add(curatedLook.hero.bottom);
-    curatedIds.add(curatedLook.hero.outerwear);
-    curatedIds.add(curatedLook.hero.shoes);
-    curatedIds.add(curatedLook.hero.accessories);
-    curatedIds.add(curatedLook.alternates.shoes);
-    curatedIds.add(curatedLook.alternates.outerwear);
-    if (curatedLook.save) {
-      for (const entry of curatedLook.save) {
-        curatedIds.add(entry.productId);
-      }
+    const heroKeys = [
+      curatedLook.hero.top,
+      curatedLook.hero.bottom,
+      curatedLook.hero.dress,
+      curatedLook.hero.outerwear,
+      curatedLook.hero.shoes,
+      curatedLook.hero.accessories,
+      curatedLook.alternates.shoes,
+      curatedLook.alternates.outerwear,
+      ...(curatedLook.save?.map((entry) => entry.productId) ?? []),
+    ];
+    for (const id of heroKeys) {
+      if (id) curatedIds.add(id);
     }
   }
 
@@ -952,6 +1297,7 @@ function buildProductFallbackPlan({
     const curatedPool = [
       curatedLook.hero.top,
       curatedLook.hero.bottom,
+      curatedLook.hero.dress,
       curatedLook.hero.outerwear,
       curatedLook.hero.shoes,
       curatedLook.hero.accessories,
@@ -1028,6 +1374,30 @@ function buildProductFallbackPlan({
         if (bodyLower) {
           if (tags.some((tag) => tag.includes(bodyLower))) score += 2;
         }
+        if (styleTokens.length) {
+          const matches = styleTokens.filter((kw) => text.includes(kw));
+          if (matches.length) score += Math.min(matches.length, 2) * 0.6;
+          if (tags.some((tag) => styleTokens.some((kw) => tag.includes(kw)))) score += 0.8;
+        }
+
+        if (category === "Top" || category === "Dress") {
+          if (isWarm && /silk|linen|cotton|tank|sleeveless|lightweight/.test(text)) score += 0.5;
+          if (isChilly && /long[-\s]?sleeve|knit|wool|cashmere|turtleneck/.test(text)) score += 0.5;
+        }
+        if (category === "Bottom") {
+          if (isWarm && /linen|silk|cropped|fluid/.test(text)) score += 0.3;
+          if (isChilly && /wool|leather|lined/.test(text)) score += 0.3;
+        }
+        if (category === "Outerwear") {
+          if (isRainy && /trench|rain|waterproof|gabardine/.test(text)) score += 1;
+          if (isChilly && /wool|cashmere|coat|double[-\s]?breasted|lined/.test(text)) score += 0.9;
+          if (isWarm && /linen|silk|lightweight|unlined/.test(text)) score += 0.5;
+        }
+        if (category === "Shoes") {
+          if (isRainy && /boot|loafer|closed/.test(text)) score += 0.4;
+          if (isWarm && /sandal|open/.test(text)) score += 0.3;
+        }
+
         const detail = highlightDetail(product);
         if (detail) score += 1.1;
 
@@ -1059,13 +1429,15 @@ function buildProductFallbackPlan({
         }
 
         score -= idx * 0.08;
-        return { product, score, price: Number.isFinite(price) ? price : NaN };
+        return { product, score, price: Number.isFinite(price) ? price : Number.NaN };
       })
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return (a.price || Infinity) - (b.price || Infinity);
       });
   };
+
+  type Candidate = { product: Product; score: number; price: number };
 
   const rankedTop = rankCategory("Top");
   const rankedBottom = rankCategory("Bottom");
@@ -1074,31 +1446,210 @@ function buildProductFallbackPlan({
   const rankedShoes = rankCategory("Shoes");
   const rankedAccessories = rankCategory("Accessories");
 
-  let top: Product | null = rankedTop[0]?.product ?? null;
-  let bottom: Product | null = rankedBottom[0]?.product ?? null;
-  let dress: Product | null = null;
+  const ensureCandidates = (
+    ranked: { product: Product; score: number; price: number }[],
+    category: OutfitCategory | "Dress"
+  ): Candidate[] => {
+    const list: Candidate[] = ranked.slice(0, 6).map((entry) => ({
+      product: entry.product,
+      score: entry.score,
+      price: Number.isFinite(entry.price) ? entry.price : Number.NaN,
+    }));
+    if (list.length >= 4) return list;
+    const fallbackPool = fallbackIdsForCategory(category, museName, curatedLook);
+    for (const id of fallbackPool) {
+      const product = deduped.find((p) => p.id === id) || getCatalogProductById(id);
+      if (!product) continue;
+      if (list.some((entry) => entry.product.id === product.id)) continue;
+      list.push({
+        product,
+        score: 2.6,
+        price:
+          typeof product.price === "number"
+            ? convertPrice(product.price, product.currency, targetCurrency)
+            : Number.NaN,
+      });
+      if (list.length >= 4) break;
+    }
+    if (!list.length) {
+      const fallback = deduped.find((p) => guessCategory(p) === category);
+      if (fallback) {
+        list.push({
+          product: fallback,
+          score: 1.2,
+          price:
+            typeof fallback.price === "number"
+              ? convertPrice(fallback.price, fallback.currency, targetCurrency)
+              : Number.NaN,
+        });
+      }
+    }
+    return list;
+  };
 
-  if (rankedDress.length) {
-    const dressScore = rankedDress[0].score;
-    const separatesScore = (rankedTop[0]?.score ?? -Infinity) + (rankedBottom[0]?.score ?? -Infinity);
-    if (!rankedTop.length || !rankedBottom.length || dressScore >= separatesScore - 0.5) {
-      dress = rankedDress[0].product;
-      top = null;
-      bottom = null;
+  const candidateTop = ensureCandidates(rankedTop, "Top");
+  const candidateBottom = ensureCandidates(rankedBottom, "Bottom");
+  const candidateDress = ensureCandidates(rankedDress, "Dress");
+  const candidateOuter = ensureCandidates(rankedOuterwear, "Outerwear");
+  const candidateShoes = ensureCandidates(rankedShoes, "Shoes");
+  const candidateAccessories = ensureCandidates(rankedAccessories, "Accessories");
+
+  type Combo = {
+    structure: "separates" | "dress";
+    top?: Candidate | null;
+    bottom?: Candidate | null;
+    dress?: Candidate | null;
+    outerwear?: Candidate | null;
+    shoes?: Candidate | null;
+    accessories?: Candidate | null;
+    total: number;
+    score: number;
+    unknownCount: number;
+  };
+
+  const combos: Combo[] = [];
+  const MAX_OPTIONS = 4;
+
+  const evaluateCombo = (combo: {
+    structure: "separates" | "dress";
+    top?: Candidate | null;
+    bottom?: Candidate | null;
+    dress?: Candidate | null;
+    outerwear?: Candidate | null;
+    shoes?: Candidate | null;
+    accessories?: Candidate | null;
+  }) => {
+    if (combo.structure === "separates" && (!combo.top || !combo.bottom)) return;
+    if (combo.structure === "dress" && !combo.dress) return;
+    const items = [combo.dress, combo.top, combo.bottom, combo.outerwear, combo.shoes, combo.accessories]
+      .filter(Boolean) as Candidate[];
+    if (!items.length) return;
+    const total = items.reduce((sum, cand) => sum + (Number.isFinite(cand.price) ? cand.price : 0), 0);
+    const unknownCount = items.filter((cand) => !Number.isFinite(cand.price)).length;
+    let score = items.reduce((sum, cand) => sum + cand.score, 0);
+
+    if (budget && budget > 0) {
+      const over = total - budget;
+      if (over <= 0) {
+        score += 6 + Math.min(((budget - total) / Math.max(budget, 1)) * 4, 4);
+      } else {
+        score -= Math.min((over / Math.max(budget, 1)) * 9, 9);
+      }
+    } else {
+      score += items.filter((cand) => Number.isFinite(cand.price)).length * 0.25;
+    }
+
+    if (!combo.outerwear) score -= 1.2;
+    if (!combo.shoes) score -= 1.1;
+    if (!combo.accessories) score -= 0.8;
+
+    for (const cand of items) {
+      if (curatedIds.has(cand.product.id)) score += 1.1;
+    }
+    score -= unknownCount * 0.4;
+
+    combos.push({ ...combo, total, score, unknownCount });
+  };
+
+  if (
+    candidateDress.length &&
+    candidateOuter.length &&
+    candidateShoes.length &&
+    candidateAccessories.length
+  ) {
+    for (const dressCandidate of candidateDress.slice(0, MAX_OPTIONS)) {
+      for (const outerCandidate of candidateOuter.slice(0, MAX_OPTIONS)) {
+        for (const shoeCandidate of candidateShoes.slice(0, MAX_OPTIONS)) {
+          for (const accessoryCandidate of candidateAccessories.slice(0, MAX_OPTIONS)) {
+            evaluateCombo({
+              structure: "dress",
+              dress: dressCandidate,
+              outerwear: outerCandidate,
+              shoes: shoeCandidate,
+              accessories: accessoryCandidate,
+            });
+          }
+        }
+      }
     }
   }
 
-  let outerwear =
-    rankedOuterwear[0]?.product ?? (curatedLook ? getCatalogProductById(curatedLook.hero.outerwear) : null);
-  let shoes = rankedShoes[0]?.product ?? (curatedLook ? getCatalogProductById(curatedLook.hero.shoes) : null);
-  let accessories =
-    rankedAccessories[0]?.product ?? (curatedLook ? getCatalogProductById(curatedLook.hero.accessories) : null);
+  if (
+    candidateTop.length &&
+    candidateBottom.length &&
+    candidateOuter.length &&
+    candidateShoes.length &&
+    candidateAccessories.length
+  ) {
+    for (const topCandidate of candidateTop.slice(0, MAX_OPTIONS)) {
+      for (const bottomCandidate of candidateBottom.slice(0, MAX_OPTIONS)) {
+        for (const outerCandidate of candidateOuter.slice(0, MAX_OPTIONS)) {
+          for (const shoeCandidate of candidateShoes.slice(0, MAX_OPTIONS)) {
+            for (const accessoryCandidate of candidateAccessories.slice(0, MAX_OPTIONS)) {
+              evaluateCombo({
+                structure: "separates",
+                top: topCandidate,
+                bottom: bottomCandidate,
+                outerwear: outerCandidate,
+                shoes: shoeCandidate,
+                accessories: accessoryCandidate,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (!combos.length && candidateDress.length) {
+    evaluateCombo({
+      structure: "dress",
+      dress: candidateDress[0],
+      outerwear: candidateOuter[0] ?? null,
+      shoes: candidateShoes[0] ?? null,
+      accessories: candidateAccessories[0] ?? null,
+    });
+  }
+  if (!combos.length) {
+    evaluateCombo({
+      structure: "separates",
+      top: candidateTop[0] ?? null,
+      bottom: candidateBottom[0] ?? null,
+      outerwear: candidateOuter[0] ?? null,
+      shoes: candidateShoes[0] ?? null,
+      accessories: candidateAccessories[0] ?? null,
+    });
+  }
+
+  combos.sort((a, b) => b.score - a.score);
+  let bestCombo = combos[0];
+  if (budget && budget > 0) {
+    const withinBudget = combos.filter((combo) => combo.total > 0 && combo.total <= budget);
+    if (withinBudget.length) {
+      withinBudget.sort((a, b) => b.score - a.score);
+      bestCombo = withinBudget[0];
+    }
+  }
+
+  let top: Product | null = null;
+  let bottom: Product | null = null;
+  let dress: Product | null = null;
+  let outerwear: Product | null = bestCombo?.outerwear?.product ?? null;
+  let shoes: Product | null = bestCombo?.shoes?.product ?? null;
+  let accessories: Product | null = bestCombo?.accessories?.product ?? null;
+
+  if (bestCombo?.structure === "dress") {
+    dress = bestCombo.dress?.product ?? null;
+  } else {
+    top = bestCombo?.top?.product ?? null;
+    bottom = bestCombo?.bottom?.product ?? null;
+  }
 
   const heroProducts = () => {
     const list: Product[] = [];
+    if (dress) list.push(dress);
     if (top) list.push(top);
     if (bottom) list.push(bottom);
-    if (dress) list.push(dress);
     if (outerwear) list.push(outerwear);
     if (shoes) list.push(shoes);
     if (accessories) list.push(accessories);
@@ -1113,68 +1664,16 @@ function buildProductFallbackPlan({
       return sum;
     }, 0);
 
-  if (budget) {
-    let total = computeTotal(heroProducts());
-    if (total > budget) {
-      const selectionPairs: {
-        category: OutfitCategory | "Dress";
-        ranked: { product: Product; score: number; price: number }[];
-        current: Product | null;
-      }[] = [
-        { category: "Dress", ranked: rankedDress, current: dress },
-        { category: "Top", ranked: rankedTop, current: top },
-        { category: "Bottom", ranked: rankedBottom, current: bottom },
-        { category: "Outerwear", ranked: rankedOuterwear, current: outerwear },
-        { category: "Shoes", ranked: rankedShoes, current: shoes },
-        { category: "Accessories", ranked: rankedAccessories, current: accessories },
-      ];
-
-      for (const entry of selectionPairs) {
-        if (!entry.current || !entry.ranked.length) continue;
-        for (const candidate of entry.ranked) {
-          if (candidate.product.id === entry.current.id) continue;
-          if (heroProducts().some((p) => p.id === candidate.product.id)) continue;
-          const swapped = heroProducts().map((item) =>
-            item.id === entry.current!.id ? candidate.product : item
-          );
-          const newTotal = computeTotal(swapped);
-          if (newTotal <= budget || newTotal < total) {
-            switch (entry.category) {
-              case "Top":
-                top = candidate.product;
-                break;
-              case "Bottom":
-                bottom = candidate.product;
-                break;
-              case "Dress":
-                dress = candidate.product;
-                top = null;
-                bottom = null;
-                break;
-              case "Outerwear":
-                outerwear = candidate.product;
-                break;
-              case "Shoes":
-                shoes = candidate.product;
-                break;
-              case "Accessories":
-                accessories = candidate.product;
-                break;
-            }
-            total = newTotal;
-            break;
-          }
-        }
-        if (total <= budget) break;
-      }
-    }
-  }
-
   const heroes = heroProducts();
   const total = computeTotal(heroes);
+  const unknownPrices = heroes.filter((item) => item.price == null).length;
   const budgetDisplay = budget ? `${formatNumber(budget)} ${targetCurrency}` : "—";
-  const totalDisplay = total > 0 ? `${formatNumber(total)} ${targetCurrency}` : "TBC";
-  const overBudget = Boolean(budget && total > budget);
+  const totalDisplay = unknownPrices
+    ? `${formatNumber(total)} ${targetCurrency}*`
+    : total > 0
+    ? `${formatNumber(total)} ${targetCurrency}`
+    : "TBC";
+  const overBudget = Boolean(budget && unknownPrices === 0 && total > budget);
 
   const colourPalette = detectPalette(heroes);
   const fabricPalette = detectFabrics(heroes);
@@ -1186,20 +1685,61 @@ function buildProductFallbackPlan({
   const bodyLine = bodyType
     ? `every layer is cut to celebrate your ${bodyType.toLowerCase()} silhouette so it ${bodyBenefit}.`
     : "every layer is balanced for high-impact proportions.";
-  const introLine = `${museLead} ${bodyLine}`.replace(/\s+/g, " ").trim();
-  const paletteLine = `Palette: ${formatList(colourPalette, museInfo?.palette || "sleek neutrals")} • Textures: ${formatList(
+  const directionTail = styleKeywords ? ` The vibe stays ${styleKeywords}.` : "";
+  const introLine = `${museLead} ${bodyLine}${directionTail}`.replace(/\s+/g, " ").trim();
+  const paletteLine = `Palette & Textures: ${formatList(colourPalette, museInfo?.palette || "sleek neutrals")} + ${formatList(
     fabricPalette,
     museInfo?.fabrics || "precision tailoring"
   )}.`;
+  const silhouetteLine = `Silhouette Focus: ${bodyBenefit}.`;
+  const sceneLine = sceneNarrativeLine(sceneDetails, occasion ?? null, styleKeywords);
 
   const usedIds = new Set<string>(heroes.map((item) => item.id));
 
-  const altShoesProduct =
-    rankedShoes.find((entry) => !usedIds.has(entry.product.id))?.product ||
-    (curatedLook ? getCatalogProductById(curatedLook.alternates.shoes) : null);
-  const altOuterProduct =
-    rankedOuterwear.find((entry) => !usedIds.has(entry.product.id))?.product ||
-    (curatedLook ? getCatalogProductById(curatedLook.alternates.outerwear) : null);
+  const candidateMap: Record<OutfitCategory | "Dress", Candidate[]> = {
+    Top: candidateTop,
+    Bottom: candidateBottom,
+    Dress: candidateDress,
+    Outerwear: candidateOuter,
+    Shoes: candidateShoes,
+    Accessories: candidateAccessories,
+  };
+  const selectedMap: Record<OutfitCategory | "Dress", Product | null> = {
+    Top: top,
+    Bottom: bottom,
+    Dress: dress,
+    Outerwear: outerwear,
+    Shoes: shoes,
+    Accessories: accessories,
+  };
+
+  const pickAlternative = (
+    category: OutfitCategory | "Dress",
+    selected: Product | null,
+    list: Candidate[]
+  ): Product | null => {
+    const alt = list
+      .map((entry) => entry.product)
+      .find((candidate) => candidate.id !== (selected?.id ?? "") && !usedIds.has(candidate.id));
+    if (alt) return alt;
+    const fallbackId = fallbackIdsForCategory(category, museName, curatedLook).find(
+      (id) => id && id !== (selected?.id ?? "")
+    );
+    if (fallbackId) {
+      const product = getCatalogProductById(fallbackId);
+      if (product && !usedIds.has(product.id)) return product;
+    }
+    return null;
+  };
+
+  const altShoesProduct = pickAlternative("Shoes", shoes, candidateShoes);
+  const altOuterProduct = pickAlternative("Outerwear", outerwear, candidateOuter);
+  const altShoesLine = altShoesProduct
+    ? formatAlternateLine("Shoes", altShoesProduct)
+    : "- Shoes: Hero pair is locked—say 'alternate shoes' and I’ll pull a fresh contender on the spot.";
+  const altOuterLine = altOuterProduct
+    ? formatAlternateLine("Outerwear", altOuterProduct)
+    : "- Outerwear: Current layer is the sharpest match—ask for an outerwear swap and I’ll serve a new option instantly.";
 
   const whyBullets: string[] = [];
   if (dress) {
@@ -1217,10 +1757,7 @@ function buildProductFallbackPlan({
     if (bottom) {
       const detail = highlightDetail(bottom);
       whyBullets.push(
-        `${shortProductName(bottom)}${detail ? ` uses its ${detail} to ensure` : ""} ${bodyFocusLine(
-          bodyKey,
-          "Bottom"
-        )}`
+        `${shortProductName(bottom)}${detail ? ` uses its ${detail} to ensure` : ""} ${bodyFocusLine(bodyKey, "Bottom")}`
       );
     }
   }
@@ -1246,69 +1783,103 @@ function buildProductFallbackPlan({
 
   const saveLines: string[] = [];
   for (const category of saveCategories) {
-    const pool = buckets[category] || [];
-    const fallback =
+    const pool = candidateMap[category] || [];
+    const selected = selectedMap[category];
+    let fallback =
       pool
-        .filter((product) => !usedIds.has(product.id))
-        .sort((a, b) => {
-          const priceA =
-            typeof a.price === "number" ? convertPrice(a.price, a.currency, targetCurrency) : Infinity;
-          const priceB =
-            typeof b.price === "number" ? convertPrice(b.price, b.currency, targetCurrency) : Infinity;
-          return priceA - priceB;
-        })[0] ||
-      (curatedLook
-        ? getCatalogProductById(
-            curatedLook.save?.find((entry) => entry.category === category)?.productId || ""
-          )
-        : null);
-
+        .filter((entry) => entry.product.id !== (selected?.id ?? ""))
+        .sort((a, b) => (Number.isFinite(a.price) ? a.price : Infinity) - (Number.isFinite(b.price) ? b.price : Infinity))[0]
+        ?.product ?? null;
+    if (!fallback) {
+      const fallbackId = fallbackIdsForCategory(category, museName, curatedLook).find(
+        (id) => id && id !== (selected?.id ?? "")
+      );
+      if (fallbackId) {
+        const extra = getCatalogProductById(fallbackId);
+        if (extra && !usedIds.has(extra.id)) {
+          fallback = extra;
+        }
+      }
+    }
     if (fallback) {
-      usedIds.add(fallback.id);
-      const label = category === "Dress" ? "Dress" : category;
-      saveLines.push(formatAlternateLine(label, fallback));
+      saveLines.push(formatAlternateLine(category === "Dress" ? "Dress" : category, fallback));
     } else {
-      saveLines.push(`- ${category}: N/A`);
+      const label = category === "Dress" ? "Dress" : category;
+      saveLines.push(
+        `- ${label}: Hero piece already the sharpest value—ask for a budget-friendly swap and I’ll source it instantly.`
+      );
     }
   }
 
   const remixIdeas: string[] = [];
   if (top && bottom) {
+    const altTopProduct = candidateTop.find((entry) => entry.product.id !== top.id)?.product;
+    if (altTopProduct) {
+      remixIdeas.push(
+        `Trade ${shortProductName(top)} for ${shortProductName(altTopProduct)} and the ${shortProductName(bottom)} for boardroom polish.`
+      );
+    } else if (altShoesProduct) {
+      remixIdeas.push(
+        `Half-tuck ${shortProductName(top)} into ${shortProductName(bottom)} and switch to ${shortProductName(altShoesProduct)} for relaxed city strolls.`
+      );
+    }
+  }
+  if (dress && outerwear) {
     remixIdeas.push(
-      `Half-tuck the ${shortProductName(top)} into the ${shortProductName(bottom)} and swap to sleek sneakers for daytime ease.`
+      `Layer ${shortProductName(outerwear)} over ${shortProductName(dress)} with ${altShoesProduct ? shortProductName(altShoesProduct) : "sleek heels"} for after-dark drama.`
     );
   }
-  if (dress) {
-    remixIdeas.push(`Layer a fine turtleneck under ${shortProductName(dress)} for gallery afternoons.`);
-  }
-  if (outerwear) {
-    remixIdeas.push(`Throw ${shortProductName(outerwear)} over athleisure to elevate travel days.`);
+  if (outerwear && sceneDetails?.condition && isRainy) {
+    remixIdeas.push(
+      `Cinch ${shortProductName(outerwear)} with a slim belt when the ${sceneDetails.condition} rolls through ${sceneDetails.location || "the city"}.`
+    );
   }
   if (accessories) {
-    remixIdeas.push(`Pair the ${shortProductName(accessories)} with monochrome knits for weekend polish.`);
+    remixIdeas.push(
+      `Pair the ${shortProductName(accessories)} with tailored suiting to carry the mood through the workweek.`
+    );
   }
-  if (shoes) {
-    remixIdeas.push(`Switch to the ${shortProductName(shoes)} with tailored denim for off-duty luxe.`);
+  if (!remixIdeas.length && shoes) {
+    remixIdeas.push(
+      `Style ${shortProductName(shoes)} with a silk slip skirt and crisp tee for weekend elegance.`
+    );
   }
   const remixLines = uniqueStrings(remixIdeas).slice(0, 3);
 
   const tips: string[] = [];
+  const pushTip = (tip: string) => {
+    if (!tip) return;
+    if (tips.includes(tip)) return;
+    tips.push(tip);
+  };
   if (bodyBenefit) {
-    tips.push(`Tip: Prioritise tailoring that ${bodyBenefit}.`);
+    pushTip(`Tip: Prioritise tailoring that ${bodyBenefit}.`);
+  }
+  if (sceneDetails?.condition && outerwear) {
+    if (isRainy) {
+      pushTip(`Tip: Mist-proof the ${shortProductName(outerwear)} and keep a slim umbrella on hand for the ${sceneDetails.condition}.`);
+    } else if (sceneDetails.condition.includes("breeze")) {
+      pushTip(`Tip: Add a silk scarf beneath ${shortProductName(outerwear)} when that ${sceneDetails.condition} lifts.`);
+    }
   }
   const museTip = museSignatureTip(museName ?? null);
-  if (museTip) tips.push(museTip);
+  if (museTip) pushTip(museTip);
   if (tips.length < 2 && fabricPalette.length) {
-    tips.push(`Tip: Keep textures in ${formatList(fabricPalette, "polished fabrics")} for instant luxe.`);
+    pushTip(`Tip: Keep textures in ${formatList(fabricPalette, "polished fabrics")} for instant luxe.`);
+  }
+  if (tips.length < 2 && styleKeywords) {
+    pushTip(`Tip: Keep accessories edited so the mood stays ${styleKeywords}.`);
   }
   if (tips.length < 2) {
-    tips.push("Tip: Finish with sculpted jewellery to keep the focus elevated.");
+    pushTip("Tip: Finish with sculpted jewellery to keep the focus elevated.");
   }
   const tipLines = tips.slice(0, 2);
 
   const lines: string[] = [];
   lines.push(introLine);
+  if (sceneLine) lines.push(sceneLine);
   lines.push(paletteLine);
+  lines.push(silhouetteLine);
   lines.push("");
   lines.push("Outfit:");
   if (dress) {
@@ -1322,8 +1893,8 @@ function buildProductFallbackPlan({
   lines.push(accessories ? formatProductLine("Accessories", accessories) : "- Accessories: N/A");
   lines.push("");
   lines.push("Alternates:");
-  lines.push(altShoesProduct ? formatAlternateLine("Shoes", altShoesProduct) : "- Shoes: N/A");
-  lines.push(altOuterProduct ? formatAlternateLine("Outerwear", altOuterProduct) : "- Outerwear: N/A");
+  lines.push(altShoesLine);
+  lines.push(altOuterLine);
   lines.push("");
   lines.push("Why it Flatters:");
   for (const bullet of whyBullets.slice(0, 3)) {
@@ -1334,6 +1905,9 @@ function buildProductFallbackPlan({
   lines.push(`- Total: ${totalDisplay} (Budget: ${budgetDisplay})`);
   if (overBudget) {
     lines.push("- Note: Tap the save picks below to glide back within budget.");
+  }
+  if (unknownPrices) {
+    lines.push("- Note: *A couple of prices need a quick click-through; totals reflect confirmed pieces.");
   }
   lines.push("");
   lines.push("Save Picks:");
@@ -1346,7 +1920,7 @@ function buildProductFallbackPlan({
     lines.push(`- Remix: ${idea}`);
   }
   for (const tip of tipLines) {
-    lines.push(`- ${tip.startsWith("Tip:") ? tip : `Tip: ${tip}`}`);
+    lines.push(tip.startsWith("Tip:") ? `- ${tip}` : `- Tip: ${tip}`);
   }
   lines.push("");
   lines.push(
@@ -1355,6 +1929,7 @@ function buildProductFallbackPlan({
 
   return lines.join("\n");
 }
+
 
 function museSignatureTip(museName: string | null | undefined): string | null {
   if (!museName) return null;
@@ -1394,6 +1969,8 @@ function buildCuratedPlan({
   occasion,
   currency,
   budget,
+  styleKeywords,
+  scene,
 }: {
   look: CuratedLook;
   products: Product[];
@@ -1403,6 +1980,8 @@ function buildCuratedPlan({
   occasion: string | null;
   currency: string;
   budget?: number | null;
+  styleKeywords?: string | null;
+  scene?: SceneDetails | null;
 }): string | null {
   const map = new Map<string, Product>();
   for (const p of products) {
@@ -1424,31 +2003,55 @@ function buildCuratedPlan({
     return product;
   };
 
-  const requiredIds = [
-    look.hero.top,
-    look.hero.bottom,
-    look.hero.outerwear,
-    look.hero.shoes,
-    look.hero.accessories,
-  ];
+  const requiredIds: string[] = [];
+  const usesDress = Boolean(look.hero.dress);
+  if (usesDress && look.hero.dress) {
+    requiredIds.push(look.hero.dress);
+  } else {
+    requiredIds.push(look.hero.top || "", look.hero.bottom || "");
+  }
+  requiredIds.push(look.hero.outerwear || "", look.hero.shoes || "", look.hero.accessories || "");
   const heroes = requiredIds.map((id) => ensureProduct(id));
   if (heroes.some((p) => !p)) return null;
-  const [top, bottom, outerwear, shoes, accessories] = heroes as Product[];
+
+  let index = 0;
+  let dress: Product | null = null;
+  let top: Product | null = null;
+  let bottom: Product | null = null;
+  if (usesDress) {
+    dress = heroes[index++] as Product;
+  } else {
+    top = heroes[index++] as Product;
+    bottom = heroes[index++] as Product;
+  }
+  const outerwear = heroes[index++] as Product;
+  const shoes = heroes[index++] as Product;
+  const accessories = heroes[index++] as Product;
 
   const introMuse = museName ? `${museName}’s` : "your muse’s";
   const occasionLabel = occasion ? occasion.toLowerCase() : "moment";
   const introLine = `For a ${occasionLabel} moment, I’m distilling ${introMuse} ${look.vibe}.`;
+  const bodyBenefit = describeBodyTypeBenefit(bodyType).replace(/\.$/, "");
   const bodyDetail = bodyType
-    ? `It honours your ${bodyType.toLowerCase()} shape so ${describeBodyTypeBenefit(bodyType).replace(/\.$/, "")}.`
+    ? `It honours your ${bodyType.toLowerCase()} shape so ${bodyBenefit}.`
     : "Each piece is cut to flatter head-to-toe.";
+  const sceneLine = sceneNarrativeLine(scene ?? null, occasion, styleKeywords);
+  const paletteLine = `Palette & Textures: ${look.palette}; think ${look.vibe}.`;
+  const silhouetteLine = `Silhouette Focus: ${bodyBenefit}.`;
 
   const lines: string[] = [];
   lines.push(`${introLine} ${bodyDetail}`.trim());
-  lines.push(`Palette: ${look.palette}.`);
+  if (sceneLine) lines.push(sceneLine);
+  lines.push(paletteLine);
+  lines.push(silhouetteLine);
   lines.push("");
   lines.push("Outfit:");
-  lines.push(formatProductLine("Top", top));
-  lines.push(formatProductLine("Bottom", bottom));
+  if (dress) {
+    lines.push(formatProductLine("Dress", dress));
+  } else {
+    lines.push(formatProductLine("Top", top!));
+    lines.push(formatProductLine("Bottom", bottom!));
+  }
   lines.push(formatProductLine("Outerwear", outerwear));
   lines.push(formatProductLine("Shoes", shoes));
   lines.push(formatProductLine("Accessories", accessories));
@@ -1457,8 +2060,16 @@ function buildCuratedPlan({
   lines.push("Alternates:");
   const altShoes = ensureProduct(look.alternates.shoes);
   const altOuter = ensureProduct(look.alternates.outerwear);
-  lines.push(altShoes ? formatAlternateLine("Shoes", altShoes) : "- Shoes: N/A");
-  lines.push(altOuter ? formatAlternateLine("Outerwear", altOuter) : "- Outerwear: N/A");
+  lines.push(
+    altShoes
+      ? formatAlternateLine("Shoes", altShoes)
+      : "- Shoes: Hero pair is locked—say 'alternate shoes' and I’ll pull a fresh contender on the spot."
+  );
+  lines.push(
+    altOuter
+      ? formatAlternateLine("Outerwear", altOuter)
+      : "- Outerwear: Current layer is the sharpest match—ask for an outerwear swap and I’ll serve a new option instantly."
+  );
   lines.push("");
 
   const whyBullets = look.why[bodyKey] || look.why.default || [];
@@ -1477,8 +2088,11 @@ function buildCuratedPlan({
   lines.push("");
 
   const targetCurrency = (currency || "EUR").toUpperCase();
+  const spendHeroes = dress
+    ? [dress, outerwear, shoes, accessories]
+    : [top!, bottom!, outerwear, shoes, accessories];
   let total = 0;
-  for (const product of [top, bottom, outerwear, shoes, accessories]) {
+  for (const product of spendHeroes) {
     if (product.price != null) {
       total += convertPrice(product.price, product.currency, targetCurrency);
     }
@@ -1491,17 +2105,25 @@ function buildCuratedPlan({
   lines.push("");
 
   const needSave = Boolean(budget && total > (budget || 0) && look.save?.length);
-  const categories = ["Top", "Bottom", "Outerwear", "Shoes", "Accessories"];
+  const categories = usesDress
+    ? ["Dress", "Outerwear", "Shoes", "Accessories"]
+    : ["Top", "Bottom", "Outerwear", "Shoes", "Accessories"];
   lines.push("Save Picks:");
   if (needSave && look.save) {
     for (const category of categories) {
       const save = look.save.find((s) => s.category === category);
       if (!save) {
-        lines.push(`- ${category}: N/A`);
+        lines.push(
+          `- ${category}: Hero piece already the sharpest value—ask for a budget-friendly swap and I’ll source it instantly.`
+        );
         continue;
       }
       const prod = ensureProduct(save.productId);
-      lines.push(prod ? formatAlternateLine(category, prod) : `- ${category}: N/A`);
+      lines.push(
+        prod
+          ? formatAlternateLine(category, prod)
+          : `- ${category}: Hero piece already the sharpest value—ask for a budget-friendly swap and I’ll source it instantly.`
+      );
     }
   } else {
     for (const category of categories) {
@@ -1600,6 +2222,7 @@ export async function POST(req: NextRequest) {
         const normalizedMuse = normalizeMuseName(muse);
         const normalizedOccasion = normalizeOccasionLabel(occasion);
         const curatedLook = matchCuratedLook(normalizedMuse, normalizedOccasion);
+        const scene = extractSceneDetails(`${ask} ${transcript}`, normalizedMuse);
         const bodyKey = bodyKeyFrom(bodyType);
         const missingParts: string[] = [];
         if (!hasBodyType) missingParts.push("body type");
@@ -1627,6 +2250,7 @@ export async function POST(req: NextRequest) {
           currency: cur,
           hasBodyType,
           hasOccasion,
+          scene,
         });
 
         push({ type: "assistant_draft_delta", data: `${warmGreeting}\n` });
@@ -1730,6 +2354,73 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        const seenIds = new Set(products.map((p) => p.id));
+        const seenUrls = new Set(products.map((p) => p.url));
+        const coverage: Record<OutfitCategory, number> = {
+          Top: 0,
+          Bottom: 0,
+          Dress: 0,
+          Outerwear: 0,
+          Shoes: 0,
+          Accessories: 0,
+        };
+        for (const product of products) {
+          const category = guessCategory(product);
+          if (category) coverage[category] = (coverage[category] || 0) + 1;
+        }
+
+        const preferDress = shouldFavorDress(
+          normalizedOccasion ?? occasion ?? null,
+          `${ask} ${transcript} ${preferences.styleKeywords ?? ""}`
+        );
+        const targetedCategories: OutfitCategory[] = [];
+        if (coverage.Top === 0) targetedCategories.push("Top");
+        if (coverage.Bottom === 0) targetedCategories.push("Bottom");
+        if (coverage.Outerwear === 0) targetedCategories.push("Outerwear");
+        if (coverage.Shoes === 0) targetedCategories.push("Shoes");
+        if (coverage.Accessories === 0) targetedCategories.push("Accessories");
+        if (preferDress && coverage.Dress === 0) targetedCategories.push("Dress");
+
+        if (targetedCategories.length) {
+          const targetedResults = await Promise.all(
+            targetedCategories.map(async (category) => {
+              const query = buildCategoryQuery({
+                category,
+                ask,
+                muse: normalizedMuse ?? muse,
+                occasion: normalizedOccasion ?? occasion,
+                bodyType,
+                styleKeywords: preferences.styleKeywords ?? null,
+                budget: preferences.budget ?? null,
+                currency,
+                scene,
+              });
+              if (!query) return [];
+              try {
+                return await searchProducts({
+                  query,
+                  country: preferences.country || "NL",
+                  currency,
+                  limit: category === "Accessories" ? 6 : 5,
+                  preferEU: (preferences.country || "NL") !== "US",
+                });
+              } catch (error) {
+                console.error(`[RunwayTwin] targeted search ${category}:`, error);
+                return [];
+              }
+            })
+          );
+
+          for (const list of targetedResults) {
+            for (const product of list) {
+              if (seenIds.has(product.id) || seenUrls.has(product.url)) continue;
+              seenIds.add(product.id);
+              seenUrls.add(product.url);
+              products.push(product);
+            }
+          }
+        }
+
         // Tiny preview into the draft so the UI feels alive
         if (products.length) {
           const prev = products
@@ -1752,12 +2443,13 @@ export async function POST(req: NextRequest) {
           const rules = [
             "You are The Ultimate Celebrity Stylist AI: warm, premium, aspirational, and never repetitive.",
             "Follow the intake snapshot provided. If it's time for the full plan, begin with 1–2 luxe sentences that nod to the muse, occasion, weather if stated, and body type before the 'Outfit:' heading.",
+            "After the intro, add a single 'Palette & Textures:' line naming the colour story and fabrics, then a 'Silhouette Focus:' line explaining how the look flatters their body type.",
             "Return a complete outfit: Top, Bottom (or Dress), Outerwear, Shoes, Accessories.",
             "Each outfit line must read '<Category>: <Brand> — <Exact Item> | <Price> <Currency> | <Retailer> | <URL> | <ImageURL or N/A>' and use real Candidate Products.",
             "If any required link or image is missing from candidates, say so and mark it as N/A rather than inventing details.",
             "Explain why the look flatters the body type with fabric, rise, drape, tailoring, and proportions, weaving in the celebrity muse's signature vibe.",
             "Respect the stated budget. Show the total; when over budget, add Save Picks with real links and sharper price points.",
-            "Always include Alternates for shoes AND outerwear with links, even if they echo items from the outfit.",
+            "Always include Alternates for shoes AND outerwear with links; if no second item exists, reassure the client you'll source it on request rather than writing N/A.",
             "Capsule & Tips must feature three remix bullets and two styling tips tied to the look.",
             "Respond to follow-up tweaks conversationally while keeping the structure. Reference previous recommendations when swapping pieces.",
             "Close every full response with: 'Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎'.",
@@ -1806,6 +2498,8 @@ export async function POST(req: NextRequest) {
                   occasion: fallbackOccasion,
                   currency,
                   budget: preferences.budget ?? null,
+                  styleKeywords: preferences.styleKeywords ?? null,
+                  scene,
                 })
               : null;
 
@@ -1819,6 +2513,8 @@ export async function POST(req: NextRequest) {
                 currency,
                 budget: preferences.budget ?? null,
                 curatedLook,
+                styleKeywords: preferences.styleKeywords ?? null,
+                scene,
               });
           }
         }
