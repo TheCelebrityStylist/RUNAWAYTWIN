@@ -48,45 +48,45 @@ export default function SiteHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--rt-border)] bg-[#FAF9F6]/80 backdrop-blur supports-[backdrop-filter]:bg-[#FAF9F6]/70">
-      <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 md:px-6">
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-50 border-b border-[var(--rt-border)] bg-[#FDFBF7]/85 backdrop-blur supports-[backdrop-filter]:bg-[#FDFBF7]/75">
+      <div className="mx-auto flex h-[78px] max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
+        <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="text-[20px] font-semibold tracking-tight text-[var(--rt-charcoal)] transition hover:opacity-80"
+            className="text-[21px] font-semibold tracking-tight text-[var(--rt-charcoal)] transition hover:opacity-80"
             aria-label="RunwayTwin Home"
           >
             RunwayTwin
           </Link>
-          <span className="hidden text-[11px] font-medium uppercase tracking-[0.38em] text-[var(--rt-muted)] lg:block">
+          <span className="hidden text-[11px] font-medium uppercase tracking-[0.32em] text-[var(--rt-muted)] sm:inline">
             AI Stylist Concierge
           </span>
         </div>
 
-        <nav aria-label="Main" className="hidden md:flex">
-          <ul className="flex items-center gap-1 rounded-full border border-[var(--rt-border)] bg-white/70 px-3 py-1.5 text-sm font-medium text-[var(--rt-charcoal)] shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur">
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`block rounded-full px-3 py-1.5 transition-colors ${
-                    item.active
-                      ? "bg-black text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]"
-                      : "text-[var(--rt-muted)] hover:text-black hover:bg-black/5"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <nav
+          aria-label="Primary"
+          className="hidden lg:flex h-12 items-center gap-1 rounded-full border border-[var(--rt-border)] bg-white/80 px-2 shadow-[0_14px_32px_rgba(15,23,42,0.08)] backdrop-blur"
+        >
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`rounded-full px-3.5 py-2 text-[13px] font-medium transition ${
+                item.active
+                  ? "bg-[var(--rt-charcoal)] text-white shadow-[0_12px_24px_rgba(15,23,42,0.16)]"
+                  : "text-[var(--rt-muted)] hover:bg-black/5 hover:text-[var(--rt-charcoal)]"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
           <AccountMenu />
           <Link
             href="/stylist"
-            className="inline-flex h-10 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(15,23,42,0.25)] transition hover:opacity-90"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--rt-charcoal)] px-5 text-[13px] font-semibold tracking-tight text-white shadow-[0_18px_34px_rgba(15,23,42,0.22)] transition hover:opacity-90"
           >
             Try the Stylist
           </Link>
@@ -94,7 +94,7 @@ export default function SiteHeader() {
 
         <button
           type="button"
-          className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white/90 px-3 py-1.5 text-sm font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:bg-white md:hidden"
+          className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white/90 px-3.5 py-2 text-sm font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:bg-white md:hidden"
           onClick={() => setMenuOpen(true)}
           aria-expanded={menuOpen}
           aria-label="Open navigation"
@@ -105,12 +105,12 @@ export default function SiteHeader() {
 
       {menuOpen && (
         <div className="md:hidden">
-          <div className="fixed inset-0 z-40 bg-black/30" aria-hidden="true" onClick={() => setMenuOpen(false)} />
-          <div className="fixed inset-y-0 right-0 z-50 flex w-[86%] max-w-sm flex-col gap-6 border-l border-[var(--rt-border)] bg-[#FAF9F6] px-5 py-6 shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+          <div className="fixed inset-0 z-40 bg-black/35" aria-hidden="true" onClick={() => setMenuOpen(false)} />
+          <div className="fixed inset-y-0 right-0 z-50 flex w-[82%] max-w-sm flex-col gap-6 border-l border-[var(--rt-border)] bg-[#FDFBF7] px-5 py-6 shadow-[0_26px_70px_rgba(15,23,42,0.24)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.38em] text-[var(--rt-muted)]">Navigation</p>
-                <p className="text-sm font-semibold text-[var(--rt-charcoal)]">Choose your destination</p>
+                <p className="text-[11px] uppercase tracking-[0.32em] text-[var(--rt-muted)]">Navigate</p>
+                <p className="text-sm font-semibold text-[var(--rt-charcoal)]">Where to next?</p>
               </div>
               <button
                 type="button"
@@ -129,8 +129,8 @@ export default function SiteHeader() {
                       href={item.href}
                       className={`block rounded-2xl border px-4 py-3 transition ${
                         item.active
-                          ? "border-black bg-black text-white"
-                          : "border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] hover:border-black/40"
+                          ? "border-[var(--rt-charcoal)] bg-[var(--rt-charcoal)] text-white"
+                          : "border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] hover:border-[var(--rt-charcoal)]/60"
                       }`}
                       onClick={() => setMenuOpen(false)}
                     >

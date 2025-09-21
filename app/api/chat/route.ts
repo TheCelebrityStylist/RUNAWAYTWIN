@@ -98,7 +98,7 @@ type UsageTicket = {
   allowed: boolean;
   reason?: string;
   refund?: () => Promise<void>;
-  label?: "free" | "credit" | "subscription" | "guest";
+  label?: "free" | "credit" | "subscription" | "guest" | "member";
 };
 
 type UsageOutcome = {
@@ -107,7 +107,28 @@ type UsageOutcome = {
   setCookie?: string | null;
 };
 
-async function reserveUsage(user: UserRecord | null, guestCookie: string | undefined): Promise<UsageOutcome> {
+function currentTicketLabel(user: UserRecord | null): UsageTicket["label"] {
+  if (!user) return "guest";
+  if (user.subscriptionActive) return "subscription";
+  if (user.lookCredits > 0) return "credit";
+  if (!user.freeLookUsed) return "free";
+  return "member";
+}
+
+async function reserveUsage(
+  user: UserRecord | null,
+  guestCookie: string | undefined,
+  options: { continuation: boolean }
+): Promise<UsageOutcome> {
+  const { continuation } = options;
+
+  if (continuation) {
+    return {
+      ticket: { allowed: true, label: currentTicketLabel(user) },
+      user,
+    };
+  }
+
   if (user) {
     if (user.subscriptionActive) {
       return { ticket: { allowed: true, label: "subscription" }, user };
@@ -667,7 +688,8 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   let userRecord = session?.uid ? await getUserById(session.uid) : null;
 
-  const usageOutcome = await reserveUsage(userRecord, guestCookie);
+  const hasHistory = rawMessages.length > 0;
+  const usageOutcome = await reserveUsage(userRecord, guestCookie, { continuation: hasHistory });
   const { ticket } = usageOutcome;
   if (usageOutcome.user) {
     userRecord = usageOutcome.user;
@@ -737,9 +759,10 @@ export async function POST(req: NextRequest) {
         }
         if (ticket.label === "free") return "Welcome look unlocked — let’s dress you.";
         if (ticket.label === "guest") return "Guest look unlocked. Create an account to save it.";
+        if (ticket.label === "member") return "Continuing your look — ask for swaps or alternates anytime.";
         return null;
       })();
-      if (statusText) {
+      if (!hasHistory && statusText) {
         controller.enqueue(sse("notice", { text: statusText }));
       }
 

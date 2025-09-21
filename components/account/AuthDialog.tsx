@@ -69,8 +69,16 @@ export default function AuthDialog({ open, mode, onModeChange, onClose }: Props)
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+    <div
+      className="fixed inset-0 z-[999] flex items-start justify-center overflow-y-auto bg-black/45 px-4 py-12 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      onClick={close}
+    >
+      <div
+        className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="space-y-2 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-500">RunwayTwin</p>
           <h2 className="text-2xl font-semibold tracking-tight">
