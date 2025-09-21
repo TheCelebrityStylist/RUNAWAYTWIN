@@ -252,35 +252,34 @@ export default function StylistChat({ initialPreferences }: Props) {
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-8">
           <section
-            className="card overflow-hidden border bg-white/95 backdrop-blur"
+            className="card overflow-hidden border bg-gradient-to-br from-white/95 via-[#F7F3EA]/92 to-white/95 backdrop-blur"
             style={{ borderColor: "var(--rt-border)" }}
           >
           <header className="border-b px-6 py-6" style={{ borderColor: "var(--rt-border)" }}>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: "var(--rt-muted)" }}>
-                  RunwayTwin stylist concierge
-                </p>
-                <h2 className="text-[26px] font-semibold tracking-tight">Let’s build your next legendary look</h2>
-                <p className="text-[13px] leading-relaxed" style={{ color: "var(--rt-charcoal)" }}>
-                  Feed me a muse, occasion, climate, or colors — I’ll respond like your celebrity stylist with shoppable
-                  links, alternates, and capsule riffs.
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[var(--rt-border)] bg-white/70 px-3 py-1 text-[11px] uppercase tracking-[0.38em] text-[var(--rt-muted)] shadow-sm">
+                  <span>RunwayTwin</span>
+                  <span className="hidden sm:inline">Concierge</span>
+                </div>
+                <h2 className="text-[28px] font-semibold tracking-tight text-[var(--rt-charcoal)]">
+                  Let’s engineer your next legendary look
+                </h2>
+                <p className="text-[13px] leading-relaxed text-[var(--rt-charcoal)]">
+                  Give me a muse, venue, vibe, or climate cue — I’ll reply like your celebrity stylist with linked pieces,
+                  alternates, and capsule riffs tailored to your saved preferences.
                 </p>
               </div>
-              <div
-                className="rounded-full border px-5 py-2 text-[13px] font-medium"
-                style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,0.88)" }}
-              >
+              <div className="shrink-0 rounded-full border border-[var(--rt-border)] bg-white/80 px-5 py-2 text-[13px] font-medium text-[var(--rt-charcoal)] shadow-[0_14px_28px_rgba(15,23,42,0.12)]">
                 {planSummary}
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-6 flex flex-wrap gap-2">
               {QUICK_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
-                  className="rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-black hover:text-white"
-                  style={{ borderColor: "var(--rt-border)", background: "white" }}
+                  className="rounded-full border border-[var(--rt-border)] bg-white/90 px-3.5 py-1.5 text-[12px] font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(15,23,42,0.12)] hover:bg-black hover:text-white"
                   onClick={() => void send({ text: prompt, preferences: prefs })}
                   disabled={loading}
                 >
