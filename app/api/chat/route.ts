@@ -109,6 +109,68 @@ const OCCASION_KEYWORDS: { label: string; hints: string[] }[] = [
   { label: "event", hints: ["event", "opening", "show", "launch"] },
 ];
 
+type OccasionTrait = {
+  formality: 0 | 1 | 2 | 3;
+  tone: string;
+  preferTags?: string[];
+  avoidTags?: string[];
+  preferFabrics?: RegExp[];
+  avoidFabrics?: RegExp[];
+};
+
+const OCCASION_TRAITS: Record<string, OccasionTrait> = {
+  gala: {
+    formality: 3,
+    tone: "couture",
+    preferTags: ["gala", "evening", "couture", "red carpet", "formal", "black tie"],
+    avoidTags: ["denim", "casual", "day", "street", "sneaker"],
+    preferFabrics: [/silk/i, /satin/i, /velvet/i, /crepe/i, /embellish/i],
+    avoidFabrics: [/denim/i, /cotton/i, /jersey/i],
+  },
+  evening: {
+    formality: 2,
+    tone: "night-out",
+    preferTags: ["evening", "cocktail", "night", "party"],
+    avoidTags: ["distressed", "denim", "casual"],
+    preferFabrics: [/silk/i, /velvet/i, /satin/i, /sequin/i],
+  },
+  event: {
+    formality: 2,
+    tone: "gallery",
+    preferTags: ["event", "opening", "fashion", "statement"],
+    avoidTags: ["athleisure", "denim"],
+  },
+  work: {
+    formality: 2,
+    tone: "boardroom",
+    preferTags: ["work", "office", "tailored", "suiting"],
+    avoidTags: ["distressed", "ripped", "sweatshirt"],
+    preferFabrics: [/wool/i, /crepe/i, /gabardine/i],
+  },
+  "weekend casual": {
+    formality: 1,
+    tone: "street",
+    preferTags: ["weekend", "street", "casual", "model off duty"],
+  },
+  travel: {
+    formality: 1,
+    tone: "jetset",
+    preferTags: ["travel", "resort", "airport"],
+    avoidTags: ["stiletto"],
+  },
+  "smart casual": {
+    formality: 1,
+    tone: "polished",
+    preferTags: ["smart", "polished", "blazer"],
+    avoidTags: ["distressed"],
+  },
+  date: {
+    formality: 1,
+    tone: "romantic",
+    preferTags: ["date", "romantic", "feminine"],
+  },
+};
+
 const CELEBRITY_HINTS = [
   "Zendaya",
   "Jennifer Lawrence",
@@ -423,6 +485,12 @@ function normalizeMuseName(muse: string | null): string | null {
   if (lower.includes("blake") && lower.includes("lively")) return "Blake Lively";
   if (lower.includes("hailey") && lower.includes("bieber")) return "Hailey Bieber";
   if (lower.includes("hailey")) return "Hailey Bieber";
+  if (lower.includes("taylor") && lower.includes("russell")) return "Taylor Russell";
+  if (lower.includes("rihanna")) return "Rihanna";
+  if (lower.includes("beyoncé") || lower.includes("beyonce")) return "Beyoncé";
+  if (lower.includes("anya") && lower.includes("taylor")) return "Anya Taylor-Joy";
+  if (lower.includes("florence") && lower.includes("pugh")) return "Florence Pugh";
+  if (lower.includes("timoth")) return "Timothée Chalamet";
   return muse;
 }
 
@@ -434,6 +502,7 @@ function normalizeOccasionLabel(occasion: string | null): string | null {
   if (lower.includes("work") || lower.includes("office") || lower.includes("boardroom")) return "work";
   if (lower.includes("wedding") || lower.includes("ceremony")) return "event";
   if (lower.includes("opening") || lower.includes("gallery")) return "event";
+  if (lower.includes("date")) return "date";
   if (lower.includes("party")) return "evening";
   if (lower.includes("smart-casual") || lower.includes("smart casual")) return "smart casual";
   if (lower.includes("street style") || lower.includes("street")) return "weekend casual";
@@ -487,51 +556,49 @@ const CURATED_LOOKS: CuratedLook[] = [
     muses: ["zendaya"],
     occasions: ["gala", "evening", "event"],
     hero: {
-      top: "safiyaa-livia-top",
-      bottom: "safiyaa-viviana-skirt",
-      outerwear: "alex-vauthier-opera-coat",
-      shoes: "jimmy-choo-bing-100",
-      accessories: "tyler-ellis-perry-clutch",
+      dress: "valentino-divina-gown",
+      outerwear: "schiaparelli-sculpted-coat",
+      shoes: "aquazzura-soiree-pump",
+      accessories: "bulgari-serpenti-clutch",
     },
     alternates: {
-      shoes: "amina-muaddi-begum",
-      outerwear: "ralph-lauren-velvet-blazer",
+      shoes: "jimmy-choo-bing-100",
+      outerwear: "alex-vauthier-opera-coat",
     },
     save: [
-      { category: "Top", productId: "reformation-olena-top" },
-      { category: "Bottom", productId: "reformation-julietta-skirt" },
-      { category: "Outerwear", productId: "stories-satin-duster" },
-      { category: "Shoes", productId: "schutz-altina-sandal" },
-      { category: "Accessories", productId: "cult-gaia-eos-clutch" },
+      { category: "Dress", productId: "reformation-natasha-gown" },
+      { category: "Outerwear", productId: "stories-liquid-coat" },
+      { category: "Shoes", productId: "aldo-crystal-sandal" },
+      { category: "Accessories", productId: "olga-berg-lucie-clutch" },
     ],
-    vibe: "liquid midnight couture with sculpted lines",
-    palette: "inky midnight, molten silver, mirrored crystal",
+    vibe: "liquid couture drama with sculpted futurism",
+    palette: "obsidian, molten silver, mirror crystal",
     why: {
       hourglass: [
-        "Corseted neckline frames the shoulders while spotlighting your waist, echoing Zendaya’s red-carpet confidence.",
-        "Column maxi skirt pours over curves without bulk so the proportions stay statuesque.",
-        "Opera coat adds architectural drama that keeps the silhouette clean yet powerful.",
+        "One-shoulder gown sculpts the décolleté while the waist cinch pools into a statuesque skirt.",
+        "Velvet opera coat adds architectural structure without obscuring your balance of curves.",
+        "Crystalline accessories draw the gaze upward in Zendaya’s red-carpet signature.",
       ],
       pear: [
-        "Off-the-shoulder top broadens the frame and balances fuller hips.",
-        "Fluid skirt skims the lower body so the eye lifts to the corseted bodice.",
-        "Crystal accessories pull focus upward, elongating the entire line.",
+        "Asymmetric neckline broadens the shoulder line so the skirt can skim with fluid ease.",
+        "Opera coat’s sweeping collar keeps the eye hovering near your face and waist.",
+        "Mirrored clutch and sandals create vertical shine that lengthens the body.",
       ],
       default: [
-        "Structured tailoring sculpts the torso while the skirt creates liquid movement.",
-        "Monochrome palette keeps the silhouette elongated and impossibly sleek.",
+        "Architectural couture gown melts into a liquid column for effortless drama.",
+        "Jet-black and mirrored silver keep the palette camera-ready and impossibly sleek.",
         "Statement outerwear mirrors Zendaya’s fearless couture minimalism.",
       ],
     },
     capsule: {
       remix: [
-        "Style the corset with high-waisted tuxedo trousers for premieres.",
-        "Rework the skirt with a cashmere turtleneck and ankle boots for Paris dinners.",
-        "Belt the opera coat over a silk slip dress for winter galas.",
+        "Layer the opera coat over a sleek tuxedo mini for after-parties.",
+        "Anchor the gown with pointed pumps and a blazer for fashion-week dinners.",
+        "Pair the Serpenti clutch with monochrome suiting for power meetings.",
       ],
       tips: [
-        "Sweep hair into a sleek bun to let the neckline and earrings shine.",
-        "Add soft body shimmer along shoulders for camera-ready light play.",
+        "Sweep hair into a sleek bun to hero the asymmetric neckline.",
+        "Dust shoulders with liquid highlighter to echo the mirrored accessories.",
       ],
     },
   },
@@ -665,30 +732,58 @@ const DEFAULT_CATEGORY_FALLBACKS: Record<OutfitCategory | "Dress", string[]> = {
     "levi-ribcage-straight",
     "arket-wide-leg-trouser",
   ],
-  Dress: [],
+  Dress: [
+    "valentino-divina-gown",
+    "reformation-natasha-gown",
+    "loewe-origami-gown",
+    "versace-ombre-gown",
+    "rodarte-lace-dress",
+    "valentino-pink-gown",
+  ],
   Outerwear: [
     "alex-vauthier-opera-coat",
+    "schiaparelli-sculpted-coat",
     "the-row-balter-coat",
     "wardrobe-nyc-double-breasted-coat",
     "mango-trench",
     "stories-oversized-wool-coat",
+    "stories-liquid-coat",
     "frankie-shop-bea-blazer",
+    "marchesa-feather-stole",
+    "dior-bar-jacket",
+    "mcqueen-cape-blazer",
+    "haider-ackermann-silk-blazer",
   ],
   Shoes: [
     "jimmy-choo-bing-100",
+    "aquazzura-soiree-pump",
     "manolo-bb-70",
     "saint-laurent-le-loafer",
     "autry-medalist-sneaker",
     "schutz-altina-sandal",
+    "aldo-crystal-sandal",
     "vagabond-ayden-loafer",
+    "balenciaga-sculpted-boot",
+    "louboutin-follies-pump",
+    "giuseppe-rossi-platform",
+    "manolo-satin-mule",
+    "gianvito-rossi-plexi-pump",
+    "rick-owens-kiss-boot",
   ],
   Accessories: [
     "tyler-ellis-perry-clutch",
+    "bulgari-serpenti-clutch",
     "cult-gaia-eos-clutch",
     "loewe-puzzle-tote",
     "bottega-mini-jodie",
+    "olga-berg-lucie-clutch",
     "charles-keith-luna-bag",
     "polene-numero-un",
+    "boucheron-quatre-cuff",
+    "judith-leiber-cupcake-clutch",
+    "telfar-metallic-bag",
+    "van-cleef-alhambra-earrings",
+    "cartier-panthere-ring",
   ],
 };
 
@@ -1097,6 +1192,39 @@ const MUSE_TRAITS: Record<string, MuseTrait> = {
     palette: "midnight, citron, molten metallics",
     fabrics: "silk, leather, sport-luxe contrasts",
   },
+  beyonce: {
+    intro: "stage-ready goddess energy",
+    palette: "liquid gold, honey bronze, jet black",
+    fabrics: "embellished mesh, velvet, corseted tailoring",
+  },
+  "anya taylor-joy": {
+    intro: "modern couture romanticism",
+    palette: "porcelain, antique rose, onyx",
+    fabrics: "silk faille, structured satin, featherlight organza",
+  },
+  "florence pugh": {
+    intro: "bold sculptural drama",
+    palette: "cobalt, scarlet, alabaster",
+    fabrics: "taffeta, satin, architectural tulle",
+  },
+  "timothée chalamet": {
+    intro: "gender-fluid rockstar tailoring",
+    palette: "merlot, midnight, ivory",
+    fabrics: "silk suiting, sequins, velvet",
+  },
+};
+
+const MUSE_DESIGNERS: Record<string, string[]> = {
+  zendaya: ["Valentino", "Schiaparelli", "Louis Vuitton", "Loewe", "Safiyaa", "Bulgari"],
+  "jennifer lawrence": ["The Row", "Dior", "Khaite", "Louis Vuitton"],
+  "hailey bieber": ["Wardrobe NYC", "Saint Laurent", "Bottega Veneta", "Toteme"],
+  "taylor russell": ["Schiaparelli", "Loewe", "Alexander McQueen", "Rick Owens"],
+  "blake lively": ["Versace", "Marchesa", "Prabal Gurung", "Louboutin"],
+  rihanna: ["Fenty", "Balenciaga", "Alaïa", "Gucci"],
+  beyonce: ["Balmain", "Mugler", "Gucci", "Renaissance Couture"],
+  "anya taylor-joy": ["Dior", "Rodarte", "Alexander McQueen"],
+  "florence pugh": ["Valentino", "Carolina Herrera", "Galvan"],
+  "timothée chalamet": ["Haider Ackermann", "Louis Vuitton", "Prada"],
 };
 
 const BODY_TYPE_CATEGORY_LINES: Record<BodyKey, Partial<Record<OutfitCategory | "Dress", string>>> = {
@@ -1252,8 +1380,12 @@ function buildProductFallbackPlan({
 }): string {
   const targetCurrency = (currency || "EUR").toUpperCase();
   const bodyKey = bodyKeyFrom(bodyType);
+  const museKey = (museName ?? "").toLowerCase();
   const museInfo = museTraitFor(museName);
-  const occasionLabel = occasion ? occasion.toLowerCase() : "moment";
+  const museDesigners = museKey ? MUSE_DESIGNERS[museKey] ?? [] : [];
+  const occKey = normalizeOccasionLabel(occasion ?? null);
+  const occProfile = occKey ? OCCASION_TRAITS[occKey] : undefined;
+  const occasionLabel = occKey ?? (occasion ? occasion.toLowerCase() : "moment");
   const styleTokens = (styleKeywords || "")
     .split(/[\s,]+/)
     .map((token) => token.trim().toLowerCase())
@@ -1357,12 +1489,15 @@ function buildProductFallbackPlan({
         let score = 0;
         const text = productText(product);
         const tags = (product.tags || []).map((t) => t.toLowerCase());
+        const brandLower = (product.brand || "").toLowerCase();
         const price =
           typeof product.price === "number"
             ? convertPrice(product.price, product.currency, targetCurrency)
             : Number.NaN;
 
         if (curatedIds.has(product.id)) score += 6;
+        if (museDesigners.some((designer) => brandLower.includes(designer.toLowerCase()))) score += 2.4;
+        if (museDesigners.length && museDesigners.some((designer) => text.includes(designer.toLowerCase()))) score += 1.1;
         if (museLower) {
           if (text.includes(museLower.split(" ")[0])) score += 1.4;
           if (tags.some((tag) => tag.includes(museLower))) score += 4;
@@ -1371,12 +1506,16 @@ function buildProductFallbackPlan({
           if (text.includes(occLower)) score += 1.2;
           if (tags.some((tag) => tag.includes(occLower))) score += 2.2;
         }
+        if (occProfile?.preferTags?.some((tag) => tags.includes(tag))) score += 1.6;
+        if (occProfile?.avoidTags?.some((tag) => tags.includes(tag))) score -= 2.4;
+        if (occProfile?.preferFabrics?.some((regex) => regex.test(text))) score += 0.8;
+        if (occProfile?.avoidFabrics?.some((regex) => regex.test(text))) score -= 1.4;
         if (bodyLower) {
           if (tags.some((tag) => tag.includes(bodyLower))) score += 2;
         }
         if (styleTokens.length) {
           const matches = styleTokens.filter((kw) => text.includes(kw));
-          if (matches.length) score += Math.min(matches.length, 2) * 0.6;
+          if (matches.length) score += Math.min(matches.length, 2) * 0.8;
           if (tags.some((tag) => styleTokens.some((kw) => tag.includes(kw)))) score += 0.8;
         }
 
@@ -1400,6 +1539,18 @@ function buildProductFallbackPlan({
 
         const detail = highlightDetail(product);
         if (detail) score += 1.1;
+
+        if (occProfile?.formality && occProfile.formality >= 2) {
+          if (/denim|jean|cotton|tee|t-shirt/.test(text)) score -= 2.2;
+          if (category === "Shoes" && /sneaker/.test(text)) score -= 2.2;
+          if (category === "Top" && /tank|tee/.test(text)) score -= 1.2;
+          if (category === "Accessories" && /tote|backpack/.test(text)) score -= 1.4;
+          if (category === "Dress") score += 1.2;
+          if (category === "Accessories" && /clutch|minaudi|evening/.test(text)) score += 0.9;
+        } else if (occProfile?.formality === 1) {
+          if (category === "Accessories" && /clutch/.test(text)) score -= 0.3;
+          if (category === "Shoes" && /loafer|sneaker/.test(text)) score += 0.4;
+        }
 
         if (bodyKey === "pear") {
           if (category === "Top" && /shoulder|neckline|structured/.test(text)) score += 1.5;
@@ -1546,6 +1697,10 @@ function buildProductFallbackPlan({
     for (const cand of items) {
       if (curatedIds.has(cand.product.id)) score += 1.1;
     }
+    if (occProfile?.formality && occProfile.formality >= 2) {
+      if (combo.structure === "dress") score += 2.2;
+      if (occProfile.formality === 3 && combo.structure !== "dress") score -= 1.5;
+    }
     score -= unknownCount * 0.4;
 
     combos.push({ ...combo, total, score, unknownCount });
@@ -1679,18 +1834,29 @@ function buildProductFallbackPlan({
   const fabricPalette = detectFabrics(heroes);
   const bodyBenefit = describeBodyTypeBenefit(bodyType).replace(/\.$/, "");
 
-  const museLead = museInfo
-    ? `Channeling ${museName}’s ${museInfo.intro} for your ${occasionLabel} moment,`
-    : `For your ${occasionLabel} moment,`;
-  const bodyLine = bodyType
-    ? `every layer is cut to celebrate your ${bodyType.toLowerCase()} silhouette so it ${bodyBenefit}.`
-    : "every layer is balanced for high-impact proportions.";
-  const directionTail = styleKeywords ? ` The vibe stays ${styleKeywords}.` : "";
-  const introLine = `${museLead} ${bodyLine}${directionTail}`.replace(/\s+/g, " ").trim();
-  const paletteLine = `Palette & Textures: ${formatList(colourPalette, museInfo?.palette || "sleek neutrals")} + ${formatList(
+  const sceneBits: string[] = [];
+  if (sceneDetails?.location) sceneBits.push(sceneDetails.location);
+  if (typeof sceneDetails?.temperatureC === "number") sceneBits.push(`${sceneDetails.temperatureC}°C`);
+  if (sceneDetails?.condition) sceneBits.push(sceneDetails.condition);
+  const sceneSnippet = sceneBits.length ? ` in ${sceneBits.join(" • ")}` : "";
+  const vibeDescriptor = museInfo ? `${museName}’s ${museInfo.intro}` : `${occProfile?.tone ?? "luxe"} energy`;
+  const introLead = `Absolutely — for a ${occasionLabel}${sceneSnippet} moment${museName ? ` with ${vibeDescriptor}` : ""},`;
+  const bodySubject = bodyType ? `your ${bodyType.toLowerCase()} silhouette` : "your proportions";
+  const introLine = (
+    `${introLead} I’m sculpting a ${occProfile?.tone ?? "luxe"} lineup so ${bodySubject} ${bodyBenefit}.` +
+    (styleKeywords ? ` The vibe leans ${styleKeywords}.` : "")
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  const paletteFocus = formatList(
+    colourPalette,
+    museInfo?.palette || (occProfile?.formality && occProfile.formality >= 2 ? "ink, chrome, camera-ready neutrals" : "sleek neutrals")
+  );
+  const textureFocus = formatList(
     fabricPalette,
-    museInfo?.fabrics || "precision tailoring"
-  )}.`;
+    museInfo?.fabrics || (occProfile?.formality && occProfile.formality >= 2 ? "liquid satins & velvet" : "precision tailoring")
+  );
+  const paletteLine = `Palette & Textures: ${paletteFocus} with ${textureFocus}.`;
   const silhouetteLine = `Silhouette Focus: ${bodyBenefit}.`;
   const sceneLine = sceneNarrativeLine(sceneDetails, occasion ?? null, styleKeywords);
 
@@ -1776,6 +1942,16 @@ function buildProductFallbackPlan({
   if (!whyBullets.length) {
     whyBullets.push(`Each element ${bodyBenefit || "keeps your proportions elevated"}.`);
   }
+  if (museDesigners.length) {
+    const heroDesigner = heroes.find((item) =>
+      museDesigners.some((designer) => (item.brand || "").toLowerCase().includes(designer.toLowerCase()))
+    );
+    if (heroDesigner && museName) {
+      whyBullets.push(
+        `${heroDesigner.brand} anchors the look in ${museName.split(" ")[0]}’s trusted fashion house pedigree.`
+      );
+    }
+  }
 
   const saveCategories: (OutfitCategory | "Dress")[] = dress
     ? ["Dress", "Outerwear", "Shoes", "Accessories"]
@@ -1844,6 +2020,11 @@ function buildProductFallbackPlan({
       `Style ${shortProductName(shoes)} with a silk slip skirt and crisp tee for weekend elegance.`
     );
   }
+  if (museDesigners.length && remixIdeas.length < 3 && museName) {
+    remixIdeas.push(
+      `Mix in sharp ${museDesigners[0]}-inspired tailoring to keep ${museName.split(" ")[0]}’s signature energy on rotation.`
+    );
+  }
   const remixLines = uniqueStrings(remixIdeas).slice(0, 3);
 
   const tips: string[] = [];
@@ -1869,6 +2050,9 @@ function buildProductFallbackPlan({
   }
   if (tips.length < 2 && styleKeywords) {
     pushTip(`Tip: Keep accessories edited so the mood stays ${styleKeywords}.`);
+  }
+  if (tips.length < 2 && museDesigners.length) {
+    pushTip(`Tip: Explore ${museDesigners[0]}’s latest runway for encore pieces that echo this mood.`);
   }
   if (tips.length < 2) {
     pushTip("Tip: Finish with sculpted jewellery to keep the focus elevated.");
@@ -1946,6 +2130,14 @@ function museSignatureTip(museName: string | null | undefined): string | null {
     return "Tip: Add a high-low twist—think sporty layer or bold accessory—to channel Rihanna’s fearless mix.";
   if (lower.includes("beyonc"))
     return "Tip: Elevate the finish with statement jewels and luminous skin à la Beyoncé.";
+  if (lower.includes("taylor") && lower.includes("russell"))
+    return "Tip: Keep lines sculptural and experimental—Taylor thrives on futuristic silhouettes.";
+  if (lower.includes("anya") && lower.includes("taylor"))
+    return "Tip: Pair porcelain makeup with structured waves to echo Anya’s couture romanticism.";
+  if (lower.includes("florence") && lower.includes("pugh"))
+    return "Tip: Embrace bold colour and fearless cut-outs to mirror Florence’s red-carpet confidence.";
+  if (lower.includes("timoth"))
+    return "Tip: Layer delicate jewellery and a touch of gloss to match Timothée’s gender-fluid flair.";
   return `Tip: Keep the finishing touches intentional to echo ${museName}’s signature polish.`;
 }
 
