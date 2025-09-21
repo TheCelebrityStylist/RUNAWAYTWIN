@@ -29,7 +29,8 @@ export default function StylistPage() {
       <section className="space-y-2">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Your AI Stylist</h1>
         <p className="text-[15px]" style={{ color: "var(--rt-charcoal)" }}>
-          Drop a muse, an image, and an occasion. Get a complete, body-type-smart look with real links.
+          Drop a muse, an image, and an occasion. RunwayTwin stitches body-type logic with live product search to ship
+          shoppable looks, alternates, and capsule remixes — all tailored to your saved preferences.
         </p>
       </section>
 

@@ -5,11 +5,19 @@ export const runtime = "edge";
 // export const preferredRegion = "iad1";
 
 import type { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 import { toolSchemas, runTool } from "./tools";
+import { getSession } from "@/lib/auth/session";
+import { getUserById, updateUser, type UserRecord } from "@/lib/storage/user";
+import { appendHistory } from "@/lib/storage/history";
+import { mergePreferences } from "@/lib/preferences/utils";
+import type { Preferences } from "@/lib/preferences/types";
+import { normalizeMessage, type ChatMessageRecord } from "@/lib/chat/types";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
+const GUEST_COOKIE = "rt_guest_free";
 
 /** ---------- Utilities ---------- */
 
@@ -69,6 +77,91 @@ function prefsToSystem(prefs: any) {
     `• Body-type logic should reference rise, drape, neckline, hem or fabrication.`,
     `• Alternates must include footwear and outerwear with working links.`,
   ].join("\n");
+}
+
+function resolvePreferences(userPref: Preferences | undefined, incoming: any): Preferences {
+  const override: Partial<Preferences> = typeof incoming === "object" && incoming
+    ? {
+        ...incoming,
+        sizes: { ...(incoming.sizes || {}) },
+        styleKeywords: Array.isArray(incoming.styleKeywords)
+          ? incoming.styleKeywords.filter((word: unknown) => typeof word === "string")
+          : undefined,
+      }
+    : {};
+  return mergePreferences(userPref, override);
+}
+
+type UsageTicket = {
+  allowed: boolean;
+  reason?: string;
+  refund?: () => Promise<void>;
+  label?: "free" | "credit" | "subscription" | "guest";
+};
+
+type UsageOutcome = {
+  ticket: UsageTicket;
+  user: UserRecord | null;
+  setCookie?: string | null;
+};
+
+async function reserveUsage(user: UserRecord | null, guestCookie: string | undefined): Promise<UsageOutcome> {
+  if (user) {
+    if (user.subscriptionActive) {
+      return { ticket: { allowed: true, label: "subscription" }, user };
+    }
+    if (!user.freeLookUsed) {
+      const updated = await updateUser(user.id, { freeLookUsed: true });
+      return {
+        ticket: {
+          allowed: true,
+          label: "free",
+          refund: async () => {
+            await updateUser(user.id, { freeLookUsed: false });
+          },
+        },
+        user: updated,
+      };
+    }
+    if (user.lookCredits > 0) {
+      const before = user.lookCredits;
+      const updated = await updateUser(user.id, { lookCredits: before - 1, plan: "per_look" });
+      return {
+        ticket: {
+          allowed: true,
+          label: "credit",
+          refund: async () => {
+            await updateUser(user.id, { lookCredits: before });
+          },
+        },
+        user: updated,
+      };
+    }
+    return {
+      ticket: {
+        allowed: false,
+        reason: "You’ve used your looks. Grab a one-off look for $5 or go unlimited for $19/mo.",
+      },
+      user,
+    };
+  }
+
+  if (!guestCookie) {
+    const maxAge = 60 * 60 * 24 * 365;
+    return {
+      ticket: { allowed: true, label: "guest" },
+      user: null,
+      setCookie: `${GUEST_COOKIE}=1; Path=/; Max-Age=${maxAge}; SameSite=Lax`,
+    };
+  }
+
+  return {
+    ticket: {
+      allowed: false,
+      reason: "Create a free account to unlock your saved looks and continue styling.",
+    },
+    user: null,
+  };
 }
 
 function lastUserText(messages: any[]): string {
@@ -349,14 +442,66 @@ async function* openaiStream(body: any) {
 
 export async function POST(req: NextRequest) {
   const payload = await req.json().catch(() => ({}));
-  const { messages = [], preferences } = payload || {};
-  const userText = lastUserText(messages);
+  const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [];
+  const finalUser = payload?.finalUser;
+  const incomingPrefs = payload?.preferences;
+
+  const chatMessages: ChatMessage[] = [...rawMessages];
+  if (finalUser) {
+    chatMessages.push(finalUser);
+  }
+  const userText = lastUserText(chatMessages);
+
+  const cookieStore = cookies();
+  const guestCookie = cookieStore.get(GUEST_COOKIE)?.value;
+  const session = await getSession();
+  let userRecord = session?.uid ? await getUserById(session.uid) : null;
+
+  const usageOutcome = await reserveUsage(userRecord, guestCookie);
+  const { ticket } = usageOutcome;
+  if (usageOutcome.user) {
+    userRecord = usageOutcome.user;
+  }
+
+  const preferences: Preferences = resolvePreferences(userRecord?.preferences, incomingPrefs);
 
   const baseMsgs: ChatMessage[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
     { role: "system", content: prefsToSystem(preferences) },
-    ...(Array.isArray(messages) ? messages : []),
+    ...chatMessages,
   ];
+
+  if (!ticket.allowed) {
+    const reason = ticket.reason || "Upgrade to unlock more looks.";
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(sse("ready", { ok: false }));
+        controller.enqueue(sse("assistant_final", { text: reason }));
+        controller.enqueue(sse("done", { ok: false }));
+        controller.close();
+      },
+    });
+    const headers = new Headers({
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    });
+    if (usageOutcome.setCookie) {
+      headers.append("Set-Cookie", usageOutcome.setCookie);
+    }
+    return new Response(stream, { status: 200, headers });
+  }
+
+  const historyRecords: ChatMessageRecord[] = [];
+  if (userRecord && userText) {
+    historyRecords.push(
+      normalizeMessage({
+        role: "user",
+        content: userText,
+        meta: { ticket: ticket.label, preferences },
+      }),
+    );
+  }
 
   const tools = (toolSchemas || []).map((fn) => ({
     type: "function",
@@ -367,8 +512,52 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       // initial liveness
       controller.enqueue(sse("ready", { ok: true }));
+      const statusText = (() => {
+        if (!ticket.label) return null;
+        if (ticket.label === "subscription") return "Unlimited plan active — concierge styling unlocked.";
+        if (ticket.label === "credit") {
+          const remaining = typeof userRecord?.lookCredits === "number" ? userRecord.lookCredits : null;
+          return remaining !== null
+            ? `One look credit applied. ${remaining} remaining.`
+            : "One look credit applied.";
+        }
+        if (ticket.label === "free") return "Welcome look unlocked — let’s dress you.";
+        if (ticket.label === "guest") return "Guest look unlocked. Create an account to save it.";
+        return null;
+      })();
+      if (statusText) {
+        controller.enqueue(sse("notice", { text: statusText }));
+      }
       const pinger = setInterval(() => controller.enqueue(sse("ping", { t: Date.now() })), 15000);
-      const end = (ok = true) => {
+      let finalDelivered = false;
+      const finalize = async (ok: boolean, finalText: string) => {
+        if (finalDelivered) return;
+        finalDelivered = true;
+        if (ok && userRecord && historyRecords.length) {
+          const trimmed = (finalText || "").trim();
+          if (trimmed) {
+            historyRecords.push(
+              normalizeMessage({
+                role: "assistant",
+                content: finalText,
+              }),
+            );
+          }
+          try {
+            await appendHistory(userRecord.id, historyRecords);
+          } catch (err) {
+            console.error("history append failed", err);
+          }
+        } else if (!ok && ticket.refund) {
+          try {
+            await ticket.refund();
+          } catch (err) {
+            console.error("usage refund failed", err);
+          }
+        }
+      };
+      const end = async (ok = true, finalText = "") => {
+        await finalize(ok, finalText);
         try { controller.enqueue(sse("done", { ok })); } catch {}
         clearInterval(pinger);
         controller.close();
@@ -387,10 +576,8 @@ export async function POST(req: NextRequest) {
 
       // 1) **Model path** — try OpenAI; if anything fails, finalize with the optimistic draft already sent
       if (!HAS_OPENAI) {
-        // no key → finalize with draft only
-        // (The optimistic draft already streamed. We still send a final event to satisfy the UI.)
         controller.enqueue(sse("assistant_final", { text: "" }));
-        end(true);
+        await end(true, "");
         return;
       }
 
@@ -433,9 +620,8 @@ export async function POST(req: NextRequest) {
           if (choice.finish_reason) break;
         }
       } catch {
-        // model failed; finalize with whatever we already drafted
         controller.enqueue(sse("assistant_final", { text: accText || "" }));
-        end(false);
+        await end(false, accText);
         return;
       }
 
@@ -491,28 +677,32 @@ export async function POST(req: NextRequest) {
           const json = await res.json();
           const finalText = json?.choices?.[0]?.message?.content || accText || "";
           controller.enqueue(sse("assistant_final", { text: finalText }));
-          end(true);
+          await end(true, finalText);
           return;
         } catch {
           controller.enqueue(sse("assistant_final", { text: accText || "" }));
-          end(false);
+          await end(false, accText);
           return;
         }
       }
 
       // No tool calls → finalize with streamed model text (or empty if none)
       controller.enqueue(sse("assistant_final", { text: accText || "" }));
-      end(true);
+      await end(true, accText);
     },
   });
 
+  const headers = new Headers({
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+  });
+  if (usageOutcome.setCookie) {
+    headers.append("Set-Cookie", usageOutcome.setCookie);
+  }
   return new Response(stream, {
     status: 200,
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-    },
+    headers,
   });
 }
 

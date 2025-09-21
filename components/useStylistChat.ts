@@ -1,15 +1,10 @@
-// components/useStylistChat.ts
 "use client";
 
 import { useCallback, useRef, useState } from "react";
 import { consumeSSEChunk, SSEEvent } from "@/lib/sse/reader";
+import type { ChatMessageRecord } from "@/lib/chat/types";
 
-export type Msg = {
-  id: string;
-  role: "user" | "assistant" | "tool";
-  content: string;
-  meta?: any;
-};
+export type Msg = ChatMessageRecord;
 
 type SendOptions = {
   text?: string;
@@ -17,17 +12,22 @@ type SendOptions = {
   preferences?: any;
 };
 
+type SendResult = {
+  ok: boolean;
+  error?: string;
+};
+
 function formatHistory(messages: Msg[]) {
   return messages.map((mm) => {
     if (mm.role !== "user") {
       return { role: mm.role, content: mm.content } as const;
     }
-    if (mm.meta?.imageUrl) {
+    if (mm.meta && typeof mm.meta === "object" && "imageUrl" in mm.meta && typeof mm.meta.imageUrl === "string") {
       return {
         role: "user" as const,
         content: [
           { type: "text", text: mm.content },
-          { type: "image_url", image_url: { url: mm.meta.imageUrl } },
+          { type: "image_url", image_url: { url: mm.meta.imageUrl as string } },
         ],
       };
     }
@@ -39,29 +39,37 @@ export function useStylistChat(endpoint = "/api/chat") {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const carryRef = useRef("");
 
+  const hydrate = useCallback((records: Msg[]) => {
+    setMessages(records);
+  }, []);
+
   const send = useCallback(
-    async ({ text, imageUrl, preferences }: SendOptions) => {
-      if (!text && !imageUrl) return;
+    async ({ text, imageUrl, preferences }: SendOptions): Promise<SendResult> => {
+      if (!text && !imageUrl) return { ok: false, error: "Say something first" };
 
       const userMessage: Msg = {
         id: crypto.randomUUID(),
         role: "user",
         content: text || "(image only)",
-        meta: imageUrl ? { imageUrl } : undefined,
+        meta: imageUrl ? { imageUrl } : null,
+        createdAt: new Date().toISOString(),
       };
 
       setMessages((prev) => [...prev, userMessage]);
       setDraft("");
       setLoading(true);
+      setLastError(null);
 
       abortRef.current?.abort();
       abortRef.current = new AbortController();
       carryRef.current = "";
 
       const history = formatHistory(messages);
+
       const finalUser = imageUrl
         ? {
             role: "user" as const,
@@ -78,24 +86,37 @@ export function useStylistChat(endpoint = "/api/chat") {
           method: "POST",
           signal: abortRef.current.signal,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: [...history, finalUser], preferences }),
+          body: JSON.stringify({ messages: history, finalUser, preferences }),
         });
       } catch (err) {
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: "Network error. Please try again." },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "Network error. Please try again.",
+            createdAt: new Date().toISOString(),
+          },
         ]);
         setLoading(false);
-        return;
+        setLastError("network");
+        return { ok: false, error: "network" };
       }
 
       if (!res.ok || !res.body) {
+        const errorText = res.status === 402 ? "Upgrade to continue" : "Sorry—something went wrong.";
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: "Sorry—something went wrong. Try again." },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: errorText,
+            createdAt: new Date().toISOString(),
+          },
         ]);
         setLoading(false);
-        return;
+        setLastError(errorText);
+        return { ok: false, error: errorText };
       }
 
       const reader = res.body.getReader();
@@ -115,6 +136,19 @@ export function useStylistChat(endpoint = "/api/chat") {
           case "ready":
           case "ping":
             break;
+          case "notice":
+            if (typeof evt.data?.text === "string") {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: crypto.randomUUID(),
+                  role: "assistant",
+                  content: evt.data.text,
+                  createdAt: new Date().toISOString(),
+                },
+              ]);
+            }
+            break;
           case "assistant_draft_delta":
           case "assistant_delta":
             if (typeof evt.data?.text === "string") {
@@ -131,6 +165,7 @@ export function useStylistChat(endpoint = "/api/chat") {
                 role: "tool",
                 content: `🔎 ${evt.data?.name || "tool"}…`,
                 meta: evt.data,
+                createdAt: new Date().toISOString(),
               },
             ]);
             break;
@@ -142,6 +177,7 @@ export function useStylistChat(endpoint = "/api/chat") {
                 role: "tool",
                 content: evt.data?.ok ? "✅ results received" : "⚠️ tool error",
                 meta: evt.data,
+                createdAt: new Date().toISOString(),
               },
             ]);
             break;
@@ -152,6 +188,7 @@ export function useStylistChat(endpoint = "/api/chat") {
                 id: crypto.randomUUID(),
                 role: "assistant",
                 content: typeof evt.data?.text === "string" ? evt.data.text : "",
+                createdAt: new Date().toISOString(),
               },
             ]);
             setDraft("");
@@ -159,9 +196,15 @@ export function useStylistChat(endpoint = "/api/chat") {
           case "error":
             setMessages((prev) => [
               ...prev,
-              { id: crypto.randomUUID(), role: "assistant", content: "Sorry—something went wrong. Try again." },
+              {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: "Sorry—something went wrong. Try again.",
+                createdAt: new Date().toISOString(),
+              },
             ]);
             setDraft("");
+            setLastError("server");
             break;
           case "done":
             setLoading(false);
@@ -181,14 +224,22 @@ export function useStylistChat(endpoint = "/api/chat") {
       } catch (err) {
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: "Stream aborted. Please try again." },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "Stream aborted. Please try again.",
+            createdAt: new Date().toISOString(),
+          },
         ]);
+        setLastError("aborted");
       } finally {
         clearInterval(heartbeat);
         setLoading(false);
       }
+
+      return { ok: true };
     },
-    [endpoint, messages]
+    [endpoint, messages],
   );
 
   const stop = useCallback(() => {
@@ -196,5 +247,5 @@ export function useStylistChat(endpoint = "/api/chat") {
     setLoading(false);
   }, []);
 
-  return { messages, draft, send, stop, loading };
+  return { messages, draft, send, stop, loading, lastError, hydrate };
 }
