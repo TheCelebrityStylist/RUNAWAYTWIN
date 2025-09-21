@@ -85,9 +85,17 @@ export function getSessionCookieName() {
 }
 
 export async function getSession() {
-  const token = cookies().get(SESSION_COOKIE)?.value;
-  const parsed = await parseSessionToken(token || "");
-  return parsed;
+  if (!process.env.AUTH_SECRET) {
+    return null;
+  }
+  try {
+    const token = cookies().get(SESSION_COOKIE)?.value;
+    const parsed = await parseSessionToken(token || "");
+    return parsed;
+  } catch (err) {
+    console.error("session parse failed", err);
+    return null;
+  }
 }
 
 export function createSessionCookie(token: string) {

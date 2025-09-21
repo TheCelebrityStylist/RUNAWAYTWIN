@@ -25,11 +25,17 @@ type BubbleProps = {
 function Bubble({ message }: BubbleProps) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
-  const base = "whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-relaxed";
+  const base =
+    "whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-relaxed shadow-[0_14px_38px_rgba(15,23,42,0.06)]";
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className={`${base} bg-black text-white shadow-sm max-w-[80%]`}>{message.content}</div>
+        <div
+          className={`${base} max-w-[80%] text-[var(--rt-ivory)]`}
+          style={{ background: "var(--rt-charcoal)" }}
+        >
+          {message.content}
+        </div>
       </div>
     );
   }
@@ -37,8 +43,12 @@ function Bubble({ message }: BubbleProps) {
     return (
       <div className="flex justify-start">
         <div
-          className={`${base} border max-w-[70%] text-[13px]`}
-          style={{ borderColor: "var(--rt-border)", background: "var(--rt-ivory)", color: "var(--rt-charcoal)" }}
+          className={`${base} max-w-[70%] text-[13px]`}
+          style={{
+            border: "1px solid var(--rt-border)",
+            background: "rgba(255,255,255,0.92)",
+            color: "var(--rt-muted)",
+          }}
         >
           {message.content}
         </div>
@@ -48,8 +58,12 @@ function Bubble({ message }: BubbleProps) {
   return (
     <div className="flex justify-start">
       <div
-        className={`${base} border bg-white/95 shadow-sm backdrop-blur max-w-[80%]`}
-        style={{ borderColor: "var(--rt-border)", color: "var(--rt-charcoal)" }}
+        className={`${base} max-w-[80%]`}
+        style={{
+          border: "1px solid var(--rt-border)",
+          background: "linear-gradient(120deg, rgba(255,255,255,0.96), rgba(247,245,242,0.95))",
+          color: "var(--rt-charcoal)",
+        }}
       >
         {message.content}
       </div>
@@ -177,31 +191,37 @@ export default function StylistChat({ initialPreferences }: Props) {
   }, [user]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="space-y-6">
-        <section className="card overflow-hidden border border-transparent bg-gradient-to-br from-white/90 via-white to-[#f7f5f2]">
-          <header className="border-b px-6 py-5" style={{ borderColor: "var(--rt-border)" }}>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em]" style={{ color: "var(--rt-muted)" }}>
-                  RunwayTwin Stylist
+    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-8">
+        <section
+          className="card overflow-hidden border bg-white/95 backdrop-blur"
+          style={{ borderColor: "var(--rt-border)" }}
+        >
+          <header className="border-b px-6 py-6" style={{ borderColor: "var(--rt-border)" }}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-1">
+                <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: "var(--rt-muted)" }}>
+                  RunwayTwin stylist concierge
                 </p>
-                <h2 className="text-2xl font-semibold tracking-tight">Your look curator is listening</h2>
-                <p className="mt-1 text-sm" style={{ color: "var(--rt-charcoal)" }}>
-                  Drop a muse, an occasion, a vibe, even the weather — I’ll stream a head-to-toe outfit with real links,
-                  alternates, and capsule ideas.
+                <h2 className="text-[26px] font-semibold tracking-tight">Let’s build your next legendary look</h2>
+                <p className="text-[13px] leading-relaxed" style={{ color: "var(--rt-charcoal)" }}>
+                  Feed me a muse, occasion, climate, or colors — I’ll respond like your celebrity stylist with shoppable
+                  links, alternates, and capsule riffs.
                 </p>
               </div>
-              <div className="rounded-2xl border px-4 py-2 text-sm" style={{ borderColor: "var(--rt-border)", background: "white" }}>
+              <div
+                className="rounded-full border px-5 py-2 text-[13px] font-medium"
+                style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,0.88)" }}
+              >
                 {planSummary}
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap gap-2">
               {QUICK_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
-                  className="rounded-full border px-3 py-1.5 text-xs transition hover:bg-black hover:text-white"
+                  className="rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-black hover:text-white"
                   style={{ borderColor: "var(--rt-border)", background: "white" }}
                   onClick={() => void send({ text: prompt, preferences: prefs })}
                   disabled={loading}
@@ -212,15 +232,20 @@ export default function StylistChat({ initialPreferences }: Props) {
             </div>
           </header>
 
-          <div ref={viewportRef} onScroll={onScroll} className="h-[420px] overflow-y-auto px-6 py-6 space-y-4">
+          <div
+            ref={viewportRef}
+            onScroll={onScroll}
+            className="space-y-4 px-6 py-6"
+            style={{ maxHeight: "460px", overflowY: "auto" }}
+          >
             {messages.map((message) => (
               <Bubble key={message.id} message={message} />
             ))}
             {!!draft && (
               <div className="flex justify-start">
                 <div
-                  className="whitespace-pre-wrap rounded-2xl border bg-white/95 px-4 py-3 text-[14px] leading-relaxed shadow-sm"
-                  style={{ borderColor: "var(--rt-border)", color: "var(--rt-charcoal)" }}
+                  className="whitespace-pre-wrap rounded-2xl border px-4 py-3 text-[14px] leading-relaxed shadow-[0_14px_38px_rgba(15,23,42,0.06)]"
+                  style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,0.94)", color: "var(--rt-charcoal)" }}
                 >
                   {draft}
                   <span className="ml-1 animate-pulse">▍</span>
@@ -229,23 +254,30 @@ export default function StylistChat({ initialPreferences }: Props) {
             )}
           </div>
 
-          <form className="border-t px-5 py-4" style={{ borderColor: "var(--rt-border)" }} onSubmit={onSubmit}>
-            <div className="flex items-center gap-3">
-              <input
-                className="flex-1 h-11 rounded-full border px-4 text-[14px] outline-none"
-                style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,.95)" }}
-                placeholder="e.g. ‘Sofia Richie wedding welcome dinner in Capri, 24°C breeze’"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                disabled={loading}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && input.trim()) {
-                    void send({ text: input.trim(), preferences: prefs });
-                    setInput("");
-                  }
-                }}
-              />
-              <button type="submit" disabled={loading || !input.trim()} className="btn" style={{ opacity: loading || !input.trim() ? 0.6 : 1 }}>
+          <form className="border-t px-6 py-5" style={{ borderColor: "var(--rt-border)" }} onSubmit={onSubmit}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <input
+                  className="h-12 w-full rounded-full border px-4 text-[14px] outline-none transition focus:border-black"
+                  style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,0.95)" }}
+                  placeholder="“Sofia Richie welcome dinner in Capri, 24°C sea breeze”"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  disabled={loading}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && input.trim()) {
+                      void send({ text: input.trim(), preferences: prefs });
+                      setInput("");
+                    }
+                  }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !input.trim()}
+                className="btn min-w-[110px]"
+                style={{ opacity: loading || !input.trim() ? 0.6 : 1 }}
+              >
                 {loading ? "Styling…" : "Send"}
               </button>
             </div>
@@ -255,15 +287,18 @@ export default function StylistChat({ initialPreferences }: Props) {
         <LookBuilder text={combinedText} />
       </div>
 
-      <aside className="hidden lg:block">
-        <div className="sticky top-4 space-y-4">
+      <aside className="hidden xl:block">
+        <div className="sticky top-4 space-y-5">
           <PreferencesPanel value={prefs} onChange={setPrefs} />
-          <div className="rounded-3xl border px-4 py-4 text-sm" style={{ borderColor: "var(--rt-border)", background: "white" }}>
-            <p className="font-semibold">Tips for the sharpest looks</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px]" style={{ color: "var(--rt-charcoal)" }}>
-              <li>Include the vibe, setting, and any muses — I’ll echo it in fabric and silhouette.</li>
-              <li>Pin your preferences once; every turn already knows your sizes and budget.</li>
-              <li>Ready to remix? Ask me to rework any item or color story mid-conversation.</li>
+          <div
+            className="rounded-3xl border px-5 py-5 text-sm shadow-[0_24px_46px_rgba(15,23,42,0.08)]"
+            style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,0.96)" }}
+          >
+            <p className="text-[14px] font-semibold">How to get couture-level answers</p>
+            <ul className="mt-2 space-y-1.5 text-[12px] leading-relaxed" style={{ color: "var(--rt-charcoal)" }}>
+              <li>Anchor each ask with muse, venue, and your preferred palette.</li>
+              <li>Preferences here sync automatically — no need to repeat sizes.</li>
+              <li>Ask for alternates or swaps mid-conversation to remix the look.</li>
             </ul>
           </div>
         </div>
