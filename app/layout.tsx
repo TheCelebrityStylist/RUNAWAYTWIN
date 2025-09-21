@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountProvider } from "@/components/account/AccountProvider";
-import AccountMenu from "@/components/account/AccountMenu";
+import SiteHeader from "@/components/layout/SiteHeader";
 import { getSession } from "@/lib/auth/session";
 import { getUserById, serializeUser } from "@/lib/storage/user";
 import type { AccountUser } from "@/lib/auth/types";
@@ -25,14 +25,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://runwaytwin.vercel.app" },
   icons: { icon: "/favicon.ico" },
 };
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-neutral-200/70 bg-white/70 px-3 py-1 text-[11px] font-medium text-neutral-700 shadow-sm">
-      {children}
-    </span>
-  );
-}
 
 async function loadInitialUser(): Promise<AccountUser | null> {
   try {
@@ -70,73 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </div>
 
-          {/* Sticky Header */}
-          <header className="sticky top-0 z-50 border-b border-neutral-200/70 bg-[#FAF9F6]/90 backdrop-blur supports-[backdrop-filter]:bg-[#FAF9F6]/70">
-            <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-              {/* Brand + badges */}
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/"
-                  className="text-base font-semibold tracking-tight hover:opacity-80"
-                  aria-label="RunwayTwin Home"
-                >
-                  RunwayTwin
-                </Link>
-                <div className="hidden items-center gap-2 lg:flex">
-                  <Badge>Editorial Taste</Badge>
-                  <Badge>Body-Type Flattering</Badge>
-                  <Badge>Budget-True</Badge>
-                </div>
-              </div>
-
-              {/* Primary Nav */}
-              <nav aria-label="Main" className="hidden md:block">
-                <ul className="flex items-center gap-6 text-sm">
-                  <li>
-                    <Link className="hover:underline underline-offset-4" href="/">
-                      Home
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="hover:underline underline-offset-4" href="/stylist">
-                      Stylist
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="hover:underline underline-offset-4" href="/pricing">
-                      Pricing
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="hover:underline underline-offset-4" href="/blog">
-                      Journal
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="hover:underline underline-offset-4" href="/about">
-                      About
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="hover:underline underline-offset-4" href="/contact">
-                      Contact
-                    </Link>
-                  </li>
-                </ul>
-              </nav>
-
-              {/* Account + CTA */}
-              <div className="flex items-center gap-3">
-                <AccountMenu />
-                <Link
-                  href="/stylist"
-                  className="hidden items-center justify-center rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 lg:inline-flex"
-                >
-                  ✨ Try the Stylist
-                </Link>
-              </div>
-            </div>
-          </header>
+          <SiteHeader />
 
           {/* Page content */}
           <main id="content">{children}</main>

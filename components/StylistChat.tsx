@@ -76,6 +76,7 @@ export default function StylistChat({ initialPreferences }: Props) {
   const { messages, draft, send, loading, hydrate } = useStylistChat("/api/chat");
   const [prefs, setPrefs] = useState<Preferences>(initialPreferences);
   const [input, setInput] = useState("");
+  const [mobilePrefsOpen, setMobilePrefsOpen] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const pendingSave = useRef<NodeJS.Timeout | null>(null);
@@ -190,13 +191,70 @@ export default function StylistChat({ initialPreferences }: Props) {
     return "Add credits for the next look";
   }, [user]);
 
+  const preferenceSummary = useMemo(() => {
+    const gender = prefs.gender && prefs.gender !== "unspecified" ? prefs.gender : null;
+    const budget = prefs.budget || null;
+    const sizeEntries = Object.entries(prefs.sizes || {})
+      .filter(([, value]) => value)
+      .map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)} ${value}`);
+    const styleFocus = (prefs.styleKeywords || []).slice(0, 3).join(" · ");
+    const parts = [gender, budget, sizeEntries.join(" · ") || null, styleFocus || null].filter(Boolean);
+    if (parts.length) {
+      return parts.join(" · ");
+    }
+    return "Tap to personalize fit, sizing, and palette.";
+  }, [prefs]);
+
   return (
-    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-8">
-        <section
-          className="card overflow-hidden border bg-white/95 backdrop-blur"
-          style={{ borderColor: "var(--rt-border)" }}
+    <div className="space-y-8">
+      <div className="xl:hidden">
+        <div
+          className="card space-y-4 rounded-3xl border px-5 py-5 shadow-[0_24px_46px_rgba(15,23,42,0.08)]"
+          style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,0.96)" }}
         >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: "var(--rt-muted)" }}>
+                Preferences
+              </p>
+              <p className="text-[13px] leading-relaxed" style={{ color: "var(--rt-charcoal)" }}>
+                {preferenceSummary}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="rounded-full border px-3 py-1 text-[12px] font-medium"
+              style={{ borderColor: "var(--rt-border)", background: "white" }}
+              onClick={() => setMobilePrefsOpen((prev) => !prev)}
+              aria-expanded={mobilePrefsOpen}
+            >
+              {mobilePrefsOpen ? "Close" : "Edit"}
+            </button>
+          </div>
+          {mobilePrefsOpen && (
+            <div className="-mx-2 mt-4 rounded-3xl border px-3 py-4" style={{ borderColor: "var(--rt-border)", background: "white" }}>
+              <PreferencesPanel value={prefs} onChange={setPrefs} variant="flat" className="space-y-6" />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="rounded-full border px-4 py-2 text-[12px] font-semibold"
+                  style={{ borderColor: "var(--rt-border)", background: "var(--rt-ivory)" }}
+                  onClick={() => setMobilePrefsOpen(false)}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-8">
+          <section
+            className="card overflow-hidden border bg-white/95 backdrop-blur"
+            style={{ borderColor: "var(--rt-border)" }}
+          >
           <header className="border-b px-6 py-6" style={{ borderColor: "var(--rt-border)" }}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-1">
@@ -303,6 +361,7 @@ export default function StylistChat({ initialPreferences }: Props) {
           </div>
         </div>
       </aside>
+      </div>
     </div>
   );
 }

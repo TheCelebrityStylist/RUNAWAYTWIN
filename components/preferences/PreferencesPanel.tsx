@@ -9,6 +9,8 @@ export type Prefs = Preferences;
 type Props = {
   value: Preferences;
   onChange: (v: Preferences) => void;
+  variant?: "card" | "flat";
+  className?: string;
 };
 
 const GENDER_OPTIONS: Preferences["gender"][] = ["female", "male", "unisex", "unspecified"];
@@ -55,7 +57,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function PreferencesPanel({ value, onChange }: Props) {
+export default function PreferencesPanel({ value, onChange, variant = "card", className }: Props) {
   const current = value || DEFAULT_PREFERENCES;
 
   const toggleKeyword = (keyword: string) => {
@@ -79,8 +81,15 @@ export default function PreferencesPanel({ value, onChange }: Props) {
     return current.styleKeywords.join(" · ");
   }, [current.styleKeywords]);
 
+  const containerClass = [
+    variant === "card" ? "card space-y-6 p-5" : "space-y-6",
+    className || "",
+  ]
+    .join(" ")
+    .trim();
+
   return (
-    <div className="card space-y-6 p-5" style={{ background: "white" }}>
+    <div className={containerClass} style={variant === "card" ? { background: "white" } : undefined}>
       <div className="space-y-1">
         <h3 className="text-[15px] font-semibold tracking-tight">Your Preferences</h3>
         <p className="text-[12px] leading-relaxed" style={{ color: "var(--rt-charcoal)" }}>

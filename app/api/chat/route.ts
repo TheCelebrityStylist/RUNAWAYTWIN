@@ -44,6 +44,20 @@ function safeJSON(s: string) {
   }
 }
 
+function flattenContent(content: any): string {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((item) => flattenContent(item)).join("");
+  }
+  if (typeof content === "object") {
+    if (typeof content.text === "string") return content.text;
+    if (typeof content.value === "string") return content.value;
+    if (Array.isArray(content.content)) return flattenContent(content.content);
+  }
+  return "";
+}
+
 function prefsToSystem(prefs: any) {
   const {
     gender = "unspecified",
@@ -599,20 +613,23 @@ export async function POST(req: NextRequest) {
 
           const delta = choice.delta || {};
 
-          if (typeof delta.content === "string" && delta.content) {
-            accText += delta.content;
-            controller.enqueue(sse("assistant_delta", { text: delta.content }));
+          const chunkText = flattenContent(delta.content);
+          if (chunkText) {
+            accText += chunkText;
+            controller.enqueue(sse("assistant_delta", { text: chunkText }));
           }
 
           const tcs = delta.tool_calls as ToolCallDelta[] | undefined;
           if (tcs?.length) {
             for (const d of tcs) {
-              const id = d.id!;
+              const index = typeof d.index === "number" ? d.index : undefined;
+              const id = d.id || (index !== undefined ? `call_${index}` : `call_${Object.keys(toolCalls).length}`);
               const name = d.function?.name || toolCalls[id]?.name || "unknown";
               const argsChunk = d.function?.arguments || "";
+              const existing = toolCalls[id];
               toolCalls[id] = {
                 name,
-                arguments: (toolCalls[id]?.arguments || "") + argsChunk,
+                arguments: (existing?.arguments || "") + argsChunk,
               };
             }
           }
@@ -674,8 +691,12 @@ export async function POST(req: NextRequest) {
               ],
             }),
           });
+          if (!res.ok) {
+            throw new Error(`OpenAI final HTTP ${res.status}`);
+          }
           const json = await res.json();
-          const finalText = json?.choices?.[0]?.message?.content || accText || "";
+          const finalMessage = json?.choices?.[0]?.message;
+          const finalText = flattenContent(finalMessage?.content) || accText || "";
           controller.enqueue(sse("assistant_final", { text: finalText }));
           await end(true, finalText);
           return;
