@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic"; // <-- prevent static optimization so SSE works reliably
 
 /* =========================
    Types
@@ -40,7 +41,7 @@ type Product = {
    ========================= */
 const TE = new TextEncoder();
 const sse = (evt: any) => TE.encode(`data: ${JSON.stringify(evt)}\n\n`);
-const pingEveryMs = 10_000;
+const HEARTBEAT_MS = 10_000;
 
 /* =========================
    Small utils
@@ -196,10 +197,15 @@ async function serpSearch(query: string, country?: string, limit = 8): Promise<P
   const out: Product[] = [];
   for (const it of items) {
     const price = typeof it.extracted_price === "number" ? it.extracted_price :
-      typeof it.price === "string" ? Number((it.price.match(/[\d,.]+/) || [""])[0].replace(/\./g, "").replace(",", ".")) || null : null;
-    const curGuess = typeof it.price === "string"
-      ? it.price.includes("$") ? "USD" : it.price.includes("£") ? "GBP" : it.includes?.("€") ? "EUR" : null
-      : null;
+      typeof it.price === "string"
+        ? Number((it.price.match(/[\d,.]+/) || [""])[0].replace(/\./g, "").replace(",", ".")) || null
+        : null;
+    const priceText = typeof it.price === "string" ? it.price : "";
+    const curGuess =
+      priceText.includes("$") ? "USD" :
+      priceText.includes("£") ? "GBP" :
+      priceText.includes("€") ? "EUR" : null;
+
     out.push({
       id: it.product_id || it.link || crypto.randomUUID(),
       brand: String(it.source || ""),
@@ -263,7 +269,7 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const push = (evt: any) => controller.enqueue(sse(evt));
-      const heart = setInterval(() => push({ type: "ping" }), pingEveryMs);
+      const heart = setInterval(() => push({ type: "ping" }), HEARTBEAT_MS);
 
       const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
       const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
@@ -275,10 +281,10 @@ export async function POST(req: NextRequest) {
       const LIMIT = 10;
 
       try {
-        // 0) ready
+        // ready
         push({ type: "ready" });
 
-        // 1) optimistic draft
+        // optimistic draft
         const ask = lastUserText(baseMessages);
         const cur = curFor(preferences);
         const greet = "Hi! I’m your celebrity stylist — assembling a polished head-to-toe look with live links and fit notes.";
@@ -288,7 +294,7 @@ export async function POST(req: NextRequest) {
         push({ type: "assistant_draft_delta", data: `${greet}\n` });
         push({ type: "assistant_draft_delta", data: `${brief}\n\n` });
 
-        // 2) fire all searches in parallel
+        // parallel search
         const q = [ask, preferences.styleKeywords].filter(Boolean).join(" | ").trim()
           || "elevated minimal: structured knit, wide-leg trouser, trench, leather loafer";
         const country = preferences.country || "NL";
@@ -299,40 +305,30 @@ export async function POST(req: NextRequest) {
         jobs.push(withTimeout(serpSearch(q, country, LIMIT), SEARCH_HARD_MS, "serp-timeout"));
         jobs.push(withTimeout(tavilyAdapter(q, LIMIT), SEARCH_HARD_MS, "tavily-timeout"));
 
-        // 2a) Stall-breaker: collect what we have after SEARCH_SOFT_MS
         const collected: Product[] = [];
         const collector = (async () => {
           const res = await Promise.allSettled(jobs);
           for (const r of res) if (r.status === "fulfilled" && Array.isArray(r.value)) collected.push(...r.value);
         })();
 
-        // Wait soft deadline, show preview (or fallback) and move on
-        await Promise.race([
-          collector,
-          new Promise((r) => setTimeout(r, SEARCH_SOFT_MS)),
-        ]);
+        // soft deadline: move on with what we have (or demo)
+        await Promise.race([collector, new Promise((r) => setTimeout(r, SEARCH_SOFT_MS))]);
 
-        let products = collected.length
-          ? collected
-          : DEMO.slice(0, clamp(LIMIT, 3, 12)); // fallback immediately if nothing yet
+        let products = collected.length ? collected : DEMO.slice(0, clamp(LIMIT, 3, 12));
 
-        // Ensure we don’t over-wait: settle remaining but don’t stall beyond HARD deadline
-        await Promise.race([
-          collector, // may already be resolved
-          new Promise((r) => setTimeout(r, SEARCH_HARD_MS - SEARCH_SOFT_MS)),
-        ]);
+        // allow remaining but not beyond hard deadline
+        await Promise.race([collector, new Promise((r) => setTimeout(r, SEARCH_HARD_MS - SEARCH_SOFT_MS))]);
 
-        // Merge anything newly collected
+        // merge any late arrivals
         products = collected.length ? collected : products;
-
         products = uniqBy(products, (p) => p.url).slice(0, LIMIT);
 
-        // Stream a quick preview in draft
+        // preview
         const preview = products.slice(0, 4).map((p) => `• ${p.brand}: ${p.title}`).join("\n");
         push({ type: "assistant_draft_delta", data: `Found options:\n${preview}\n\n` });
         push({ type: "assistant_draft_done" });
 
-        // 3) Final composition (hard timeout)
+        // final compose (hard timeout)
         let finalText = "";
         try {
           if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
@@ -356,8 +352,7 @@ export async function POST(req: NextRequest) {
           ];
 
           finalText = await withTimeout(openaiComplete(finalize, MODEL, OPENAI_API_KEY), OPENAI_MS, "openai-timeout");
-        } catch (e: any) {
-          // graceful fallback final
+        } catch {
           const total = products.reduce((s, p) => s + (typeof p.price === "number" ? p.price : 0), 0);
           const approx = total ? `Approx total: ~${Math.round(total)} ${currency}` : "";
           finalText = [
@@ -376,7 +371,6 @@ export async function POST(req: NextRequest) {
           ].join("\n");
         }
 
-        // 4) Final → done (no error frames ever)
         push({ type: "assistant_final", data: finalText });
         push({ type: "done" });
       } catch (err: any) {
