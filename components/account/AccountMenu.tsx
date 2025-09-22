@@ -19,9 +19,15 @@ const actionButtonBase =
 
 type Props = {
   variant?: "header" | "panel";
+  onRequestAuth?: () => void;
+  onPanelOpenChange?: (open: boolean) => void;
 };
 
-export default function AccountMenu({ variant = "panel" }: Props) {
+export default function AccountMenu({
+  variant = "panel",
+  onRequestAuth,
+  onPanelOpenChange,
+}: Props) {
   const { user, refresh, setUser } = useAccount();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("register");
@@ -30,6 +36,10 @@ export default function AccountMenu({ variant = "panel" }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    onPanelOpenChange?.(panelOpen);
+  }, [panelOpen, onPanelOpenChange]);
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -69,6 +79,7 @@ export default function AccountMenu({ variant = "panel" }: Props) {
 
   const openDialog = (nextMode: "login" | "register") => {
     setMode(nextMode);
+    onRequestAuth?.();
     setDialogOpen(true);
   };
 
