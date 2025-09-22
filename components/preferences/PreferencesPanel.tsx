@@ -3,14 +3,8 @@
 
 import React from "react";
 
-export type Prefs = {
-  gender: "female" | "male" | "unisex" | "unspecified";
-  sizes: { top?: string; bottom?: string; dress?: string; shoe?: string };
-  bodyType: string;
-  budget: string; // free text like "€300–€600"
-  country: string; // ISO-ish; keep simple for now
-  styleKeywords: string[];
-};
+// FILE: components/preferences/PreferencesPanel.tsx
+export type Prefs = import("../useStylistChat").Prefs; // <— guarantees the same shape
 
 type Props = {
   value: Prefs;
