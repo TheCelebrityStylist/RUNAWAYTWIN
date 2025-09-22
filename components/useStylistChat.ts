@@ -1,115 +1,96 @@
-// FILE: components/StylistChat.tsx
+// FILE: components/useStylistChat.ts
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import { useStylistChat, Msg } from "./useStylistChat";
+import { useCallback, useRef, useState } from "react";
 
-// Keep in sync with your API route's preferences shape
-type Prefs = {
-  gender?: string;
-  sizeTop?: string;
-  sizeBottom?: string;
-  sizeDress?: string;
-  sizeShoe?: string;
-  bodyType?: string;
-  budget?: number;
-  country?: string;
-  currency?: string;
-  styleKeywords?: string;
-  heightCm?: number;
-  weightKg?: number;
+/** Public message type used by the chat UI */
+export type Msg = { role: "user" | "assistant" | "system"; content: string };
+
+type Prefs = Record<string, unknown>;
+
+type UseChatState = {
+  messages: Msg[];
+  draft: string;          // reserved for streaming; empty in this non-stream variant
+  loading: boolean;
+  send: (text: string) => Promise<void>;
+  stop: () => void;
+  reset: (seed?: Msg[]) => void;
 };
 
-type Props = { initialPreferences: Prefs };
+/**
+ * Hook signature:
+ *   useStylistChat("/api/chat", initialMessages?, preferences?)
+ *   useStylistChat(initialMessages?, preferences?) // endpoint defaults to "/api/chat"
+ */
+export function useStylistChat(
+  a?: string | Msg[],
+  b?: Msg[] | Prefs,
+  c?: Prefs
+): UseChatState {
+  const endpoint = typeof a === "string" ? a : "/api/chat";
+  const initialMessages = (Array.isArray(a) ? a : (Array.isArray(b) ? b : [])) as Msg[];
+  const preferences = (typeof a === "string" ? (b as Prefs) : (c as Prefs)) || {};
 
-export default function StylistChat({ initialPreferences }: Props) {
-  const [prefs] = useState<Prefs>(initialPreferences || {});
-  const [input, setInput] = useState("");
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<Msg[]>(initialMessages);
+  const [loading, setLoading] = useState(false);
+  const [draft, setDraft] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
 
-  // ✅ pass preferences into the hook (so send() accepts a string)
-  const { messages, draft, send, loading } = useStylistChat("/api/chat", undefined, prefs);
+  const stop = useCallback((): void => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    setDraft("");
+  }, []);
 
-  const onSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!input.trim()) return;
-      send(input.trim()); // ✅ string only
-      setInput("");
-    },
-    [input, send]
-  );
+  const reset = useCallback((seed?: Msg[]): void => {
+    stop();
+    setMessages(seed ?? []);
+  }, [stop]);
 
-  const quicks = useMemo(
-    () => [
-      "Zendaya for a gala in Paris",
-      "Taylor Russell — gallery opening, rainy 16°C",
-      "Timothée Chalamet — smart casual date",
-      "Hailey Bieber — street style, under €300",
-    ],
-    []
-  );
+  const send = useCallback(async (text: string): Promise<void> => {
+    const prompt = (text || "").trim();
+    if (!prompt || loading) return;
 
-  return (
-    <div className="card bg-[var(--rt-ivory)] border border-[var(--rt-border)]">
-      <div className="p-4">
-        <div className="text-sm text-[var(--rt-muted)] mb-3">
-          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
-        </div>
+    const next = [...messages, { role: "user", content: prompt } as Msg];
+    setMessages(next);
+    setLoading(true);
+    setDraft("");
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {quicks.map((q) => (
-            <button
-              key={q}
-              type="button"
-              className="px-3 py-1 rounded-full border border-[var(--rt-border)] hover:bg-[var(--rt-cream)] transition"
-              onClick={() => send(q)}
-              disabled={loading}
-            >
-              {q}
-            </button>
-          ))}
-        </div>
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
 
-        <div
-          ref={viewportRef}
-          className="space-y-3 max-h-[45vh] overflow-y-auto pr-1 mb-4"
-          role="log"
-          aria-live="polite"
-        >
-          {messages.map((m: Msg, i: number) => (
-            <div
-              key={i}
-              className={
-                m.role === "user"
-                  ? "self-end inline-block px-3 py-2 rounded-2xl bg-black text-white"
-                  : "inline-block px-3 py-2 rounded-2xl bg-[var(--rt-cream)]"
-              }
-            >
-              {m.content}
-            </div>
-          ))}
-          {draft ? (
-            <div className="inline-block px-3 py-2 rounded-2xl bg-[var(--rt-cream)] opacity-70">
-              {draft}
-            </div>
-          ) : null}
-        </div>
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next, preferences }),
+      });
 
-        <form onSubmit={onSubmit} className="flex gap-2 items-center">
-          <input
-            className="flex-1 h-11 rounded-xl border border-[var(--rt-border)] px-3 bg-white"
-            placeholder='“Zendaya, Paris gallery opening, 18°C drizzle, smart-casual”'
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={loading}
-            aria-label="Message the stylist"
-          />
-          <button type="submit" className="btn h-11 px-5 rounded-xl" disabled={loading || !input.trim()}>
-            {loading ? "Styling…" : "Send"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+      // The API returns a plain text response (final assistant text)
+      const replyText = await res.text();
+      const content =
+        replyText && replyText.trim()
+          ? replyText
+          : "I hit a hiccup finishing the look—try again in a moment.";
+
+      setMessages((m) => [...m, { role: "assistant", content }]);
+    } catch {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "Sorry—something went wrong. Please try again." },
+      ]);
+    } finally {
+      setLoading(false);
+      setDraft("");
+      abortRef.current = null;
+    }
+  }, [messages, preferences, loading, endpoint]);
+
+  return { messages, draft, loading, send, stop, reset };
 }
+
+export default useStylistChat;
+
