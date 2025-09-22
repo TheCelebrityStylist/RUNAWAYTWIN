@@ -3,11 +3,9 @@ import { NextRequest } from "next/server";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic"; // prevent static optimization; required for reliable streaming
+export const dynamic = "force-dynamic"; // critical for SSE reliability
 
-/* --------------------------------
-   Types
-----------------------------------*/
+/* ---------- Types ---------- */
 type Role = "system" | "user" | "assistant";
 type ChatMessage = { role: Role; content: string };
 type Prefs = {
@@ -16,10 +14,10 @@ type Prefs = {
   sizeBottom?: string;
   sizeDress?: string;
   sizeShoe?: string;
-  bodyType?: string; // "pear" | "apple" | "hourglass" | "rectangle" | etc.
+  bodyType?: string;
   budget?: number;
-  country?: string; // "US", "NL", ...
-  currency?: string; // "EUR", "USD"
+  country?: string;
+  currency?: string;
   styleKeywords?: string;
   heightCm?: number;
   weightKg?: number;
@@ -36,19 +34,12 @@ type Product = {
   availability?: string | null;
 };
 
+/* ---------- SSE helpers ---------- */
 const TE = new TextEncoder();
 const sse = (evt: any) => TE.encode(`data: ${JSON.stringify(evt)}\n\n`);
 const HEARTBEAT_MS = 10_000;
 
-/* --------------------------------
-   Small utils
-----------------------------------*/
-const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-const uniqBy = <T,>(arr: T[], key: (t: T) => string) => {
-  const seen = new Set<string>(); const out: T[] = [];
-  for (const x of arr) { const k = key(x); if (!k || seen.has(k)) continue; seen.add(k); out.push(x); }
-  return out;
-};
+/* ---------- Utils ---------- */
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) return (c as any[]).map(v => (typeof v === "string" ? v : v?.text ?? v?.content ?? "")).join(" ");
@@ -59,6 +50,13 @@ function lastUserText(msgs: ChatMessage[]) {
   for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === "user") return contentToText(msgs[i].content);
   return "";
 }
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+const uniqBy = <T,>(arr: T[], key: (t: T) => string) => {
+  const seen = new Set<string>(); const out: T[] = [];
+  for (const x of arr) { const k = key(x); if (!k || seen.has(k)) continue; seen.add(k); out.push(x); }
+  return out;
+};
+function safeHost(u: string) { try { return new URL(u).hostname; } catch { return ""; } }
 function curFor(p: Prefs) { return p.currency || (p.country === "US" ? "USD" : "EUR"); }
 function prefsToSystem(p: Prefs) {
   const cur = curFor(p);
@@ -72,10 +70,8 @@ function prefsToSystem(p: Prefs) {
     `- Country: ${p.country ?? "-"}`,
     `- Currency: ${cur}`,
     `- Style Keywords: ${p.styleKeywords ?? "-"}`,
-    `Always tailor silhouette (rise, drape, neckline, hem, fabrication, proportion) to flatter body type. Respect budget.`,
   ].join("\n");
 }
-function safeHost(u: string) { try { return new URL(u).hostname; } catch { return ""; } }
 function withTimeout<T>(p: Promise<T>, ms: number, label = "timeout"): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(label)), ms);
@@ -84,20 +80,16 @@ function withTimeout<T>(p: Promise<T>, ms: number, label = "timeout"): Promise<T
   });
 }
 
-/* --------------------------------
-   Demo catalog (guaranteed fallback)
-----------------------------------*/
+/* ---------- Fallback catalog (guarantees links) ---------- */
 const DEMO: Product[] = [
   { id: "the-row-tee", brand: "The Row", title: "Wesler Merino T-Shirt", price: 590, currency: "EUR", retailer: "Matches", url: "https://www.matchesfashion.com/products/the-row-wesler-merino-t-shirt", imageUrl: "https://assets.runwaytwin-demo.com/the-row-wesler.jpg", availability: "InStock" },
   { id: "levis-501", brand: "Levi's", title: "501 Original Straight Jeans", price: 110, currency: "EUR", retailer: "Levi.com EU", url: "https://www.levi.com/NL/en_NL/search?q=501", imageUrl: "https://assets.runwaytwin-demo.com/levis-501.jpg", availability: "InStock" },
   { id: "mango-trench", brand: "Mango", title: "Classic Cotton Trench Coat", price: 119.99, currency: "EUR", retailer: "Mango", url: "https://shop.mango.com/nl/dames/jassen/trench-classic", imageUrl: "https://assets.runwaytwin-demo.com/mango-trench.jpg", availability: "InStock" },
   { id: "ganni-tote", brand: "GANNI", title: "Banner Leather Tote", price: 295, currency: "EUR", retailer: "Ganni", url: "https://www.ganni.com", imageUrl: null, availability: "InStock" },
-  { id: "gh-ballet", brand: "Giorgio Armani", title: "Pointed Leather Flats", price: 430, currency: "EUR", retailer: "Armani", url: "https://www.armani.com", imageUrl: null, availability: "InStock" },
+  { id: "armani-flats", brand: "Giorgio Armani", title: "Pointed Leather Flats", price: 430, currency: "EUR", retailer: "Armani", url: "https://www.armani.com", imageUrl: null, availability: "InStock" },
 ];
 
-/* --------------------------------
-   Optional: Tavily + SerpAPI
-----------------------------------*/
+/* ---------- Optional search (Tavily + SerpAPI + your tools) ---------- */
 function safeJSON(s: string) { try { return JSON.parse(s); } catch { return null; } }
 function extractJsonLd(html: string): any[] {
   const out: any[] = []; const rx = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
@@ -183,14 +175,14 @@ async function serpSearch(query: string, country?: string, limit = 8): Promise<P
     const price =
       typeof it.extracted_price === "number" ? it.extracted_price :
       typeof it.price === "string" ? Number((it.price.match(/[\d,.]+/) || [""])[0].replace(/\./g, "").replace(",", ".")) || null : null;
-    const priceText = typeof it.price === "string" ? it.price : "";
-    const curGuess = priceText.includes("$") ? "USD" : priceText.includes("£") ? "GBP" : priceText.includes("€") ? "EUR" : null;
+    const txt = typeof it.price === "string" ? it.price : "";
+    const cur = txt.includes("$") ? "USD" : txt.includes("£") ? "GBP" : txt.includes("€") ? "EUR" : null;
     out.push({
       id: it.product_id || it.link || crypto.randomUUID(),
       brand: String(it.source || ""),
       title: String(it.title || ""),
       price: price ?? null,
-      currency: curGuess,
+      currency: cur,
       retailer: it.source || null,
       url: String(it.link || it.product_link || ""),
       imageUrl: it.thumbnail || it.product_photos?.[0] || null,
@@ -198,183 +190,107 @@ async function serpSearch(query: string, country?: string, limit = 8): Promise<P
     });
     if (out.length >= limit) break;
   }
-  return uniqBy(out, (p) => p.url);
+  return uniqBy(out, p => p.url);
 }
 
-/* --------------------------------
-   Deterministic stylist (no-LLM fallback)
-----------------------------------*/
+/* ---------- Deterministic premium composer (no-LLM fallback) ---------- */
 type Outfit = {
-  top?: Product;
-  bottom?: Product;
-  dress?: Product;
-  outer?: Product;
-  shoes?: Product;
-  bag?: Product;
+  top?: Product; bottom?: Product; dress?: Product; outer?: Product; shoes?: Product; bag?: Product;
   accessories: Product[];
   alternates: { shoes?: Product[]; outer?: Product[] };
   allUsed: Product[];
 };
-
-function choose<T>(arr: T[], n: number) {
-  const out: T[] = [];
-  for (const x of arr) { if (out.length >= n) break; out.push(x); }
-  return out;
-}
-function byCategoryName(ps: Product[], name: string) {
-  const rx = new RegExp(name, "i");
-  return ps.filter(p => rx.test(p.title) || rx.test(p.brand) || rx.test(p.url));
-}
+function byName(ps: Product[], rx: RegExp) { return ps.filter(p => rx.test(p.title) || rx.test(p.brand) || rx.test(p.url)); }
 function composeOutfit(products: Product[], prefs: Prefs): Outfit {
-  const cur = curFor(prefs);
-  const tops = byCategoryName(products, "tee|shirt|blouse|knit|sweater");
-  const jeans = byCategoryName(products, "jean|trouser|pant");
-  const dress = byCategoryName(products, "dress");
-  const outer = byCategoryName(products, "coat|trench|blazer|jacket");
-  const shoes = byCategoryName(products, "loafer|boot|sneaker|flat|heel|sand");
-  const bags  = byCategoryName(products, "bag|tote|shoulder|cross");
+  const tops = byName(products, /tee|shirt|blouse|knit|sweater/i);
+  const bottoms = byName(products, /jean|trouser|pant/i);
+  const dresses = byName(products, /dress/i);
+  const outers = byName(products, /coat|trench|blazer|jacket/i);
+  const shoes  = byName(products, /loafer|boot|sneaker|flat|heel|sand/i);
+  const bags   = byName(products, /bag|tote|shoulder|cross/i);
 
   const pick = <T,>(arr: T[]) => arr[0];
-  const o: Outfit = {
-    top: pick(tops) || pick(products),
-    bottom: pick(jeans),
-    dress: pick(dress),
-    outer: pick(outer),
-    shoes: pick(shoes),
-    bag: pick(bags),
+  const out: Outfit = {
+    top: pick(tops) || products[0],
+    bottom: pick(bottoms),
+    dress: pick(dresses),
+    outer: pick(outers) || products[1],
+    shoes: pick(shoes) || products[2],
+    bag: pick(bags) || products[3],
     accessories: [],
-    alternates: { shoes: choose(shoes.slice(1), 2), outer: choose(outer.slice(1), 2) },
+    alternates: { shoes: shoes.slice(1, 3), outer: outers.slice(1, 3) },
     allUsed: [],
   };
 
-  // pick either dress or top+bottom:
-  if (o.dress && (!o.top || !o.bottom)) {
-    o.top = undefined; o.bottom = undefined;
-  } else {
-    o.dress = undefined;
-  }
+  // choose dress OR top+bottom
+  if (out.dress && (!out.top || !out.bottom)) { out.top = undefined; out.bottom = undefined; } else { out.dress = undefined; }
+  // fill blanks with any remaining
+  const any = (skip: Product[] = []) => products.find(p => !skip.includes(p));
+  if (!out.top) out.top = any()!;
+  if (!out.bottom && !out.dress) out.bottom = any([out.top!])!;
+  if (!out.outer) out.outer = any([out.top!, out.bottom!])!;
+  if (!out.shoes) out.shoes = any([out.top!, out.bottom!, out.outer!])!;
+  if (!out.bag) out.bag = any([out.top!, out.bottom!, out.outer!, out.shoes!])!;
 
-  // fallback fill
-  const fill = () => {
-    const any = (skip?: Product) => products.find(p => p !== skip);
-    if (!o.top) o.top = any();
-    if (!o.bottom && !o.dress) o.bottom = any(o.top!);
-    if (!o.outer) o.outer = any(o.top!);
-    if (!o.shoes) o.shoes = shoes[0] || any(o.outer!);
-    if (!o.bag) o.bag = bags[0] || any(o.shoes!);
-  };
-  fill();
-
-  o.allUsed = [o.top, o.bottom, o.dress, o.outer, o.shoes, o.bag, ...o.accessories]
-    .filter(Boolean) as Product[];
-  // normalize currency
-  o.allUsed.forEach(p => { if (!p.currency) p.currency = cur; });
-
-  return o;
+  out.allUsed = [out.top, out.bottom, out.dress, out.outer, out.shoes, out.bag].filter(Boolean) as Product[];
+  const cur = curFor(prefs); out.allUsed.forEach(p => { if (!p.currency) p.currency = cur; });
+  return out;
 }
-
-function bodyTypeReasons(prefs: Prefs) {
-  const bt = (prefs.bodyType || "").toLowerCase();
-  const map: Record<string, string[]> = {
-    pear: [
-      "Structured shoulders broaden the frame.",
-      "High-rise, fluid bottoms lengthen the leg line.",
-      "Cropped or waist-defining layers spotlight your narrowest point.",
-    ],
-    apple: [
-      "V-necklines elongate; gentle drape skims the midsection.",
-      "Straight or slim bottoms keep lines clean.",
-      "Unstructured coats avoid bulk through the middle.",
-    ],
-    hourglass: [
-      "Waist-emphasis keeps proportions balanced.",
-      "Mid-rise/High-rise trousers follow natural curves.",
-      "Tailored outerwear preserves shape without adding volume.",
-    ],
-    rectangle: [
-      "Soft drape and peplum/waist detail create curve.",
-      "Wide-leg or tapered bottoms add shape contrast.",
-      "Layering at shoulders adds dimension.",
-    ],
+function bodyTypeReasons(bt?: string) {
+  const k = (bt || "").toLowerCase();
+  const m: Record<string, string[]> = {
+    pear: ["Structured shoulders broaden your frame.", "High-rise, fluid bottoms lengthen the leg.", "Waist emphasis keeps balance."],
+    apple: ["V-necklines elongate; gentle drape skims.", "Straight/slim bottoms keep lines clean.", "Unstructured coats avoid bulk at midsection."],
+    hourglass: ["Defined waist preserves proportion.", "Mid/high-rise follows curves.", "Tailored layers avoid extra volume."],
+    rectangle: ["Soft drape adds curve.", "Wide-leg or tapered bottoms shape contrast.", "Shoulder detail adds dimension."],
   };
-  return map[bt] || [
-    "Clean lines and considered drape keep the silhouette polished.",
-    "Proportions balance shoulder, waist, and hem elegantly.",
-  ];
+  return m[k] || ["Clean lines + considered drape keep the silhouette polished.", "Proportions balance shoulder, waist, and hem elegantly."];
 }
-
 function renderFinal(out: Outfit, prefs: Prefs, brief: string): string {
-  const cur = curFor(prefs);
-  const parts: string[] = [];
-  parts.push(`Absolutely—here’s a refined look tailored ${prefs.bodyType ? `for your ${prefs.bodyType.toLowerCase()} shape` : "to you"}${brief ? ` — ${brief}` : ""}:`);
-  parts.push("");
-  const line = (label: string, p?: Product) => {
-    if (!p) return;
-    parts.push(`- **${label}:** ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? cur} | ${p.retailer ?? safeHost(p.url)} | ${p.url}${p.imageUrl ? ` | ${p.imageUrl}` : ""}`);
-  };
+  const cur = curFor(prefs); const lines: string[] = [];
+  lines.push(`Absolutely—here’s a refined look tailored ${prefs.bodyType ? `for your ${prefs.bodyType.toLowerCase()} shape` : "to you"}${brief ? ` — ${brief}` : ""}:`, "");
+  const part = (label: string, p?: Product) => p && lines.push(`- **${label}:** ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? cur} | ${p.retailer ?? safeHost(p.url)} | ${p.url}${p.imageUrl ? ` | ${p.imageUrl}` : ""}`);
+  if (out.dress) part("Dress", out.dress); else { part("Top", out.top); part("Bottom", out.bottom); }
+  part("Outerwear", out.outer); part("Shoes", out.shoes); part("Bag", out.bag);
 
-  if (out.dress) line("Dress", out.dress);
-  else { line("Top", out.top!); line("Bottom", out.bottom!); }
-  line("Outerwear", out.outer!);
-  line("Shoes", out.shoes!);
-  line("Bag", out.bag!);
+  lines.push("", "**Why it flatters:**");
+  bodyTypeReasons(prefs.bodyType).forEach(r => lines.push(`- ${r}`));
 
-  // Body-type reasons
-  parts.push("");
-  parts.push("**Why it flatters:**");
-  bodyTypeReasons(prefs).forEach(r => parts.push(`- ${r}`));
-
-  // Budget + total
   const total = out.allUsed.reduce((s, p) => s + (typeof p.price === "number" ? p.price : 0), 0);
   if (total > 0) {
-    parts.push("");
-    parts.push(`**Approx total:** ~${Math.round(total)} ${cur}`);
-    if (prefs.budget && total > prefs.budget) {
-      parts.push(`**Save options:** swap outer/shoes for lower-priced alternates below to hit ~${prefs.budget} ${cur}.`);
-    }
+    lines.push("", `**Approx total:** ~${Math.round(total)} ${cur}`);
+    if (prefs.budget && total > prefs.budget) lines.push(`**Save options:** swap shoes/outer for lower-priced alternates below to hit ~${prefs.budget} ${cur}.`);
   }
 
-  // Alternates
-  parts.push("");
-  parts.push("**Alternates:**");
+  lines.push("", "**Alternates:**");
   if (out.alternates.shoes?.length) {
-    parts.push("- Shoes:");
-    out.alternates.shoes.forEach(a => parts.push(`  • ${a.brand} — ${a.title} | ${a.price ?? "?"} ${a.currency ?? cur} | ${a.retailer ?? safeHost(a.url)} | ${a.url}`));
-  } else {
-    parts.push("- Shoes: searching…");
-  }
+    lines.push("- Shoes:");
+    out.alternates.shoes.forEach(a => lines.push(`  • ${a.brand} — ${a.title} | ${a.price ?? "?"} ${a.currency ?? cur} | ${a.retailer ?? safeHost(a.url)} | ${a.url}`));
+  } else lines.push("- Shoes: searching…");
   if (out.alternates.outer?.length) {
-    parts.push("- Outerwear:");
-    out.alternates.outer.forEach(a => parts.push(`  • ${a.brand} — ${a.title} | ${a.price ?? "?"} ${a.currency ?? cur} | ${a.retailer ?? safeHost(a.url)} | ${a.url}`));
-  } else {
-    parts.push("- Outerwear: searching…");
-  }
+    lines.push("- Outerwear:");
+    out.alternates.outer.forEach(a => lines.push(`  • ${a.brand} — ${a.title} | ${a.price ?? "?"} ${a.currency ?? cur} | ${a.retailer ?? safeHost(a.url)} | ${a.url}`));
+  } else lines.push("- Outerwear: searching…");
 
-  // Capsule & Tips
-  parts.push("");
-  parts.push("**Capsule & Tips:**");
-  parts.push("- Remix the knit with tailored black trousers and loafers for office polish.");
-  parts.push("- Dress down the trench with a striped tee and sneakers on weekends.");
-  parts.push("- Tip: steam outerwear to sharpen the drape.");
-  parts.push("- Tip: keep hemlines just skimming the shoe for a long leg line.");
-
-  // Upsell
-  parts.push("");
-  parts.push("Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎");
-
-  return parts.join("\n");
+  lines.push("", "**Capsule & Tips:**",
+    "- Remix the knit with tailored black trousers + loafers for office polish.",
+    "- Dress down the trench with a striped tee + sneakers on weekends.",
+    "- Tip: steam outerwear to sharpen drape.",
+    "- Tip: keep hemlines skimming the shoe for a longer leg line.",
+    "",
+    "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎"
+  );
+  return lines.join("\n");
 }
 
-/* --------------------------------
-   Route: Guaranteed-response SSE
-----------------------------------*/
+/* ---------- Route ---------- */
 export async function POST(req: NextRequest) {
   let body: any = {}; try { body = await req.json(); } catch {}
-  const clientMessages: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
-  const preferences: Prefs = (body?.preferences || {}) as Prefs;
+  const msgs: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
+  const prefs: Prefs = (body?.preferences || {}) as Prefs;
 
-  // Try to load your internal tools (Awin/Amazon adapters) if present
-  let toolsSearch: null | ((p: { query: string; country: string; currency: string; limit: number; preferEU?: boolean }) => Promise<Product[]>) = null;
+  // Try to load your internal tools if present (Awin/Amazon adapters must export searchProducts)
+  let toolsSearch: null | ((p: { query: string; country: string; currency: string; limit: number }) => Promise<Product[]>) = null;
   try { const t1 = await import("../tools"); if (typeof t1?.searchProducts === "function") toolsSearch = t1.searchProducts as any; } catch {}
   if (!toolsSearch) { try { const t2 = await import("./tools"); if (typeof t2?.searchProducts === "function") toolsSearch = t2.searchProducts as any; } catch {} }
 
@@ -383,32 +299,28 @@ export async function POST(req: NextRequest) {
       const push = (evt: any) => controller.enqueue(sse(evt));
       const heart = setInterval(() => push({ type: "ping" }), HEARTBEAT_MS);
 
-      // Deadlines
-      const SEARCH_SOFT_MS = 4500; // show something by then
-      const SEARCH_HARD_MS = 6500; // never wait beyond this for search
+      const SEARCH_SOFT_MS = 4500;
+      const SEARCH_HARD_MS = 6500;
       const LIMIT = 10;
 
       try {
-        // 1) ready + optimistic greeting
         push({ type: "ready" });
-        const ask = lastUserText(clientMessages);
-        const cur = curFor(preferences);
-        const brief =
-          [preferences.styleKeywords, ask].filter(Boolean).join(" • ") +
-          (preferences.budget ? ` • budget ~${preferences.budget} ${cur}` : "");
-        const greet =
-          "Hi! I’m your celebrity stylist — I’ll assemble a head-to-toe look with real links, body-type fit notes, and capsule tips.";
-        push({ type: "assistant_draft_delta", data: `${greet}\n` });
+
+        // optimistic greeting
+        const ask = lastUserText(msgs);
+        const cur = curFor(prefs);
+        const brief = [prefs.styleKeywords, ask].filter(Boolean).join(" • ") + (prefs.budget ? ` • budget ~${prefs.budget} ${cur}` : "");
+        push({ type: "assistant_draft_delta", data: "Hi! I’m your celebrity stylist — crafting a head-to-toe look with real links, body-type fit notes, and capsule tips.\n" });
         if (brief.trim()) push({ type: "assistant_draft_delta", data: `Brief: ${brief}\n\n` });
 
-        // 2) parallel, time-boxed product search (never blocks final)
-        const q = [ask, preferences.styleKeywords].filter(Boolean).join(" | ").trim()
+        // search (parallel, non-blocking)
+        const q = [ask, prefs.styleKeywords].filter(Boolean).join(" | ").trim()
           || "elevated minimal trench knit wide-leg trouser leather loafer";
-        const country = preferences.country || "NL";
+        const country = prefs.country || "NL";
         const currency = cur;
 
         const jobs: Promise<Product[]>[] = [];
-        if (toolsSearch) jobs.push(withTimeout(toolsSearch({ query: q, country, currency, limit: LIMIT, preferEU: country !== "US" }), SEARCH_HARD_MS, "tools-timeout"));
+        if (toolsSearch) jobs.push(withTimeout(toolsSearch({ query: q, country, currency, limit: LIMIT }), SEARCH_HARD_MS, "tools-timeout"));
         jobs.push(withTimeout(serpSearch(q, country, LIMIT), SEARCH_HARD_MS, "serp-timeout"));
         jobs.push(withTimeout(tavilyAdapter(q, LIMIT), SEARCH_HARD_MS, "tavily-timeout"));
 
@@ -418,34 +330,28 @@ export async function POST(req: NextRequest) {
           for (const r of res) if (r.status === "fulfilled" && Array.isArray(r.value)) collected.push(...r.value);
         })();
 
-        // Soft deadline → stream preview and proceed
+        // soft deadline → show preview and proceed
         await Promise.race([collector, new Promise((r) => setTimeout(r, SEARCH_SOFT_MS))]);
         let products = collected.length ? collected : DEMO.slice(0, clamp(LIMIT, 4, 12));
         products = uniqBy(products, p => p.url).slice(0, LIMIT);
-
-        const preview = products.slice(0, 4).map(p => `• ${p.brand}: ${p.title}`).join("\n");
-        push({ type: "assistant_draft_delta", data: `Found options:\n${preview}\n\n` });
+        push({ type: "assistant_draft_delta", data: `Found options:\n${products.slice(0,4).map(p => `• ${p.brand}: ${p.title}`).join("\n")}\n\n` });
         push({ type: "assistant_draft_done" });
 
-        // Allow the rest of search to finish up to the hard deadline (without blocking final creation)
+        // allow the rest to finish up to hard deadline (does not block final)
         await Promise.race([collector, new Promise((r) => setTimeout(r, SEARCH_HARD_MS - SEARCH_SOFT_MS))]);
         if (collected.length) products = uniqBy(collected, p => p.url).slice(0, LIMIT);
 
-        // 3) Compose a premium outfit **without** relying on OpenAI
-        const outfit = composeOutfit(products, preferences);
-        const final = renderFinal(outfit, preferences, [preferences.styleKeywords, ask].filter(Boolean).join(" • "));
+        // premium deterministic compose
+        const outfit = composeOutfit(products, prefs);
+        const final = renderFinal(outfit, prefs, [prefs.styleKeywords, ask].filter(Boolean).join(" • "));
 
-        // 4) Emit final + done (guaranteed)
         push({ type: "assistant_final", data: final });
         push({ type: "done" });
-      } catch (err: any) {
-        console.error("[RunwayTwin route] fatal", err?.message || err);
-        // Even if something goes REALLY wrong, we still answer.
-        const cur = curFor(preferences);
-        const safe = DEMO.slice(0, 5);
-        const outfit = composeOutfit(safe, preferences);
-        const final = renderFinal(outfit, preferences, "");
-        push({ type: "assistant_final", data: final });
+      } catch (e) {
+        console.error("[RunwayTwin route] fatal:", e);
+        // even in catastrophic cases, answer with curated outfit
+        const out = composeOutfit(DEMO.slice(0, 5), {});
+        push({ type: "assistant_final", data: renderFinal(out, {}, "") });
         push({ type: "done" });
       } finally {
         clearInterval(heart);
