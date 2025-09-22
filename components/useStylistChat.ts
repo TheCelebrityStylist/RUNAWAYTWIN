@@ -8,8 +8,9 @@ export type Msg = { role: "user" | "assistant" | "system"; content: string };
 
 /**
  * Preferences shared with the API on every turn.
- * Keep budget as a STRING (e.g. "€300–€600") to match your UI.
- * If you later want numeric math, you can parse this on the server.
+ * Notes:
+ * - budget stays STRING like "€300–€600"
+ * - styleKeywords can be string OR string[] (panel often emits string[])
  */
 export type Prefs = {
   gender?: string;
@@ -18,17 +19,17 @@ export type Prefs = {
   sizeDress?: string;
   sizeShoe?: string;
   bodyType?: string;
-  budget?: string;           // <- string like "€300–€600"
+  budget?: string;                  // e.g. "€300–€600"
   country?: string;
-  currency?: string;         // e.g. "EUR", "USD"
-  styleKeywords?: string;    // comma-separated
+  currency?: string;                // e.g. "EUR"
+  styleKeywords?: string | string[]; // <— accept both
   heightCm?: number | string;
   weightKg?: number | string;
 };
 
 type UseChatState = {
   messages: Msg[];
-  draft: string;          // reserved for streaming; empty in this non-stream variant
+  draft: string;     // reserved for streaming; empty in this non-stream variant
   loading: boolean;
   send: (text: string) => Promise<void>;
   stop: () => void;
@@ -66,10 +67,21 @@ export function useStylistChat(
     setMessages(seed ?? []);
   }, [stop]);
 
-  // Shallow sanitize: trim strings and drop empty values before sending
+  // Shallow sanitize: trim strings, drop empties, and normalize styleKeywords
   function sanitizePrefs(p: Prefs): Prefs {
     const out: Prefs = {};
     for (const [k, v] of Object.entries(p || {})) {
+      if (k === "styleKeywords") {
+        if (Array.isArray(v)) {
+          const joined = v.map(s => String(s).trim()).filter(Boolean).join(", ");
+          if (joined) (out as any)[k] = joined;      // send as string
+        } else if (typeof v === "string") {
+          const t = v.trim();
+          if (t) (out as any)[k] = t;
+        }
+        continue;
+      }
+
       if (typeof v === "string") {
         const t = v.trim();
         if (t) (out as any)[k] = t;
@@ -100,7 +112,7 @@ export function useStylistChat(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: next,
-          preferences: sanitizePrefs(preferences), // <- budget stays string here
+          preferences: sanitizePrefs(preferences),
         }),
       });
 
