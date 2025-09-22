@@ -17,7 +17,11 @@ function initialsFrom(email: string | null | undefined) {
 const actionButtonBase =
   "w-full rounded-full border border-[var(--rt-border)] bg-white px-4 py-2 text-sm font-medium text-[var(--rt-charcoal)] transition hover:border-[var(--rt-charcoal)]/40 disabled:cursor-not-allowed disabled:opacity-70";
 
-export default function AccountMenu() {
+type Props = {
+  variant?: "header" | "panel";
+};
+
+export default function AccountMenu({ variant = "panel" }: Props) {
   const { user, refresh, setUser } = useAccount();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("register");
@@ -107,21 +111,23 @@ export default function AccountMenu() {
   };
 
   if (!user) {
+    const wrapperClass =
+      variant === "header"
+        ? "flex items-center gap-3"
+        : "flex flex-wrap items-center gap-2";
+    const signInClass =
+      variant === "header"
+        ? "text-sm font-medium text-[var(--rt-charcoal)] transition hover:text-black"
+        : "btn-outline h-10 px-4 text-sm";
+    const joinClass = variant === "header" ? "btn h-10 px-4 text-sm" : "btn h-10 px-5 text-sm";
+
     return (
       <>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="btn-outline h-10 px-4 text-sm"
-            onClick={() => openDialog("login")}
-          >
+        <div className={wrapperClass}>
+          <button type="button" className={signInClass} onClick={() => openDialog("login")}>
             Sign in
           </button>
-          <button
-            type="button"
-            className="btn h-10 px-5 text-sm"
-            onClick={() => openDialog("register")}
-          >
+          <button type="button" className={joinClass} onClick={() => openDialog("register")}>
             Join free
           </button>
         </div>
@@ -132,23 +138,36 @@ export default function AccountMenu() {
 
   const initials = initialsFrom(user.email);
 
+  const triggerClass =
+    variant === "header"
+      ? "flex items-center gap-2 rounded-full border border-[var(--rt-border)] bg-white/80 px-2.5 py-1.5 text-sm font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:border-[var(--rt-charcoal)]/35"
+      : "flex items-center gap-2 rounded-full border border-[var(--rt-border)] bg-white/90 px-3 py-2 text-sm font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:border-[var(--rt-charcoal)]/35";
+
+  const avatarClass =
+    "grid h-8 w-8 place-items-center rounded-full bg-[var(--rt-charcoal)] text-[11px] font-semibold uppercase tracking-wide text-white";
+
   return (
     <>
       <div className="relative">
         <button
           ref={buttonRef}
           type="button"
-          className="flex items-center gap-2 rounded-full border border-[var(--rt-border)] bg-white/90 px-3 py-2 text-sm font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:border-[var(--rt-charcoal)]/35"
+          className={triggerClass}
           onClick={() => setPanelOpen((prev) => !prev)}
           aria-expanded={panelOpen}
         >
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--rt-charcoal)] text-[11px] font-semibold uppercase tracking-wide text-white">
-            {initials}
-          </span>
-          <span className="hidden text-left leading-tight sm:block">
-            <span className="block text-[11px] uppercase tracking-[0.2em] text-[var(--rt-muted)]">{planLabel}</span>
-            <span className="block text-[13px] font-semibold text-[var(--rt-charcoal)]">{looksText}</span>
-          </span>
+          <span className={avatarClass}>{initials}</span>
+          {variant !== "header" && (
+            <span className="hidden text-left leading-tight sm:block">
+              <span className="block text-[11px] uppercase tracking-[0.2em] text-[var(--rt-muted)]">{planLabel}</span>
+              <span className="block text-[13px] font-semibold text-[var(--rt-charcoal)]">{looksText}</span>
+            </span>
+          )}
+          {variant === "header" && (
+            <span className="hidden text-left text-[12px] font-medium text-[var(--rt-muted)] sm:block">
+              {planLabel}
+            </span>
+          )}
         </button>
 
         {panelOpen && (

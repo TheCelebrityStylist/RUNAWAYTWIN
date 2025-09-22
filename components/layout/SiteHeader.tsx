@@ -77,14 +77,8 @@ export default function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <AccountMenu />
-          <Link
-            href="/stylist"
-            className="btn h-10 px-5 text-sm"
-          >
-            Try the stylist
-          </Link>
+        <div className="hidden items-center gap-4 md:flex">
+          <AccountMenu variant="header" />
         </div>
 
         <button
