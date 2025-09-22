@@ -11,7 +11,7 @@ type Prefs = {
   sizeDress?: string;
   sizeShoe?: string;
   bodyType?: string;
-  budget?: number;
+  budget?: string;   // <-- change from number to string
   country?: string;
   currency?: string;
   styleKeywords?: string;
