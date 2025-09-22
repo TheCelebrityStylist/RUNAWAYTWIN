@@ -18,14 +18,17 @@ export default function SiteHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const closeMenu = () => setMenuOpen(false);
+  const toggleMenu = () => setMenuOpen((open) => !open);
+
   useEffect(() => {
-    setMenuOpen(false);
+    closeMenu();
   }, [pathname]);
 
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 768) {
-        setMenuOpen(false);
+        closeMenu();
       }
     };
     window.addEventListener("resize", onResize);
@@ -36,7 +39,7 @@ export default function SiteHeader() {
     if (!menuOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setMenuOpen(false);
+        closeMenu();
       }
     };
     document.addEventListener("keydown", onKey);
@@ -58,9 +61,9 @@ export default function SiteHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--rt-border)] bg-[var(--rt-ivory)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--rt-ivory)]/85">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-40 border-b border-[var(--rt-border)]/70 bg-[var(--rt-ivory)]/90 backdrop-blur supports-[backdrop-filter]:bg-[var(--rt-ivory)]/80">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:gap-6 md:px-6">
+        <div className="flex items-center gap-3 md:gap-4">
           <Link
             href="/"
             className="text-[20px] font-semibold tracking-tight text-[var(--rt-charcoal)] transition hover:opacity-80"
@@ -74,14 +77,14 @@ export default function SiteHeader() {
         </div>
 
         <nav
-          className="hidden items-center gap-2 text-[12px] font-medium text-[var(--rt-muted)] md:flex"
+          className="hidden items-center gap-2.5 text-[12px] font-medium text-[var(--rt-muted)] md:flex"
           aria-label="Primary"
         >
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`inline-flex items-center rounded-full border px-3 py-1.5 transition ${
+              className={`inline-flex items-center rounded-full border px-4 py-1.5 transition ${
                 item.active
                   ? "border-[var(--rt-charcoal)] bg-[var(--rt-charcoal)] text-white shadow-sm"
                   : "border-transparent hover:border-[var(--rt-border)] hover:bg-white/80 hover:text-[var(--rt-charcoal)]"
@@ -95,25 +98,32 @@ export default function SiteHeader() {
         <div className="hidden items-center gap-3 md:flex">
           <Link
             href="/stylist"
-            className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white px-3.5 py-1.5 text-[12px] font-semibold text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/40 hover:shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
+            className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white px-4 py-1.5 text-[12px] font-semibold text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/40 hover:shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
           >
             ✨ Try the stylist
           </Link>
-          <AccountMenu variant="header" onRequestAuth={() => setMenuOpen(false)} />
+          <AccountMenu variant="header" onRequestAuth={closeMenu} />
         </div>
 
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] shadow-sm transition hover:border-[var(--rt-charcoal)]/35 md:hidden"
-          onClick={() => setMenuOpen(true)}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/35 md:hidden"
+          onClick={toggleMenu}
           aria-expanded={menuOpen}
           aria-label="Open navigation"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-            <path d="M4 6h16" />
-            <path d="M4 12h16" />
-            <path d="M4 18h16" />
-          </svg>
+          {menuOpen ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M6 6l12 12" />
+              <path d="M18 6l-12 12" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h16" />
+            </svg>
+          )}
         </button>
       </div>
 
@@ -122,7 +132,7 @@ export default function SiteHeader() {
           <div
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
             aria-hidden="true"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
           />
           <div
             className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xs flex-col overflow-hidden border-l border-[var(--rt-border)] bg-[var(--rt-ivory)]/95 shadow-[0_30px_70px_rgba(15,23,42,0.26)] backdrop-blur"
@@ -137,7 +147,7 @@ export default function SiteHeader() {
               <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] shadow-sm"
-                onClick={() => setMenuOpen(false)}
+                onClick={closeMenu}
                 aria-label="Close navigation"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -158,7 +168,7 @@ export default function SiteHeader() {
                           ? "border-[var(--rt-charcoal)] bg-[var(--rt-charcoal)] text-white shadow-sm"
                           : "border-[var(--rt-border)] bg-white/95 text-[var(--rt-charcoal)] hover:border-[var(--rt-charcoal)]/40"
                       }`}
-                      onClick={() => setMenuOpen(false)}
+                      onClick={closeMenu}
                     >
                       {item.label}
                     </Link>
@@ -171,7 +181,7 @@ export default function SiteHeader() {
               <Link
                 href="/stylist"
                 className="btn w-full justify-center"
-                onClick={() => setMenuOpen(false)}
+                onClick={closeMenu}
               >
                 ✨ Try the stylist
               </Link>
@@ -182,9 +192,9 @@ export default function SiteHeader() {
                 </p>
                 <div className="mt-4">
                   <AccountMenu
-                    onRequestAuth={() => setMenuOpen(false)}
+                    onRequestAuth={closeMenu}
                     onPanelOpenChange={(open) => {
-                      if (open) setMenuOpen(false);
+                      if (open) closeMenu();
                     }}
                   />
                 </div>
