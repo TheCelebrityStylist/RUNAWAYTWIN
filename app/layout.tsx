@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountProvider } from "@/components/account/AccountProvider";
 import SiteHeader from "@/components/layout/SiteHeader";
+import JsonLd from "@/components/seo/JsonLd";
 import { getSession } from "@/lib/auth/session";
 import { getUserById, serializeUser } from "@/lib/storage/user";
 import type { AccountUser } from "@/lib/auth/types";
@@ -26,6 +27,55 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.ico" },
 };
 
+const BASE_URL = "https://runwaytwin.vercel.app";
+const SOCIAL_PROFILES = [
+  "https://www.instagram.com/yourhandle",
+  "https://www.tiktok.com/@yourhandle",
+];
+const SITE_NAV_LINKS = [
+  { name: "Stylist", path: "/stylist" },
+  { name: "Pricing", path: "/pricing" },
+  { name: "Journal", path: "/blog" },
+  { name: "About", path: "/about" },
+  { name: "Contact", path: "/contact" },
+];
+
+const GLOBAL_JSON_LD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "RunwayTwin",
+    url: BASE_URL,
+    logo: `${BASE_URL}/icon.png`,
+    sameAs: SOCIAL_PROFILES,
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        contactType: "customer service",
+        email: "support@runwaytwin.app",
+        availableLanguage: ["en"],
+      },
+    ],
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "RunwayTwin",
+    url: BASE_URL,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${BASE_URL}/stylist?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  },
+  ...SITE_NAV_LINKS.map((link) => ({
+    "@context": "https://schema.org",
+    "@type": "SiteNavigationElement",
+    name: link.name,
+    url: `${BASE_URL}${link.path}`,
+  })),
+];
+
 async function loadInitialUser(): Promise<AccountUser | null> {
   try {
     const session = await getSession();
@@ -46,6 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className="scroll-smooth">
       <body className="min-h-screen bg-[#FAF9F6] text-neutral-900 antialiased">
         <AccountProvider initialUser={initialUser}>
+          <JsonLd id="runwaytwin-global-schema" data={GLOBAL_JSON_LD} />
           {/* Skip link (a11y) */}
           <a
             href="#content"

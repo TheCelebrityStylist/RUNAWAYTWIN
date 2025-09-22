@@ -151,23 +151,6 @@ export default function Page() {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
-            "@type": "WebSite",
-            name: "RunwayTwin",
-            url: "https://runwaytwin.vercel.app/",
-            potentialAction: {
-              "@type": "SearchAction",
-              target:
-                "https://runwaytwin.vercel.app/stylist?q={search_term_string}",
-              "query-input": "required name=search_term_string",
-            },
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
             "@type": "Product",
             name: "RunwayTwin Premium Stylist",
             description:
@@ -186,21 +169,6 @@ export default function Page() {
                 priceCurrency: "EUR",
                 url: "https://runwaytwin.vercel.app/pricing#one-off",
               },
-            ],
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            name: "RunwayTwin",
-            url: "https://runwaytwin.vercel.app/",
-            sameAs: [
-              "https://www.instagram.com/yourhandle",
-              "https://www.tiktok.com/@yourhandle",
             ],
           }),
         }}
