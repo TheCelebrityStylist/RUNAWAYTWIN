@@ -27,7 +27,7 @@ export default function SiteHeader() {
 
   useEffect(() => {
     const onResize = () => {
-      if (window.innerWidth >= 768) {
+      if (window.innerWidth >= 1024) {
         closeMenu();
       }
     };
@@ -62,8 +62,8 @@ export default function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--rt-border)]/70 bg-[var(--rt-ivory)]/90 backdrop-blur supports-[backdrop-filter]:bg-[var(--rt-ivory)]/80">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:gap-6 md:px-6">
-        <div className="flex items-center gap-3 md:gap-4">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <div className="flex flex-1 items-center gap-3 md:gap-4">
           <Link
             href="/"
             className="text-[20px] font-semibold tracking-tight text-[var(--rt-charcoal)] transition hover:opacity-80"
@@ -77,7 +77,7 @@ export default function SiteHeader() {
         </div>
 
         <nav
-          className="hidden items-center gap-2.5 text-[12px] font-medium text-[var(--rt-muted)] md:flex"
+          className="hidden items-center gap-2.5 text-[12px] font-medium text-[var(--rt-muted)] lg:flex"
           aria-label="Primary"
         >
           {navItems.map((item) => (
@@ -95,7 +95,7 @@ export default function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           <Link
             href="/stylist"
             className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white px-4 py-1.5 text-[12px] font-semibold text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/40 hover:shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
@@ -105,30 +105,38 @@ export default function SiteHeader() {
           <AccountMenu variant="header" onRequestAuth={closeMenu} />
         </div>
 
-        <button
-          type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/35 md:hidden"
-          onClick={toggleMenu}
-          aria-expanded={menuOpen}
-          aria-label="Open navigation"
-        >
-          {menuOpen ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M6 6l12 12" />
-              <path d="M18 6l-12 12" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M4 6h16" />
-              <path d="M4 12h16" />
-              <path d="M4 18h16" />
-            </svg>
-          )}
-        </button>
+        <div className="flex shrink-0 items-center gap-2 lg:hidden">
+          <Link
+            href="/stylist"
+            className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white px-3.5 py-2 text-[12px] font-semibold text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/35 hover:shadow-[0_10px_24px_rgba(15,23,42,0.14)]"
+          >
+            ✨ Try it
+          </Link>
+          <button
+            type="button"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/35"
+            onClick={toggleMenu}
+            aria-expanded={menuOpen}
+            aria-label="Toggle navigation"
+          >
+            {menuOpen ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M6 6l12 12" />
+                <path d="M18 6l-12 12" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M4 6h16" />
+                <path d="M4 12h16" />
+                <path d="M4 18h16" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       {menuOpen && (
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <div
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
             aria-hidden="true"
