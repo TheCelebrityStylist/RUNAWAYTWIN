@@ -4,15 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import AccountMenu from "@/components/account/AccountMenu";
+import { PRIMARY_NAV_LINKS, SITE_TAGLINE } from "@/lib/seo/constants";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Home" },
-  { href: "/stylist", label: "Stylist" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/blog", label: "Journal" },
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
-];
+const NAV_ITEMS = PRIMARY_NAV_LINKS.map((link) => ({ href: link.path, label: link.name }));
 
 export default function SiteHeader() {
   const pathname = usePathname();
@@ -72,7 +66,7 @@ export default function SiteHeader() {
             RunwayTwin
           </Link>
           <span className="hidden text-[11px] font-medium uppercase tracking-[0.32em] text-[var(--rt-muted)] sm:inline">
-            AI Stylist Concierge
+            {SITE_TAGLINE}
           </span>
         </div>
 

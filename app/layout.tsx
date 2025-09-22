@@ -5,8 +5,10 @@ import { AccountProvider } from "@/components/account/AccountProvider";
 import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/seo/JsonLd";
 import { getSession } from "@/lib/auth/session";
-import { getUserById, serializeUser } from "@/lib/storage/user";
 import type { AccountUser } from "@/lib/auth/types";
+import { CORE_KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo/constants";
+import { GLOBAL_JSON_LD, buildKeywordRichJsonLd } from "@/lib/seo/jsonld";
+import { getUserById, serializeUser } from "@/lib/storage/user";
 
 export const dynamic = "force-dynamic";
 
@@ -14,67 +16,35 @@ export const dynamic = "force-dynamic";
    RunwayTwin — Root Layout (Global Header + Footer)
    ========================================================================= */
 
+const DEFAULT_TITLE = `${SITE_NAME} — AI Celebrity Stylist │ Editorial Looks, Body-Type Flattering, Budget-True`;
+const GLOBAL_SCHEMA = [...GLOBAL_JSON_LD, buildKeywordRichJsonLd()];
+
 export const metadata: Metadata = {
   title: {
-    default:
-      "RunwayTwin — AI Celebrity Stylist │ Editorial Looks, Body-Type Flattering, Budget-True",
-    template: "%s | RunwayTwin",
+    default: DEFAULT_TITLE,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "Turn celebrity inspiration into outfits you actually wear. Upload a celeb photo or name, set budget & occasion, and get an editorial-grade look — tailored to your body type with EU/US stock.",
-  metadataBase: new URL("https://runwaytwin.vercel.app"),
-  alternates: { canonical: "https://runwaytwin.vercel.app" },
+  description: SITE_DESCRIPTION,
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: SITE_URL },
+  keywords: [...CORE_KEYWORDS],
+  category: "Fashion",
+  openGraph: {
+    title: DEFAULT_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: DEFAULT_TITLE,
+    description: SITE_DESCRIPTION,
+    site: "@runwaytwin",
+  },
   icons: { icon: "/favicon.ico" },
 };
-
-const BASE_URL = "https://runwaytwin.vercel.app";
-const SOCIAL_PROFILES = [
-  "https://www.instagram.com/yourhandle",
-  "https://www.tiktok.com/@yourhandle",
-];
-const SITE_NAV_LINKS = [
-  { name: "Stylist", path: "/stylist" },
-  { name: "Pricing", path: "/pricing" },
-  { name: "Journal", path: "/blog" },
-  { name: "About", path: "/about" },
-  { name: "Contact", path: "/contact" },
-];
-
-const GLOBAL_JSON_LD = [
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "RunwayTwin",
-    url: BASE_URL,
-    logo: `${BASE_URL}/icon.png`,
-    sameAs: SOCIAL_PROFILES,
-    contactPoint: [
-      {
-        "@type": "ContactPoint",
-        contactType: "customer service",
-        email: "support@runwaytwin.app",
-        availableLanguage: ["en"],
-      },
-    ],
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "RunwayTwin",
-    url: BASE_URL,
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${BASE_URL}/stylist?q={search_term_string}`,
-      "query-input": "required name=search_term_string",
-    },
-  },
-  ...SITE_NAV_LINKS.map((link) => ({
-    "@context": "https://schema.org",
-    "@type": "SiteNavigationElement",
-    name: link.name,
-    url: `${BASE_URL}${link.path}`,
-  })),
-];
 
 async function loadInitialUser(): Promise<AccountUser | null> {
   try {
@@ -96,7 +66,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className="scroll-smooth">
       <body className="min-h-screen bg-[#FAF9F6] text-neutral-900 antialiased">
         <AccountProvider initialUser={initialUser}>
-          <JsonLd id="runwaytwin-global-schema" data={GLOBAL_JSON_LD} />
+          <JsonLd id="runwaytwin-global-schema" data={GLOBAL_SCHEMA} />
           {/* Skip link (a11y) */}
           <a
             href="#content"
