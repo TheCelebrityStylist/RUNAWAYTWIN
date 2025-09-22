@@ -1,139 +1,114 @@
-// components/StylistChat.tsx
+// FILE: components/StylistChat.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useStylistChat, Msg } from "./useStylistChat";
-import PreferencesPanel, { Prefs } from "./preferences/PreferencesPanel";
-import LookBuilder from "./look/LookBuilder";
+
+type Prefs = {
+  gender?: string;
+  sizeTop?: string;
+  sizeBottom?: string;
+  sizeDress?: string;
+  sizeShoe?: string;
+  bodyType?: string;
+  budget?: number;
+  country?: string;
+  currency?: string;
+  styleKeywords?: string;
+  heightCm?: number;
+  weightKg?: number;
+};
 
 type Props = { initialPreferences: Prefs };
 
-const QUICK = [
-  "Zendaya for a gala in Paris",
-  "Taylor Russell — gallery opening, rainy 16°C",
-  "Timothée Chalamet — smart casual date",
-  "Hailey Bieber — street style, under €300",
-];
-
 export default function StylistChat({ initialPreferences }: Props) {
-  const [prefs, setPrefs] = useState<Prefs>(initialPreferences);
-  const { messages, draft, send, loading } = useStylistChat("/api/chat");
+  const [prefs] = useState<Prefs>(initialPreferences || {});
   const [input, setInput] = useState("");
   const viewportRef = useRef<HTMLDivElement>(null);
-  const userScrolledUp = useRef(false);
 
-  const onScroll = () => {
-    if (!viewportRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = viewportRef.current;
-    userScrolledUp.current = scrollHeight - (scrollTop + clientHeight) > 80;
-  };
+  // ✅ pass preferences into the hook (send() then takes a string only)
+  const { messages, draft, send, loading } = useStylistChat("/api/chat", undefined, prefs);
 
-  const scrollToBottom = useCallback(() => {
-    if (!viewportRef.current || userScrolledUp.current) return;
-    viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
-  }, []);
+  const onSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!input.trim()) return;
+      send(input.trim()); // send expects a string
+      setInput("");
+    },
+    [input, send]
+  );
 
-  useEffect(() => { scrollToBottom(); }, [messages, draft, scrollToBottom]);
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    send({ text: input.trim(), preferences: prefs });
-    setInput("");
-  };
-
-  const combinedText = useMemo(() => {
-    const history = messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n\n");
-    return history + (draft ? "\n\n" + draft : "");
-  }, [messages, draft]);
+  const quicks = useMemo(
+    () => [
+      "Zendaya for a gala in Paris",
+      "Taylor Russell — gallery opening, rainy 16°C",
+      "Timothée Chalamet — smart casual date",
+      "Hailey Bieber — street style, under €300",
+    ],
+    []
+  );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
-      {/* LEFT: Chat + Look */}
-      <div className="space-y-6">
-        <div className="card flex min-h-[60vh] max-h-[72vh] flex-col overflow-hidden">
-          <header className="px-5 pt-4 pb-2 border-b" style={{ borderColor: "var(--rt-border)" }}>
-            <h2 className="text-[15px] font-semibold tracking-tight">Talk to Your AI Stylist</h2>
-            <p className="mt-1 text-[13px]" style={{ color: "var(--rt-charcoal)" }}>
-              Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
-            </p>
+    <div className="card bg-[var(--rt-ivory)] border border-[var(--rt-border)]">
+      <div className="p-4">
+        <div className="text-sm text-[var(--rt-muted)] mb-3">
+          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
+        </div>
 
-            {/* Quick prompts */}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {QUICK.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  className="px-3 h-8 rounded-full border text-[12px]"
-                  style={{ borderColor: "var(--rt-border)", background: "white" }}
-                  onClick={() => send({ text: q, preferences: prefs })}
-                  disabled={loading}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </header>
-
-          <div ref={viewportRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {messages.map((m: Msg) => (
-              <div key={m.id} className={m.role === "user" ? "text-right" : "text-left"}>
-                <div
-                  className={
-                    "inline-block max-w-[80%] whitespace-pre-wrap leading-relaxed rounded-2xl px-4 py-3 " +
-                    (m.role === "user"
-                      ? "bg-black text-white"
-                      : m.role === "tool"
-                      ? "bg-[var(--rt-ivory)] text-[var(--rt-charcoal)]"
-                      : "border")
-                  }
-                  style={m.role === "assistant" ? { borderColor: "var(--rt-border)", background: "white" } : undefined}
-                >
-                  {m.content}
-                </div>
-              </div>
-            ))}
-
-            {!!draft && (
-              <div className="text-left">
-                <div className="inline-block max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-3 border"
-                     style={{ borderColor: "var(--rt-border)", background: "white" }}>
-                  {draft}<span className="ml-1 animate-pulse">▍</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <form className="px-3 py-3 border-t flex gap-2 items-center" style={{ borderColor: "var(--rt-border)" }} onSubmit={onSubmit}>
-            <input
-              className="flex-1 h-10 rounded-full border px-4 text-[14px] outline-none"
-              style={{ borderColor: "var(--rt-border)", background: "rgba(255,255,255,.9)" }}
-              placeholder="“Zendaya, Paris gallery opening, 18°C drizzle, smart-casual”"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {quicks.map((q) => (
+            <button
+              key={q}
+              type="button"
+              className="px-3 py-1 rounded-full border border-[var(--rt-border)] hover:bg-[var(--rt-cream)] transition"
+              onClick={() => send(q)}
               disabled={loading}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && input.trim()) {
-                  send({ text: input.trim(), preferences: prefs });
-                  setInput("");
-                }
-              }}
-            />
-            <button type="submit" disabled={loading || !input.trim()} className="btn" style={{ opacity: loading || !input.trim() ? 0.6 : 1 }}>
-              {loading ? "Styling…" : "Send"}
+            >
+              {q}
             </button>
-          </form>
+          ))}
         </div>
 
-        <LookBuilder text={combinedText} />
+        <div
+          ref={viewportRef}
+          className="space-y-3 max-h-[45vh] overflow-y-auto pr-1 mb-4"
+          role="log"
+          aria-live="polite"
+        >
+          {messages.map((m: Msg, i: number) => (
+            <div
+              key={i}
+              className={
+                m.role === "user"
+                  ? "self-end inline-block px-3 py-2 rounded-2xl bg-black text-white"
+                  : "inline-block px-3 py-2 rounded-2xl bg-[var(--rt-cream)]"
+              }
+            >
+              {m.content}
+            </div>
+          ))}
+          {draft ? (
+            <div className="inline-block px-3 py-2 rounded-2xl bg-[var(--rt-cream)] opacity-70">
+              {draft}
+            </div>
+          ) : null}
+        </div>
+
+        <form onSubmit={onSubmit} className="flex gap-2 items-center">
+          <input
+            className="flex-1 h-11 rounded-xl border border-[var(--rt-border)] px-3 bg-white"
+            placeholder='“Zendaya, Paris gallery opening, 18°C drizzle, smart-casual”'
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={loading}
+            aria-label="Message the stylist"
+          />
+          <button type="submit" className="btn h-11 px-5 rounded-xl" disabled={loading || !input.trim()}>
+            {loading ? "Styling…" : "Send"}
+          </button>
+        </form>
       </div>
-
-      {/* RIGHT: Preferences */}
-      <aside className="hidden lg:block">
-        <div className="sticky top-4">
-          <PreferencesPanel value={prefs} onChange={setPrefs} />
-        </div>
-      </aside>
     </div>
   );
 }
