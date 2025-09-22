@@ -6,7 +6,25 @@ import { useCallback, useRef, useState } from "react";
 /** Public message type used by the chat UI */
 export type Msg = { role: "user" | "assistant" | "system"; content: string };
 
-type Prefs = Record<string, unknown>;
+/**
+ * Preferences shared with the API on every turn.
+ * Keep budget as a STRING (e.g. "€300–€600") to match your UI.
+ * If you later want numeric math, you can parse this on the server.
+ */
+export type Prefs = {
+  gender?: string;
+  sizeTop?: string;
+  sizeBottom?: string;
+  sizeDress?: string;
+  sizeShoe?: string;
+  bodyType?: string;
+  budget?: string;           // <- string like "€300–€600"
+  country?: string;
+  currency?: string;         // e.g. "EUR", "USD"
+  styleKeywords?: string;    // comma-separated
+  heightCm?: number | string;
+  weightKg?: number | string;
+};
 
 type UseChatState = {
   messages: Msg[];
@@ -48,6 +66,20 @@ export function useStylistChat(
     setMessages(seed ?? []);
   }, [stop]);
 
+  // Shallow sanitize: trim strings and drop empty values before sending
+  function sanitizePrefs(p: Prefs): Prefs {
+    const out: Prefs = {};
+    for (const [k, v] of Object.entries(p || {})) {
+      if (typeof v === "string") {
+        const t = v.trim();
+        if (t) (out as any)[k] = t;
+      } else if (v !== undefined && v !== null && v !== "") {
+        (out as any)[k] = v;
+      }
+    }
+    return out;
+  }
+
   const send = useCallback(async (text: string): Promise<void> => {
     const prompt = (text || "").trim();
     if (!prompt || loading) return;
@@ -66,7 +98,10 @@ export function useStylistChat(
         method: "POST",
         signal: ctrl.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next, preferences }),
+        body: JSON.stringify({
+          messages: next,
+          preferences: sanitizePrefs(preferences), // <- budget stays string here
+        }),
       });
 
       // The API returns a plain text response (final assistant text)
@@ -93,4 +128,3 @@ export function useStylistChat(
 }
 
 export default useStylistChat;
-
