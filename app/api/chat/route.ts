@@ -17,7 +17,11 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
    Types
    ======================================= */
 type Role = "system" | "user" | "assistant";
-type ChatMessage = { role: Role; content: string | any[] };
+
+type ChatMessage = {
+  role: Role;
+  content: string | unknown[];
+};
 
 type Prefs = {
   gender?: string;
@@ -34,19 +38,28 @@ type Prefs = {
   weightKg?: number;
 };
 
+type Cand = { title: string; url: string };
+
 /* =======================================
    Helpers
    ======================================= */
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) {
-    return (c as any[])
-      .map((p) =>
-        typeof p === "string"
-          ? p
-          : (p && (p.text ?? p.content ?? p.value)) || ""
-      )
-      .filter(Boolean)
+    return (c as unknown[])
+      .map((p) => {
+        if (typeof p === "string") return p;
+        if (p && typeof p === "object") {
+          const obj = p as Record<string, unknown>;
+          const v =
+            (obj.text as string | undefined) ??
+            (obj.content as string | undefined) ??
+            (obj.value as string | undefined);
+          return typeof v === "string" ? v : "";
+        }
+        return "";
+      })
+      .filter((s) => !!s)
       .join(" ");
   }
   return "";
@@ -90,10 +103,9 @@ function sanitizeAnswer(txt: string) {
 /* =======================================
    Tavily web candidates (real links only)
    ======================================= */
-type Cand = { title: string; url: string };
-
 async function webSearchProducts(query: string): Promise<Cand[]> {
   if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
+
   const booster =
     " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR matchesfashion.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com OR levi.com)";
   const q = `${query}${booster}`;
@@ -112,12 +124,24 @@ async function webSearchProducts(query: string): Promise<Cand[]> {
   }).catch(() => null);
 
   if (!resp || !resp.ok) return [];
-  const data = await resp.json().catch(() => ({}));
-  const arr = Array.isArray(data?.results) ? data.results : [];
-  return arr
+
+  const data = (await resp.json().catch(() => ({}))) as {
+    results?: Array<{ title?: unknown; url?: unknown }>;
+  };
+
+  const raw: Array<{ title?: unknown; url?: unknown }> = Array.isArray(data.results)
+    ? data.results
+    : [];
+
+  const mapped: Cand[] = raw
     .slice(0, 8)
-    .map((r: any) => ({ title: r?.title || "", url: r?.url || "" }))
-    .filter((x) => x.title && x.url);
+    .map((r) => ({
+      title: typeof r?.title === "string" ? r.title : "",
+      url: typeof r?.url === "string" ? r.url : "",
+    }))
+    .filter((x: Cand): x is Cand => x.title.length > 0 && x.url.length > 0);
+
+  return mapped;
 }
 
 function candidatesBlock(cands: Cand[]) {
@@ -130,8 +154,7 @@ function candidatesBlock(cands: Cand[]) {
    Fallback answer (never invents links)
    ======================================= */
 function brandFromTitle(t: string) {
-  // crude brand guess: first 1–2 words before a dash or pipe
-  const h = t.split(/[–—\-|\u2013\u2014]/)[0].trim();
+  const h = t.split(/[–—\-|\u2013\u2014]/)[0]?.trim() || "";
   return h.split(/\s+/).slice(0, 2).join(" ");
 }
 
@@ -146,21 +169,21 @@ function retailerFromUrl(u: string) {
 function fallbackFromCandidates(cands: Cand[], prefs: Prefs, userText: string): string {
   const cur = currencyFor(prefs);
   const budget = prefs.budget ? `${prefs.budget} ${cur}` : `-`;
-  const pick = (i: number) => (cands[i] ? cands[i] : null);
+
+  const pick = (i: number): Cand | null => (i >= 0 && i < cands.length ? cands[i] : null);
 
   const top = pick(0);
   const bottom = pick(1);
   const outer = pick(2);
   const shoes = pick(3);
   const bag = pick(4);
+  const alShoes = pick(5);
+  const alOuter = pick(6);
 
   const line = (cat: string, c: Cand | null) =>
     c
       ? `- ${cat}: ${brandFromTitle(c.title)} — ${c.title} | ? ${cur} | ${retailerFromUrl(c.url)} | ${c.url}`
       : `- ${cat}: (closest match not linked)`;
-
-  const alShoes = pick(5);
-  const alOuter = pick(6);
 
   const alLine = (cat: string, c: Cand | null) =>
     c
@@ -206,7 +229,11 @@ export async function POST(req: NextRequest) {
       return new Response("Missing OPENAI_API_KEY.", { status: 500, headers });
     }
 
-    const body = await req.json().catch(() => ({}));
+    const body = (await req.json().catch(() => ({}))) as {
+      messages?: ChatMessage[];
+      preferences?: Prefs;
+    };
+
     const history: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
     const preferences: Prefs = (body?.preferences || {}) as Prefs;
 
@@ -218,7 +245,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch candidates with a hard timeout so we never hang
+    // Fetch candidates with a hard timeout for reliability
     let cands: Cand[] = [];
     if (ALLOW_WEB && process.env.TAVILY_API_KEY) {
       const q = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
@@ -238,11 +265,9 @@ export async function POST(req: NextRequest) {
     const cblock = candidatesBlock(cands);
     if (cblock) messages.push({ role: "system", content: cblock });
 
-    // keep convo; repeat latest user at end
     messages.push(...history);
     messages.push({ role: "user", content: userText });
 
-    // Ensure strings only go to OpenAI
     const strMessages = messages.map((m) => ({
       role: m.role,
       content: typeof m.content === "string" ? m.content : contentToText(m.content),
@@ -257,22 +282,21 @@ export async function POST(req: NextRequest) {
         stream: false,
       });
       text = completion?.choices?.[0]?.message?.content || "";
-    } catch (err) {
-      // swallow here; we’ll fall back below
+    } catch {
       text = "";
     }
 
     if (!text.trim()) {
-      // Fallback: deterministic, link-safe draft built from Tavily (never invents URLs)
+      // Fallback ensures the UI still shows a styled plan (never invents links)
       text = fallbackFromCandidates(cands, preferences, userText);
     }
 
     return new Response(sanitizeAnswer(text), { headers });
-  } catch (err: any) {
-    // Last-resort safe message (still 200 so the UI renders text)
-    const msg = `I hit a hiccup finishing the look. Here’s a quick starter you can use right now.\n\n(${String(
-      err?.message || err
-    )})`;
+  } catch (err: unknown) {
+    const msg =
+      "I hit a hiccup finishing the look. Here’s a quick starter you can use right now.\n\n(" +
+      String((err as Error)?.message || err) +
+      ")";
     return new Response(msg, { headers });
   }
 }
