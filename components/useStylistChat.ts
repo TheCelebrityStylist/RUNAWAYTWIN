@@ -4,7 +4,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useStylistChat, Msg } from "./useStylistChat";
 
-// Keep this in sync with the API route Prefs
+// Keep in sync with your API route's preferences shape
 type Prefs = {
   gender?: string;
   sizeTop?: string;
@@ -20,33 +20,26 @@ type Prefs = {
   weightKg?: number;
 };
 
-type Props = {
-  initialPreferences: Prefs;
-};
+type Props = { initialPreferences: Prefs };
 
 export default function StylistChat({ initialPreferences }: Props) {
-  const [prefs, setPrefs] = useState<Prefs>(initialPreferences || {});
+  const [prefs] = useState<Prefs>(initialPreferences || {});
   const [input, setInput] = useState("");
   const viewportRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Pass preferences into the hook here
+  // ✅ pass preferences into the hook (so send() accepts a string)
   const { messages, draft, send, loading } = useStylistChat("/api/chat", undefined, prefs);
-
-  const disabled = loading || !input.trim();
 
   const onSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       if (!input.trim()) return;
-
-      // ✅ send expects a string only
-      send(input.trim());
+      send(input.trim()); // ✅ string only
       setInput("");
     },
     [input, send]
   );
 
-  // Example quick chips (send as plain string)
   const quicks = useMemo(
     () => [
       "Zendaya for a gala in Paris",
@@ -64,7 +57,6 @@ export default function StylistChat({ initialPreferences }: Props) {
           Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
         </div>
 
-        {/* Quick chips */}
         <div className="flex flex-wrap gap-2 mb-4">
           {quicks.map((q) => (
             <button
@@ -73,14 +65,12 @@ export default function StylistChat({ initialPreferences }: Props) {
               className="px-3 py-1 rounded-full border border-[var(--rt-border)] hover:bg-[var(--rt-cream)] transition"
               onClick={() => send(q)}
               disabled={loading}
-              aria-label={`Send quick prompt: ${q}`}
             >
               {q}
             </button>
           ))}
         </div>
 
-        {/* Messages */}
         <div
           ref={viewportRef}
           className="space-y-3 max-h-[45vh] overflow-y-auto pr-1 mb-4"
@@ -99,8 +89,6 @@ export default function StylistChat({ initialPreferences }: Props) {
               {m.content}
             </div>
           ))}
-
-          {/* Non-streaming draft stays empty; if you enable streaming later, this will show partials */}
           {draft ? (
             <div className="inline-block px-3 py-2 rounded-2xl bg-[var(--rt-cream)] opacity-70">
               {draft}
@@ -108,7 +96,6 @@ export default function StylistChat({ initialPreferences }: Props) {
           ) : null}
         </div>
 
-        {/* Composer */}
         <form onSubmit={onSubmit} className="flex gap-2 items-center">
           <input
             className="flex-1 h-11 rounded-xl border border-[var(--rt-border)] px-3 bg-white"
@@ -118,21 +105,11 @@ export default function StylistChat({ initialPreferences }: Props) {
             disabled={loading}
             aria-label="Message the stylist"
           />
-          <button
-            type="submit"
-            className="btn h-11 px-5 rounded-xl"
-            disabled={disabled}
-            aria-busy={loading}
-          >
+          <button type="submit" className="btn h-11 px-5 rounded-xl" disabled={loading || !input.trim()}>
             {loading ? "Styling…" : "Send"}
           </button>
         </form>
       </div>
-
-      {/* Optional: small preferences panel hook-up.
-          If your project already renders a right-rail PreferencesPanel,
-          keep using that; just ensure it calls setPrefs(updatedPrefs). */}
-      {/* <PreferencesPanel value={prefs} onChange={setPrefs} /> */}
     </div>
   );
 }
