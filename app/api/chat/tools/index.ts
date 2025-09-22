@@ -147,7 +147,7 @@ async function extractPalette(args: PaletteArgs): Promise<PaletteResult> {
   };
 }
 
-async function convertFx(args: FxArgs): Promise<FxResult> {
+export async function fxConvert(args: FxArgs): Promise<FxResult> {
   const amount = Number(args.amount);
   if (!Number.isFinite(amount)) {
     throw new Error("Invalid amount");
@@ -265,7 +265,7 @@ export async function runTool(
     case "palette_from_image":
       return extractPalette(args);
     case "fx_convert":
-      return convertFx(args);
+      return fxConvert(args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
