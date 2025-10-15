@@ -1,7 +1,7 @@
 // app/stylist/page.tsx
 import type { Metadata } from "next";
 import StylistChat from "@/components/StylistChat";
-import type { Prefs } from "@/components/preferences/PreferencesPanel";
+import type { Preferences } from "@/lib/preferences/types";
 import JsonLd from "@/components/seo/JsonLd";
 import { CORE_KEYWORDS } from "@/lib/seo/constants";
 import { buildStylistJsonLd } from "@/lib/seo/jsonld";
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
 };
 
 export default function StylistPage() {
-  const initialPreferences: Prefs = {
+  const initialPreferences: Preferences = {
     gender: "female",
     sizes: { top: "M", bottom: "28", dress: "38", shoe: "39" },
     bodyType: "hourglass",
