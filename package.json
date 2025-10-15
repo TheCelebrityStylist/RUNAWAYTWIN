@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@upstash/redis": "^1.28.4",
+    "@upstash/redis": "^1.35.6",
     "cheerio": "^1.0.0-rc.12",
     "next": "14.2.5",
     "nodemailer": "^6.9.13",
