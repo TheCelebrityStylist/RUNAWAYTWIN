@@ -2,13 +2,16 @@ import type { JsonLdShape } from "@/components/seo/JsonLd";
 import {
   CONTACT_EMAIL,
   CORE_KEYWORDS,
+  DEFAULT_OG_IMAGE,
   PRIMARY_NAV_LINKS,
   PRODUCT_OFFERS,
+  SERVICE_REGIONS,
   SITE_DESCRIPTION,
   SITE_NAME,
   SITE_TAGLINE,
   SITE_URL,
   SOCIAL_PROFILES,
+  SPEAKABLE_SELECTORS,
 } from "./constants";
 import { absoluteUrl } from "./utils";
 
@@ -26,7 +29,10 @@ export const GLOBAL_JSON_LD: JsonLdShape[] = [
     url: SITE_URL,
     description: SITE_DESCRIPTION,
     logo: `${SITE_URL}/icon.png`,
+    image: DEFAULT_OG_IMAGE,
     sameAs: SOCIAL_PROFILES,
+    slogan: SITE_TAGLINE,
+    knowsAbout: CORE_KEYWORDS,
     contactPoint: [
       {
         "@type": "ContactPoint",
@@ -48,13 +54,18 @@ export const GLOBAL_JSON_LD: JsonLdShape[] = [
       target: `${SITE_URL}/stylist?q={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
   },
   {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
     name: `${SITE_NAME} Celebrity Stylist Concierge`,
     url: SITE_URL,
-    areaServed: ["US", "UK", "EU", "Canada", "Australia"],
+    areaServed: SERVICE_REGIONS,
     serviceType: "AI celebrity stylist consultation",
     description: SITE_DESCRIPTION,
     sameAs: SOCIAL_PROFILES,
@@ -97,6 +108,29 @@ export const GLOBAL_JSON_LD: JsonLdShape[] = [
     url: absoluteUrl(link.path),
     description: link.description,
   })),
+  {
+    "@context": "https://schema.org",
+    "@type": "ImageObject",
+    name: "RunwayTwin Open Graph",
+    url: DEFAULT_OG_IMAGE,
+    representativeOfPage: true,
+    contentUrl: DEFAULT_OG_IMAGE,
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Audience",
+    name: "Fashion-forward shoppers",
+    audienceType: ["fashion lovers", "celebrity style seekers", "capsule wardrobe planners"],
+    geographicArea: SERVICE_REGIONS.map((region) => ({
+      "@type": "AdministrativeArea",
+      name: region,
+    })),
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "SpeakableSpecification",
+    cssSelector: [...SPEAKABLE_SELECTORS],
+  },
 ];
 
 export function buildBreadcrumbJsonLd(items: readonly BreadcrumbItem[]): JsonLdShape {
@@ -132,7 +166,7 @@ export function buildStylistJsonLd(): JsonLdShape[] {
       url: SITE_URL,
       sameAs: SOCIAL_PROFILES,
     },
-    areaServed: ["US", "UK", "EU", "Canada", "Australia"],
+    areaServed: SERVICE_REGIONS,
     termsOfService: absoluteUrl("/terms"),
     offers: PRODUCT_OFFERS.map((offer) => ({
       "@type": "Offer",
@@ -159,6 +193,7 @@ export function buildStylistJsonLd(): JsonLdShape[] {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     url: absoluteUrl("/stylist"),
+    image: DEFAULT_OG_IMAGE,
     offers: [
       {
         "@type": "Offer",
@@ -293,4 +328,240 @@ export function buildKeywordRichJsonLd(): JsonLdShape {
       name: keyword,
     })),
   };
+}
+
+export function buildHomepageJsonLd(): JsonLdShape[] {
+  const breadcrumb = buildBreadcrumbJsonLd([{ name: "Home", path: "/" }]);
+
+  const product = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "RunwayTwin Premium Stylist",
+    description:
+      "Unlimited AI stylings, capsule planning and live EU/US products tailored to your body type and budget.",
+    brand: { "@type": "Brand", name: SITE_NAME },
+    image: DEFAULT_OG_IMAGE,
+    offers: PRODUCT_OFFERS.map((offer) => ({
+      "@type": "Offer",
+      name: offer.name,
+      price: offer.price,
+      priceCurrency: offer.priceCurrency,
+      url: absoluteUrl(offer.url),
+      availability: "https://schema.org/InStock",
+    })),
+  } as const;
+
+  const howTo = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "How to use RunwayTwin",
+    description: "Set preferences, brief the muse, and shop your look.",
+    step: [
+      {
+        "@type": "HowToStep",
+        position: 1,
+        name: "Save your profile",
+        text: "Pick gender, sizes, body type and budget so every look is personalized.",
+      },
+      {
+        "@type": "HowToStep",
+        position: 2,
+        name: "Share your inspiration",
+        text: "Describe the muse, upload an image or set the occasion in the chat.",
+      },
+      {
+        "@type": "HowToStep",
+        position: 3,
+        name: "Shop the curated outfit",
+        text: "Receive top-to-toe picks with retailer links, alternates and capsule tips.",
+      },
+    ],
+    totalTime: "PT2M",
+    tool: [{ "@type": "HowToTool", name: "RunwayTwin stylist chat" }],
+    supply: [{ "@type": "HowToSupply", name: "Saved style preferences" }],
+  } as const;
+
+  const faq = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "Does RunwayTwin work for my country?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes — we surface EU and US stock automatically and convert prices when needed.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How many alternates do I receive?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Every look includes outerwear and shoe alternates plus capsule remix tips.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Can I save my outfits?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes — pin looks to your closet to revisit thumbnails, pricing and retailer links.",
+        },
+      },
+    ],
+  } as const;
+
+  const collection = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "RunwayTwin celebrity-inspired styling",
+    url: SITE_URL,
+    about: CORE_KEYWORDS.map((keyword) => ({
+      "@type": "Thing",
+      name: keyword,
+    })),
+  } as const;
+
+  return [breadcrumb, product, howTo, faq, collection];
+}
+
+export function buildPricingJsonLd(): JsonLdShape[] {
+  const breadcrumb = buildBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Pricing", path: "/pricing" },
+  ]);
+
+  const offers = PRODUCT_OFFERS.map((offer) => ({
+    price: Number.parseFloat(offer.price),
+    currency: offer.priceCurrency,
+  }));
+  const priceList = offers.length ? offers.map((offer) => offer.price) : [0];
+  const primaryCurrency = offers[0]?.currency ?? "EUR";
+
+  const aggregateOffer = {
+    "@context": "https://schema.org",
+    "@type": "AggregateOffer",
+    url: absoluteUrl("/pricing"),
+    priceCurrency: primaryCurrency,
+    lowPrice: Math.min(...priceList),
+    highPrice: Math.max(...priceList),
+    offerCount: PRODUCT_OFFERS.length,
+  } as const;
+
+  const product = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "RunwayTwin Premium Stylist",
+    description:
+      "Unlimited AI stylings, capsule planning and live EU/US products — tailored to body type and budget.",
+    brand: { "@type": "Brand", name: SITE_NAME },
+    offers: PRODUCT_OFFERS.map((offer) => ({
+      "@type": "Offer",
+      name: offer.name,
+      price: offer.price,
+      priceCurrency: offer.priceCurrency,
+      url: absoluteUrl(offer.url),
+      availability: "https://schema.org/InStock",
+      priceSpecification: offer.billingPeriod
+        ? {
+            "@type": "UnitPriceSpecification",
+            price: offer.price,
+            priceCurrency: offer.priceCurrency,
+            unitText: offer.billingPeriod,
+          }
+        : undefined,
+    })),
+  } as const;
+
+  const catalog = {
+    "@context": "https://schema.org",
+    "@type": "OfferCatalog",
+    name: "RunwayTwin styling plans",
+    url: absoluteUrl("/pricing"),
+    itemListElement: PRODUCT_OFFERS.map((offer, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "Offer",
+        name: offer.name,
+        price: offer.price,
+        priceCurrency: offer.priceCurrency,
+        url: absoluteUrl(offer.url),
+        availability: "https://schema.org/InStock",
+        priceSpecification: offer.billingPeriod
+          ? {
+              "@type": "UnitPriceSpecification",
+              price: offer.price,
+              priceCurrency: offer.priceCurrency,
+              unitText: offer.billingPeriod,
+            }
+          : undefined,
+      },
+    })),
+  } as const;
+
+  const faq = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "Can I try RunwayTwin with a single look?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes — unlock a one-off look for €5 and upgrade anytime for unlimited stylings.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What does the Premium membership include?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Premium unlocks unlimited looks, capsule planning, alternates and priority concierge support.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Is there a guarantee?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "We offer a 7-day money-back guarantee on Premium if it isn’t the perfect fit.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Will prices match my currency?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes — we adapt to EU or US sizing and currency automatically based on your preferences.",
+        },
+      },
+    ],
+  } as const;
+
+  const comparison = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "RunwayTwin plan comparison",
+    itemListElement: PRODUCT_OFFERS.map((offer, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: {
+        "@type": "Service",
+        name: offer.name,
+        description: offer.description,
+        serviceType: offer.billingPeriod
+          ? "Subscription-based AI styling"
+          : "Single-session AI styling consultation",
+        offers: {
+          "@type": "Offer",
+          price: offer.price,
+          priceCurrency: offer.priceCurrency,
+        },
+      },
+    })),
+  } as const;
+
+  return [breadcrumb, product, catalog, aggregateOffer, faq, comparison];
 }

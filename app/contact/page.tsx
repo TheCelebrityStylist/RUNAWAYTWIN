@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ContactForm from "@/components/ContactForm";
 import JsonLd from "@/components/seo/JsonLd";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo/constants";
 
 const BASE_URL = "https://runwaytwin.vercel.app";
 const CONTACT_URL = `${BASE_URL}/contact`;
@@ -24,11 +25,20 @@ export const metadata: Metadata = {
       "Questions about your styled looks, billing or partnerships? Our team replies in 1–2 business days.",
     url: CONTACT_URL,
     siteName: "RunwayTwin",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: "RunwayTwin contact concierge",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Contact RunwayTwin — Luxury AI Stylist Support",
     description: "Concierge-level help for fashion lovers, press, and partners — within 1–2 business days.",
+    images: [DEFAULT_OG_IMAGE],
   },
 };
 

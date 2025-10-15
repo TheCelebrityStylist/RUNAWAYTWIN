@@ -6,7 +6,13 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import JsonLd from "@/components/seo/JsonLd";
 import { getSession } from "@/lib/auth/session";
 import type { AccountUser } from "@/lib/auth/types";
-import { CORE_KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo/constants";
+import {
+  CORE_KEYWORDS,
+  DEFAULT_OG_IMAGE,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/seo/constants";
 import { GLOBAL_JSON_LD, buildKeywordRichJsonLd } from "@/lib/seo/jsonld";
 import { getUserById, serializeUser } from "@/lib/storage/user";
 
@@ -36,14 +42,38 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     type: "website",
     locale: "en_US",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} AI stylist interface preview`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: DEFAULT_TITLE,
     description: SITE_DESCRIPTION,
     site: "@runwaytwin",
+    images: [DEFAULT_OG_IMAGE],
   },
   icons: { icon: "/favicon.ico" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  appLinks: {
+    web: { url: SITE_URL, should_fallback: true },
+  },
+  formatDetection: { telephone: false, email: false, address: false },
 };
 
 async function loadInitialUser(): Promise<AccountUser | null> {

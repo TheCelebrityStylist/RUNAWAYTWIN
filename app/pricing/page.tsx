@@ -2,6 +2,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "@/components/seo/JsonLd";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo/constants";
+import { buildPricingJsonLd } from "@/lib/seo/jsonld";
 
 /* =============================================================================
    RunwayTwin — Pricing (Ultra-Premium • SEO + CRO • Mobile-First)
@@ -37,6 +39,14 @@ export const metadata: Metadata = {
     url: PRICING_URL,
     siteName: "RunwayTwin",
     type: "website",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: "RunwayTwin pricing overview",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -44,6 +54,7 @@ export const metadata: Metadata = {
       "Pricing — RunwayTwin │ Premium AI Stylist €19/mo or One-Off Look €5",
     description:
       "Risk-free: 7-day money-back on Premium. Capsule planning, budget-true sourcing, EU/US availability.",
+    images: [DEFAULT_OG_IMAGE],
   },
   icons: { icon: "/favicon.ico" },
 };
@@ -184,146 +195,7 @@ function ValueCard({
 /* --------------------------------- Page body -------------------------------- */
 
 export default function PricingPage() {
-  const jsonLdPayload = [
-    {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      name: "RunwayTwin Premium Stylist",
-      description:
-        "Unlimited AI stylings, capsule planning and live EU/US products — tailored to body type and budget.",
-      brand: { "@type": "Brand", name: "RunwayTwin" },
-      url: PRICING_URL,
-      potentialAction: {
-        "@type": "SubscribeAction",
-        target: `${PRICING_URL}?plan=premium`,
-      },
-      offers: [
-        {
-          "@type": "Offer",
-          name: "Premium unlimited styling membership",
-          price: "19",
-          priceCurrency: "EUR",
-          priceSpecification: {
-            "@type": "UnitPriceSpecification",
-            price: "19",
-            priceCurrency: "EUR",
-            unitText: "MONTH",
-          },
-          availability: "https://schema.org/InStock",
-          url: `${PRICING_URL}#premium`,
-          category: "subscription",
-        },
-        {
-          "@type": "Offer",
-          name: "Single look credit",
-          price: "5",
-          priceCurrency: "EUR",
-          availability: "https://schema.org/InStock",
-          url: `${PRICING_URL}#one-off`,
-          category: "service",
-        },
-      ],
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "OfferCatalog",
-      name: "RunwayTwin Styling Plans",
-      url: PRICING_URL,
-      provider: {
-        "@type": "Organization",
-        name: "RunwayTwin",
-        url: BASE_URL,
-      },
-      itemListElement: [
-        {
-          "@type": "ListItem",
-          position: 1,
-          item: {
-            "@type": "Offer",
-            name: "One-off AI look",
-            price: "5",
-            priceCurrency: "EUR",
-            availability: "https://schema.org/InStock",
-            itemOffered: {
-              "@type": "Service",
-              name: "Single AI stylist look",
-              serviceType: "Digital styling consultation",
-            },
-            url: `${PRICING_URL}#one-off`,
-          },
-        },
-        {
-          "@type": "ListItem",
-          position: 2,
-          item: {
-            "@type": "Offer",
-            name: "Premium unlimited subscription",
-            price: "19",
-            priceCurrency: "EUR",
-            availability: "https://schema.org/InStock",
-            priceSpecification: {
-              "@type": "UnitPriceSpecification",
-              price: "19",
-              priceCurrency: "EUR",
-              unitText: "MONTH",
-            },
-            itemOffered: {
-              "@type": "Service",
-              name: "Unlimited RunwayTwin styling membership",
-              serviceType: "Subscription based styling",
-            },
-            url: `${PRICING_URL}#premium`,
-          },
-        },
-      ],
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: "Can I try it once before subscribing?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "Yes — get a one-off curated look for €5, then upgrade to Premium anytime for unlimited stylings.",
-          },
-        },
-        {
-          "@type": "Question",
-          name: "Is there a money-back guarantee?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "Premium comes with a 7-day money-back guarantee. If it’s not for you, we’ll refund the first month.",
-          },
-        },
-        {
-          "@type": "Question",
-          name: "Will recommendations fit my body type and budget?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "Yes — our logic balances pear/hourglass/apple/rectangle silhouettes and curates strictly within your chosen budget band.",
-          },
-        },
-        {
-          "@type": "Question",
-          name: "Is EU/US stock supported?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "Yes. Toggle your region and we adapt sizes, currency and retailers to EU/US with live availability.",
-          },
-        },
-      ],
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
-        { "@type": "ListItem", position: 2, name: "Pricing", item: PRICING_URL },
-      ],
-    },
-  ];
+  const jsonLdPayload = buildPricingJsonLd();
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-neutral-900 antialiased">

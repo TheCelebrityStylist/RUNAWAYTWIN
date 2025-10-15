@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import JsonLd from "@/components/seo/JsonLd";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo/constants";
+import { buildHomepageJsonLd } from "@/lib/seo/jsonld";
 
 /* =============================================================================
    RunwayTwin — Homepage (Ultra-Premium • Uses Global Sticky Header + Footer)
@@ -37,6 +40,14 @@ export const metadata: Metadata = {
     url: "https://runwaytwin.vercel.app/",
     siteName: "RunwayTwin",
     type: "website",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: "RunwayTwin AI stylist preview",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -44,9 +55,12 @@ export const metadata: Metadata = {
       "RunwayTwin — AI Celebrity Stylist │ Editorial Looks, Body-Type Flattering, Budget-True",
     description:
       "Upload a muse, choose your budget, and shop a refined outfit that flatters. EU/US stock. 7-day money-back on Premium.",
+    images: [DEFAULT_OG_IMAGE],
   },
   icons: { icon: "/favicon.ico" },
 };
+
+const HOMEPAGE_JSON_LD = buildHomepageJsonLd();
 
 /* --------------------------------- UI atoms -------------------------------- */
 
@@ -129,98 +143,12 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-neutral-900 antialiased">
       {/* ============================ JSON-LD (rich results) ============================ */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: [
-              {
-                "@type": "ListItem",
-                position: 1,
-                name: "Home",
-                item: "https://runwaytwin.vercel.app/",
-              },
-            ],
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Product",
-            name: "RunwayTwin Premium Stylist",
-            description:
-              "Unlimited AI stylings, capsule planning and live EU/US products — tailored to your body type and budget.",
-            brand: { "@type": "Brand", name: "RunwayTwin" },
-            offers: [
-              {
-                "@type": "Offer",
-                price: "19",
-                priceCurrency: "EUR",
-                url: "https://runwaytwin.vercel.app/pricing",
-              },
-              {
-                "@type": "Offer",
-                price: "5",
-                priceCurrency: "EUR",
-                url: "https://runwaytwin.vercel.app/pricing#one-off",
-              },
-            ],
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: [
-              {
-                "@type": "Question",
-                name: "Will it suit my body type?",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "Yes — our fit logic balances pear/hourglass/apple/rectangle so silhouettes flatter. Set your usual sizes and fit preference for precision.",
-                },
-              },
-              {
-                "@type": "Question",
-                name: "How do I stay within budget?",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "Choose high-street, mid or luxury. We curate strictly within your band — no surprise totals.",
-                },
-              },
-              {
-                "@type": "Question",
-                name: "Is stock live for EU/US?",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "Yes. Toggle region; sizes, currency and retailers update automatically for EU/US.",
-                },
-              },
-              {
-                "@type": "Question",
-                name: "Can I try it risk-free?",
-                acceptedAnswer: {
-                  "@type": "Answer",
-                  text: "Start with a €5 one-off look or go Premium for €19/month with a 7-day money-back guarantee.",
-                },
-              },
-            ],
-          }),
-        }}
-      />
+      <JsonLd id="runwaytwin-home-schema" data={HOMEPAGE_JSON_LD} />
 
       {/* ===== Announcement removed here (keep the global one in layout only) ===== */}
 
       {/* ================================== HERO =================================== */}
-      <section aria-labelledby="hero-title" className="relative">
+      <section aria-labelledby="rt-hero-headline" className="relative">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(63%_60%_at_20%_0%,#fff,transparent),radial-gradient(60%_60%_at_80%_0%,#fff,transparent)]" />
         <div className="mx-auto max-w-6xl px-5 pt-14 pb-10">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -232,14 +160,17 @@ export default function Page() {
           </div>
 
           <h1
-            id="hero-title"
+            id="rt-hero-headline"
             className="font-serif text-4xl leading-[1.08] tracking-tight sm:text-[44px] md:text-[56px]"
           >
             Your Personal Celebrity Stylist —{" "}
             <span className="text-[hsl(27_65%_42%)]">instantly elevated.</span>
           </h1>
 
-          <p className="mt-5 max-w-3xl text-[15px] leading-7 text-neutral-700">
+          <p
+            id="rt-hero-subheadline"
+            className="mt-5 max-w-3xl text-[15px] leading-7 text-neutral-700"
+          >
             Upload a celeb photo or name, choose budget & occasion, and receive
             an <span className="font-medium">editorial-grade</span> outfit that
             flatters your silhouette — in minutes. We keep it{" "}

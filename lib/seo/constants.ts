@@ -5,6 +5,15 @@ export const SITE_DESCRIPTION =
 export const SITE_TAGLINE = "AI Celebrity Stylist Concierge" as const;
 export const CONTACT_EMAIL = "support@runwaytwin.app" as const;
 export const SUPPORT_PHONE = "+31 20 123 4567" as const;
+export const DEFAULT_OG_IMAGE = `${SITE_URL}/og.jpg` as const;
+
+export const SERVICE_REGIONS = ["United States", "United Kingdom", "European Union", "Canada", "Australia"] as const;
+
+export const SPEAKABLE_SELECTORS = [
+  "#rt-hero-headline",
+  "#rt-hero-subheadline",
+  "#rt-stylist-hero",
+] as const;
 
 export type SiteNavLink = {
   readonly name: string;
