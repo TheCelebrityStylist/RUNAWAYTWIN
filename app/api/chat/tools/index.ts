@@ -195,7 +195,8 @@ export const toolSchemas: ToolDefinition[] = [
         category: { type: "string" },
         limit: { type: "number", default: 8 },
       },
-      anyOf: [{ required: ["query"] }, { required: ["url"] }],
+      required: ["query"],
+      additionalProperties: false,
     },
   },
   {
@@ -208,7 +209,7 @@ export const toolSchemas: ToolDefinition[] = [
         url: { type: "string" },
         country: { type: "string" },
       },
-      anyOf: [{ required: ["productId"] }, { required: ["url"] }],
+      additionalProperties: false,
     },
   },
   {
@@ -221,6 +222,7 @@ export const toolSchemas: ToolDefinition[] = [
         retailer: { type: "string" },
       },
       required: ["url"],
+      additionalProperties: false,
     },
   },
   {
@@ -233,6 +235,7 @@ export const toolSchemas: ToolDefinition[] = [
         swatches: { type: "number", minimum: 3, maximum: 8 },
       },
       required: ["imageUrl"],
+      additionalProperties: false,
     },
   },
   {
@@ -246,6 +249,7 @@ export const toolSchemas: ToolDefinition[] = [
         to: { type: "string" },
       },
       required: ["amount", "from", "to"],
+      additionalProperties: false,
     },
   },
 ];
@@ -259,6 +263,9 @@ export async function runTool(
     case "search_products":
       return searchProducts(args, ctx);
     case "check_stock":
+      if (!args?.productId && !args?.url) {
+        throw new Error("check_stock requires productId or url");
+      }
       return checkStock(args, ctx);
     case "affiliate_link":
       return affiliateLink(args, ctx);

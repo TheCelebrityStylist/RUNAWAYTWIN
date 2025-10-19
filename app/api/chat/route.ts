@@ -99,7 +99,7 @@ function bulletsFromProducts(products: Product[]): string {
   return products
     .map(
       (p) =>
-        `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? safeHost(p.url)} | ${p.url} | ${p.imageUrl ?? ""}`
+        `- ${p.brand} — ${p.title} | category=${p.category ?? "unknown"} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? safeHost(p.url)} | ${p.url} | ${p.imageUrl ?? ""}`
     )
     .join("\n");
 }
@@ -388,10 +388,11 @@ export async function POST(req: NextRequest) {
   const personaMessage: ChatMessage = {
     role: "system",
     content:
-      `You are "The Ultimate Celebrity Stylist AI": warm, premium, aspirational, concise. ` +
-      `Greet warmly. Never repeat questions once given. Detect celebrity muse and adapt style automatically. ` +
-      `Deliver a full outfit (Top, Bottom or Dress, Outerwear, Shoes, Accessories) with brand / exact item / price+currency / retailer / link / image (if available) and explicit body-type fit reasons. ` +
-      `Always include alternates for shoes and outerwear with links; show total and 'Save' options if over budget; add 'Capsule & Tips' (2–3 remix ideas + 2 short tips). ` +
+      `You are "The Ultimate Celebrity Stylist AI": warm, premium, aspirational, cinematic, relentlessly specific. ` +
+      `Open with a concierge-calibre greeting and acknowledge the returning client if history exists. ` +
+      `Never repeat questions once given. Detect celebrity muse, weather, and occasion cues automatically and adapt the palette, silhouette, and fabrication. ` +
+      `Deliver a full outfit (Top, Bottom or Dress, Outerwear, Shoes, Bag, Accessories) with brand / exact item / price+currency / retailer / link / image (if available) and explicit body-type fit reasons. ` +
+      `Always include alternates for shoes and outerwear with links; show total and 'Save' options if over budget; add 'Capsule & Tips' (3 remix ideas + 2 short tips). ` +
       `Close with: "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎".`,
   };
 
@@ -451,12 +452,14 @@ export async function POST(req: NextRequest) {
         const productBlock = `Candidate Products:\n${bulletsFromProducts(resolvedProducts.slice(0, 10))}`;
         const rules = [
           "Use ONLY the Candidate Products for URLs. Do not invent links.",
-          "Return: Top, Bottom (or Dress), Outerwear, Shoes, Accessories.",
-          "Explain why each flatters the user's body type (rise, drape, neckline, hem, silhouette, fabrication, proportion).",
-          "Respect budget; show total; add 'Save' alternates if total exceeds budget.",
-          "Always include alternates for shoes and outerwear with links.",
-          "Add 'Capsule & Tips' (2–3 remix ideas + 2 succinct tips).",
-          "Tone: premium, warm, punchy, never repetitive.",
+          "Return: Top, Bottom (or Dress), Outerwear, Shoes, Accessories, Bag, 2 jewellery accents.",
+          "For every item include brand, exact item name, price + currency, retailer, link, and image URL if provided.",
+          "Explain why each selection flatters the user's body type with couture-level detail (rise, drape, neckline, hem, fabrication, proportion, styling move).",
+          "Respect the budget; compute the total; if over budget provide clearly labelled 'Save' alternates with links.",
+          "Always include alternates for shoes and outerwear with links and pricing.",
+          "Add 'Capsule & Tips' with 3 remix ideas and 2 micro styling tips tied to the user's profile.",
+          "Add a 'How to wear it' micro paragraph summarising the vibe in 2 sentences.",
+          "Tone: cinematic, editorial, precise, never generic.",
           "Close with the upsell line verbatim.",
         ].join(" ");
 
@@ -471,6 +474,7 @@ export async function POST(req: NextRequest) {
         let activeModel = "";
         let firstPass: { text: string; toolCalls: PendingToolCall[] } | null = null;
         let firstError: unknown = null;
+        let nonStreamRecovery: { text: string; model: string } | null = null;
 
         for (let idx = 0; idx < modelCandidates.length; idx++) {
           const candidate = modelCandidates[idx]!;
@@ -487,7 +491,7 @@ export async function POST(req: NextRequest) {
                   });
                 },
               }),
-              25_000,
+              45_000,
               `openai-stream-timeout-${candidate}`
             );
             firstPass = streamed;
@@ -496,15 +500,45 @@ export async function POST(req: NextRequest) {
           } catch (error) {
             firstError = error;
             console.error(`[RunwayTwin] streaming model ${candidate} failed`, error);
-            if (idx < modelCandidates.length - 1) {
+            const nextModel = modelCandidates[idx + 1];
+            if (nextModel) {
               send(controller, "notice", {
-                text: formatModelNotice(modelCandidates[idx + 1]),
+                text: formatModelNotice(nextModel),
               });
             }
           }
         }
 
         if (!firstPass) {
+          const recoveryModels = [
+            ...modelCandidates,
+            "gpt-4o-mini",
+            "gpt-4o-mini-2024-07-18",
+          ].filter((model, index, array) => model && array.indexOf(model) === index);
+
+          for (const candidate of recoveryModels) {
+            try {
+              const text = await withTimeout(
+                openaiComplete(firstPassMessages, candidate, OPENAI_API_KEY),
+                35_000,
+                `openai-recovery-timeout-${candidate}`
+              );
+              if (typeof text === "string" && text.trim()) {
+                nonStreamRecovery = { text: text.trim(), model: candidate };
+                activeModel = candidate;
+                break;
+              }
+            } catch (error) {
+              console.error(`[RunwayTwin] recovery model ${candidate} failed`, error);
+            }
+          }
+
+          if (nonStreamRecovery) {
+            send(controller, "assistant_final", { text: nonStreamRecovery.text });
+            send(controller, "done", { ok: true, model: nonStreamRecovery.model, via: "non-stream" });
+            return;
+          }
+
           throw (firstError as Error) ?? new Error("openai-stream-failed");
         }
 

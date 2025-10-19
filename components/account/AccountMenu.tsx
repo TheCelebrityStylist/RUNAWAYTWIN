@@ -128,9 +128,12 @@ export default function AccountMenu({
         : "flex flex-wrap items-center gap-2";
     const signInClass =
       variant === "header"
-        ? "text-sm font-medium text-[var(--rt-charcoal)] transition hover:text-black"
+        ? "inline-flex items-center gap-2 rounded-full border border-[var(--rt-border)] bg-white/85 px-4 py-2 text-[13px] font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:border-[var(--rt-charcoal)]/40 hover:bg-white"
         : "btn-outline h-10 px-4 text-sm";
-    const joinClass = variant === "header" ? "btn h-10 px-4 text-sm" : "btn h-10 px-5 text-sm";
+    const joinClass =
+      variant === "header"
+        ? "inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#111111,#2c2c2c)] px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.16em] text-white shadow-[0_20px_44px_rgba(15,23,42,0.22)] transition hover:-translate-y-[1px] hover:brightness-105"
+        : "btn h-10 px-5 text-sm";
 
     return (
       <>

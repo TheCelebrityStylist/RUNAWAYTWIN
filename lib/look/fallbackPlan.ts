@@ -196,15 +196,15 @@ export function buildFallbackCopy(
 ): string {
   if (!products.length) {
     return [
-      "Vibe: I’m scouting more boutiques for your brief — give me a beat and I’ll refresh.",
+      "Vibe: I’m still raiding ateliers for your brief — your notes are locked in.",
       ask ? `Brief: “${ask}”` : "",
       "",
       "Outfit:",
-      "- Still sourcing exact pieces. Tap again for a refreshed pull.",
+      "- Still sourcing exact pieces. Tap again in a moment for a couture-level pull with shoppable links.",
       "",
       "Capsule & Tips:",
-      "- Rotate your go-to tailoring with a satin camisole for evening polish.",
-      "- Anchor with a hero outerwear moment to frame your silhouette.",
+      "- Rotate clean tailoring with liquid silk for instant red-carpet poise.",
+      "- Lead with outerwear drama; it frames every shot and elongates the line.",
       "- Tip: keep proportions balanced — cinch the waist, lengthen the leg.",
       "- Tip: mirror hardware tones with jewellery for cohesion.",
       "",
@@ -217,6 +217,10 @@ export function buildFallbackCopy(
   const plan = pickOutfit(products);
   const bodyFocus = prefs.bodyType ? `Body type focus: ${prefs.bodyType}.` : "Balanced to flatter every line.";
   const muse = ask ? `Muse: “${ask}”.` : prefs.styleKeywordsText ? `Style DNA: ${prefs.styleKeywordsText}.` : "";
+  const hero = plan.dress ?? plan.top ?? plan.outerwear ?? plan.shoes ?? plan.selected[0];
+  const heroLine = hero
+    ? `How to wear it: lead with the ${hero.brand ?? "hero piece"} ${hero.title ?? "look"}, keep makeup polished and finish with sculpted hair for camera-ready contrast.`
+    : "How to wear it: balance sharp structure with fluid movement and edit accessories to two statement moments.";
 
   const totalLine = `Total: ${formatCurrency(plan.total, currency)}`;
   const budgetLine =
@@ -225,6 +229,14 @@ export function buildFallbackCopy(
         ? `Budget check: swap in the save picks to glide under ${currency} ${Math.round(prefs.budgetValue)}.`
         : `Budget check: we land within ~${currency} ${Math.round(prefs.budgetValue)}.`
       : "";
+
+  const silhouetteNotes: string[] = [];
+  if (plan.top) silhouetteNotes.push(`Top: ${describeFit("top", prefs)}`);
+  if (plan.bottom) silhouetteNotes.push(`Bottom: ${describeFit("bottom", prefs)}`);
+  if (plan.dress) silhouetteNotes.push(`Dress: ${describeFit("dress", prefs)}`);
+  if (plan.outerwear) silhouetteNotes.push(`Outerwear: ${describeFit("outerwear", prefs)}`);
+  if (plan.shoes) silhouetteNotes.push(`Shoes: ${describeFit("shoes", prefs)}`);
+  if (plan.bag) silhouetteNotes.push(`Bag: ${describeFit("bag", prefs)}`);
 
   const accessoriesLines = plan.accessories
     .map((item, index) => {
@@ -256,12 +268,16 @@ export function buildFallbackCopy(
     "Vibe: Polished silhouettes in ready-to-wear rotation.",
     bodyFocus,
     muse,
+    heroLine,
     "",
     "Outfit:",
     ...outfitLines,
     "",
     totalLine,
     budgetLine,
+    "",
+    "Silhouette science:",
+    ...silhouetteNotes.map((note) => `- ${note}`),
     "",
     "Alternates:",
     alternates.length ? alternates.join("\n") : "Outerwear save: still sourcing • Shoes save: still sourcing",

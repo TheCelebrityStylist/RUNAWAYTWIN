@@ -89,10 +89,10 @@ export default function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-4 lg:flex">
           <Link
             href="/stylist"
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[linear-gradient(140deg,#121212,#272727)] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_20px_46px_rgba(17,24,39,0.26)] transition hover:-translate-y-[1px] hover:bg-black"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[linear-gradient(135deg,#101010,#2b2b2b)] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_24px_48px_rgba(17,24,39,0.28)] transition hover:-translate-y-[1px] hover:brightness-110"
           >
             <span className="text-sm">✨</span>
             <span>Try the stylist</span>
