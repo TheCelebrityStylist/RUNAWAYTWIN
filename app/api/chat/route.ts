@@ -819,17 +819,21 @@ export async function POST(req: NextRequest) {
           { role: "system", content: productBlock },
         ];
 
-        const firstPass = await streamChatCompletion(firstPassMessages, MODEL, OPENAI_API_KEY, {
-          onTextDelta: (text) => {
-            send(controller, "assistant_delta", { text });
-          },
-          onToolCall: (call) => {
-            send(controller, "tool_call", {
-              id: call.id,
-              name: call.name,
-            });
-          },
-        });
+        const firstPass = await withTimeout(
+          streamChatCompletion(firstPassMessages, MODEL, OPENAI_API_KEY, {
+            onTextDelta: (text) => {
+              send(controller, "assistant_delta", { text });
+            },
+            onToolCall: (call) => {
+              send(controller, "tool_call", {
+                id: call.id,
+                name: call.name,
+              });
+            },
+          }),
+          25_000,
+          "openai-stream-timeout"
+        );
 
         let finalText = firstPass.text.trim();
         const toolCalls = firstPass.toolCalls;
@@ -878,7 +882,11 @@ export async function POST(req: NextRequest) {
             ...toolResults,
           ];
 
-          finalText = await openaiComplete(secondPassMessages, MODEL, OPENAI_API_KEY);
+          finalText = await withTimeout(
+            openaiComplete(secondPassMessages, MODEL, OPENAI_API_KEY),
+            20_000,
+            "openai-second-pass-timeout"
+          );
         }
 
         if (!finalText || !finalText.trim()) {
@@ -891,7 +899,10 @@ export async function POST(req: NextRequest) {
         console.error("[RunwayTwin] route fatal", error);
         const safeProducts = resolvedProducts.length ? resolvedProducts : await productPromise.catch(() => []);
         const fallback = fallbackCopy(safeProducts, currency, ask, normalizedPrefs);
-        send(controller, "error", { message: "stylist_error", detail: String(error) });
+        send(controller, "notice", {
+          text:
+            "I refreshed your look with our curated wardrobe while reconnecting to live ateliers—here’s a polished plan you can shop now.",
+        });
         send(controller, "assistant_final", { text: fallback });
         send(controller, "done", { ok: false });
       } finally {

@@ -78,10 +78,10 @@ export default function SiteHeader() {
             <Link
               key={item.href}
               href={item.href}
-              className={`inline-flex items-center rounded-full border px-4 py-1.5 transition ${
+              className={`inline-flex items-center rounded-full px-4 py-1.5 text-[11px] uppercase tracking-[0.22em] transition ${
                 item.active
-                  ? "border-[var(--rt-charcoal)] bg-[var(--rt-charcoal)] text-white shadow-sm"
-                  : "border-transparent hover:border-[var(--rt-border)] hover:bg-white/80 hover:text-[var(--rt-charcoal)]"
+                  ? "bg-[var(--rt-charcoal)] text-white shadow-[0_10px_26px_rgba(17,24,39,0.16)]"
+                  : "text-[var(--rt-muted)] hover:bg-white/70 hover:text-[var(--rt-charcoal)]"
               }`}
             >
               {item.label}
@@ -89,12 +89,13 @@ export default function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-4 lg:flex">
           <Link
             href="/stylist"
-            className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white px-4 py-1.5 text-[12px] font-semibold text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/40 hover:shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
+            className="inline-flex items-center gap-2 rounded-full bg-[radial-gradient(circle_at_top,var(--rt-gold),var(--rt-charcoal))] px-5 py-2 text-[12px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_18px_42px_rgba(17,24,39,0.25)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_54px_rgba(17,24,39,0.32)]"
           >
-            ✨ Try the stylist
+            <span className="text-sm">✨</span>
+            <span>Try the stylist</span>
           </Link>
           <AccountMenu variant="header" onRequestAuth={closeMenu} />
         </div>
@@ -102,7 +103,7 @@ export default function SiteHeader() {
         <div className="flex shrink-0 items-center gap-2 lg:hidden">
           <Link
             href="/stylist"
-            className="inline-flex items-center rounded-full border border-[var(--rt-border)] bg-white px-3.5 py-2 text-[12px] font-semibold text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/35 hover:shadow-[0_10px_24px_rgba(15,23,42,0.14)]"
+            className="inline-flex items-center gap-1 rounded-full bg-[radial-gradient(circle_at_top,var(--rt-gold),var(--rt-charcoal))] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_14px_32px_rgba(17,24,39,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_44px_rgba(17,24,39,0.35)]"
           >
             ✨ Try it
           </Link>

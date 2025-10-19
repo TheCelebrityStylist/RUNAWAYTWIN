@@ -19,6 +19,7 @@ img, svg, video, canvas { display: block; max-width: 100%; }
   --rt-ivory: #fbfaf7;
   --rt-charcoal: #444;
   --rt-gold: #c9a860;
+  --rt-muted: rgba(70, 70, 70, 0.68);
 
   --rt-border: #eceae5;
   --rt-card: rgba(255,255,255,.75);
