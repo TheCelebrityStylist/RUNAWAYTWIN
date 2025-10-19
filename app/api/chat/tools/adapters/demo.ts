@@ -160,6 +160,10 @@ const demoCatalog: Product[] = [
   },
 ];
 
+export function getDemoCatalog(): Product[] {
+  return demoCatalog.map((item) => ({ ...item }));
+}
+
 type ScoreEntry = { item: Product; score: number };
 
 function scoreItem(item: Product, query: string, category?: string) {

@@ -3,6 +3,17 @@ import { searchProducts as legacySearchProducts, type Product } from "../tools";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 import { runTool, toolSchemas } from "./tools";
 import type { AdapterContext } from "./tools/types";
+import { getDemoCatalog } from "./tools/adapters/demo";
+import {
+  normalizeChatPreferences,
+  preferencesToSystem,
+  currencyForPreferences,
+  summarizePreferencesForBrief,
+  preferEU,
+  type NormalizedChatPreferences,
+} from "@/lib/chat/prefs";
+import { resolveModelCandidates, formatModelNotice } from "@/lib/chat/models";
+import { buildFallbackCopy } from "@/lib/look/fallbackPlan";
 
 export const runtime = "edge";
 
@@ -28,23 +39,6 @@ type PendingToolCall = {
   id: string;
   name: string;
   arguments: string;
-};
-
-type NormalizedPrefs = {
-  gender?: string;
-  sizeTop?: string;
-  sizeBottom?: string;
-  sizeDress?: string;
-  sizeShoe?: string;
-  bodyType?: string;
-  budgetLabel?: string;
-  budgetValue?: number;
-  country?: string;
-  currency?: string;
-  styleKeywordsText?: string;
-  styleKeywordsList: string[];
-  heightCm?: number;
-  weightKg?: number;
 };
 
 const ENCODER = new TextEncoder();
@@ -92,150 +86,6 @@ function lastUserText(messages: ChatMessage[]): string {
   return "";
 }
 
-function parseNumber(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const cleaned = value.replace(/[^0-9.,-]/g, "").replace(/,/g, "");
-    if (!cleaned) return undefined;
-    const parsed = Number.parseFloat(cleaned);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
-}
-
-function parseMeasurement(value: unknown): number | undefined {
-  const num = parseNumber(value);
-  if (typeof num === "number") return num;
-  if (typeof value === "string") {
-    const match = value.match(/([0-9]{2,3})/);
-    if (match) {
-      const parsed = Number.parseInt(match[1]!, 10);
-      return Number.isFinite(parsed) ? parsed : undefined;
-    }
-  }
-  return undefined;
-}
-
-function normalizeKeywords(value: unknown): { text?: string; list: string[] } {
-  if (Array.isArray(value)) {
-    const list = value
-      .map((item) => (typeof item === "string" ? item.trim() : ""))
-      .filter(Boolean);
-    return { text: list.join(" · "), list };
-  }
-  if (typeof value === "string") {
-    const list = value
-      .split(/[|,•·]/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    const text = list.join(" · ") || value.trim();
-    return { text, list: list.length ? list : value.trim() ? [value.trim()] : [] };
-  }
-  return { list: [] };
-}
-
-function parseBudget(value: unknown): { label?: string; amount?: number } {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return { label: `${value}`, amount: value };
-  }
-  if (typeof value === "string") {
-    const numbers = value.match(/\d+(?:[.,]\d+)?/g)?.map((part) => Number.parseFloat(part.replace(/,/g, "")));
-    if (numbers && numbers.length) {
-      const amount = Math.max(...numbers.filter((n) => Number.isFinite(n)));
-      if (Number.isFinite(amount)) {
-        return { label: value, amount };
-      }
-    }
-    const normalized = value.trim();
-    if (normalized) {
-      const presets: Record<string, number> = {
-        "<$150": 150,
-        "$150–$300": 300,
-        "$300–$600": 600,
-        "$600–$1000": 1000,
-        "$1000+": 1600,
-        "luxury / couture": 3500,
-      };
-      const lower = normalized.toLowerCase();
-      const presetAmount = Object.entries(presets).find(([key]) => key.toLowerCase() === lower)?.[1];
-      return { label: normalized, amount: presetAmount };
-    }
-  }
-  return {};
-}
-
-function normalizePreferences(raw: any): NormalizedPrefs {
-  if (!raw || typeof raw !== "object") {
-    return { styleKeywordsList: [] };
-  }
-
-  const sizes = typeof raw.sizes === "object" && raw.sizes ? raw.sizes : {};
-  const keywords = normalizeKeywords(raw.styleKeywords ?? raw.style_keywords ?? raw.style);
-  const budget = parseBudget(raw.budget ?? raw.budgetMax ?? raw.budgetLabel);
-
-  const heightCm = parseMeasurement(raw.height ?? raw.heightCm);
-  const weightKg = parseMeasurement(raw.weight ?? raw.weightKg);
-
-  const normalized: NormalizedPrefs = {
-    gender: raw.gender ?? raw.profileGender ?? undefined,
-    sizeTop: raw.sizeTop ?? sizes.top ?? undefined,
-    sizeBottom: raw.sizeBottom ?? sizes.bottom ?? undefined,
-    sizeDress: raw.sizeDress ?? sizes.dress ?? undefined,
-    sizeShoe: raw.sizeShoe ?? sizes.shoe ?? undefined,
-    bodyType: raw.bodyType ?? raw.body_type ?? undefined,
-    budgetLabel: budget.label ?? (typeof raw.budget === "string" ? raw.budget : undefined),
-    budgetValue: budget.amount,
-    country: raw.country ?? raw.locale ?? undefined,
-    currency: raw.currency ?? undefined,
-    styleKeywordsText: keywords.text,
-    styleKeywordsList: keywords.list,
-    heightCm,
-    weightKg,
-  };
-
-  return normalized;
-}
-
-function countryToCurrency(country?: string): string {
-  if (!country) return "EUR";
-  const code = country.toUpperCase();
-  if (code === "US") return "USD";
-  if (code === "UK" || code === "GB") return "GBP";
-  if (code === "CA") return "CAD";
-  if (code === "AU") return "AUD";
-  if (code === "JP") return "JPY";
-  if (code === "CH") return "CHF";
-  if (code === "AE" || code === "UAE") return "AED";
-  if (code === "EU") return "EUR";
-  return "EUR";
-}
-
-function currencyForPrefs(prefs: NormalizedPrefs): string {
-  if (prefs.currency) return prefs.currency.toUpperCase();
-  return countryToCurrency(prefs.country);
-}
-
-function prefsToSystem(prefs: NormalizedPrefs): string {
-  const currency = currencyForPrefs(prefs);
-  const budgetLine = prefs.budgetLabel
-    ? `${prefs.budgetLabel}`
-    : typeof prefs.budgetValue === "number"
-    ? `${Math.round(prefs.budgetValue)} ${currency}`
-    : "-";
-  return [
-    "User Profile",
-    `- Gender: ${prefs.gender ?? "-"}`,
-    `- Sizes: top=${prefs.sizeTop ?? "-"}, bottom=${prefs.sizeBottom ?? "-"}, dress=${prefs.sizeDress ?? "-"}, shoe=${prefs.sizeShoe ?? "-"}`,
-    `- Body Type: ${prefs.bodyType ?? "-"}`,
-    `- Height/Weight: ${prefs.heightCm ?? "-"}cm / ${prefs.weightKg ?? "-"}kg`,
-    `- Budget: ${budgetLine}`,
-    `- Country: ${prefs.country ?? "-"}`,
-    `- Currency: ${currency}`,
-    `- Style Keywords: ${prefs.styleKeywordsText ?? (prefs.styleKeywordsList.length ? prefs.styleKeywordsList.join(" · ") : "-")}`,
-    `Always tailor silhouette (rise, drape, neckline, hem, fabrication, proportion) to flatter body type. Respect budget.`,
-  ].join("\n");
-}
-
 function safeHost(url: string | null | undefined) {
   if (!url) return "";
   try {
@@ -251,223 +101,6 @@ function bulletsFromProducts(products: Product[]): string {
       (p) =>
         `- ${p.brand} — ${p.title} | ${p.price ?? "?"} ${p.currency ?? ""} | ${p.retailer ?? safeHost(p.url)} | ${p.url} | ${p.imageUrl ?? ""}`
     )
-    .join("\n");
-}
-
-function formatCurrency(amount: number, currency: string) {
-  if (!Number.isFinite(amount)) return "—";
-  return `${currency} ${Math.round(amount)}`;
-}
-
-type OutfitPlan = {
-  top?: Product | null;
-  bottom?: Product | null;
-  dress?: Product | null;
-  outerwear?: Product | null;
-  shoes?: Product | null;
-  bag?: Product | null;
-  accessories: Product[];
-  outerwearAlt?: Product | null;
-  shoesAlt?: Product | null;
-  total: number;
-  selected: Product[];
-};
-
-function sortByPrice(products: Product[]): Product[] {
-  return [...products].sort((a, b) => {
-    const priceA = typeof a.price === "number" ? a.price : Number.POSITIVE_INFINITY;
-    const priceB = typeof b.price === "number" ? b.price : Number.POSITIVE_INFINITY;
-    return priceA - priceB;
-  });
-}
-
-function groupByCategory(products: Product[]): Record<string, Product[]> {
-  return products.reduce<Record<string, Product[]>>((acc, product) => {
-    const key = product.category?.toLowerCase() ?? "misc";
-    if (!acc[key]) acc[key] = [];
-    acc[key]!.push(product);
-    return acc;
-  }, {});
-}
-
-function pickOutfit(products: Product[], currency: string, prefs: NormalizedPrefs): OutfitPlan {
-  const groups = groupByCategory(products);
-  const take = (category: string) => sortByPrice(groups[category.toLowerCase()] ?? []);
-
-  const dresses = take("dress");
-  const tops = take("top");
-  const bottoms = take("bottom");
-  const outerwear = take("outerwear");
-  const shoes = take("shoes");
-  const bags = take("bag");
-  const accessories = take("accessories");
-
-  const usingDress = dresses.length > 0 && (!tops.length || !bottoms.length);
-
-  const dress = usingDress ? dresses[0] ?? null : null;
-  const top = usingDress ? null : tops[0] ?? null;
-  const bottom = usingDress ? null : bottoms[0] ?? null;
-  const outerwearPrimary = outerwear[0] ?? null;
-  const shoesPrimary = shoes[0] ?? null;
-  const bag = bags[0] ?? null;
-  const jewellery = accessories.slice(0, 2);
-
-  const selected: Product[] = [];
-  for (const item of [top, bottom, dress, outerwearPrimary, shoesPrimary, bag, ...jewellery]) {
-    if (item) selected.push(item);
-  }
-
-  const total = selected.reduce((sum, item) => sum + (typeof item.price === "number" ? item.price : 0), 0);
-
-  return {
-    top,
-    bottom,
-    dress,
-    outerwear: outerwearPrimary,
-    shoes: shoesPrimary,
-    bag,
-    accessories: jewellery,
-    outerwearAlt: outerwear.find((item) => item !== outerwearPrimary) ?? null,
-    shoesAlt: shoes.find((item) => item !== shoesPrimary) ?? null,
-    total,
-    selected,
-  };
-}
-
-function describeFit(category: string, prefs: NormalizedPrefs): string {
-  const body = prefs.bodyType?.toLowerCase();
-  if (!body) {
-    const defaults: Record<string, string> = {
-      top: "Slim, structured lines keep the proportions clean.",
-      bottom: "Tailoring lengthens the leg line for polish.",
-      dress: "A sculpted waist keeps the silhouette refined.",
-      outerwear: "Sharp shoulders frame the look without bulk.",
-      shoes: "Sleek profile elongates the line of the leg.",
-      bag: "Structured leather finishes the look with intention.",
-      accessories: "Refined accents tie the palette together.",
-    };
-    return defaults[category] ?? "Polished details keep the story cohesive.";
-  }
-
-  switch (category) {
-    case "top":
-      return `${body} silhouettes love a top that skims the waist so curves stay defined.`;
-    case "bottom":
-      return `${body} bodies benefit from a tailored leg—this pair creates long, clean lines.`;
-    case "dress":
-      return `${body} frames shine in a dress that nips at the waist and floats over curves.`;
-    case "outerwear":
-      return `${body} proportions stay balanced with structured shoulders and a controlled drape.`;
-    case "shoes":
-      return `${body} lines look longer with a streamlined shoe and modest rise.`;
-    case "bag":
-      return `${body} styling stays sleek with a structured bag that mirrors the outfit's geometry.`;
-    default:
-      return `${body} styling feels elevated with polished accessories to echo the hardware.`;
-  }
-}
-
-function formatProductLine(label: string, product: Product | null | undefined, prefs: NormalizedPrefs, currency: string) {
-  if (!product) return null;
-  const price = typeof product.price === "number" ? formatCurrency(product.price, product.currency ?? currency) : `${product.currency ?? currency} —`;
-  const retailer = product.retailer ?? safeHost(product.url);
-  const reasoning = describeFit(label.toLowerCase(), prefs);
-  const image = product.imageUrl ? ` (Image: ${product.imageUrl})` : "";
-  return `${label}: ${product.brand ?? ""} ${product.title ?? ""} — ${price} at ${retailer} → ${product.url}${image}\n  Why: ${reasoning}`;
-}
-
-function fallbackCopy(products: Product[], currency: string, ask: string, prefs: NormalizedPrefs): string {
-  if (!products.length) {
-    return [
-      "Vibe: I’m scouting more boutiques for your brief — give me a beat and I’ll refresh.",
-      ask ? `Brief: “${ask}”` : "",
-      "",
-      "Outfit:",
-      "- Still sourcing exact pieces. Tap again for a refreshed pull.",
-      "",
-      "Capsule & Tips:",
-      "- Rotate your go-to tailoring with a satin camisole for evening polish.",
-      "- Anchor with a hero outerwear moment to frame your silhouette.",
-      "- Tip: keep proportions balanced — cinch the waist, lengthen the leg.",
-      "- Tip: mirror hardware tones with jewellery for cohesion.",
-      "",
-      "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  const plan = pickOutfit(products, currency, prefs);
-  const bodyFocus = prefs.bodyType ? `Body type focus: ${prefs.bodyType}.` : "Balanced to flatter every line.";
-  const muse = ask ? `Muse: “${ask}”.` : prefs.styleKeywordsText ? `Style DNA: ${prefs.styleKeywordsText}.` : "";
-
-  const totalLine = `Total: ${formatCurrency(plan.total, currency)}`;
-  const budgetLine =
-    typeof prefs.budgetValue === "number"
-      ? plan.total > prefs.budgetValue
-        ? `Budget check: swap in the save picks to glide under ${currency} ${Math.round(prefs.budgetValue)}.`
-        : `Budget check: we land within ~${currency} ${Math.round(prefs.budgetValue)}.`
-      : "";
-
-  const alternates: string[] = [];
-  if (plan.outerwearAlt) {
-    const price = typeof plan.outerwearAlt.price === "number" ? formatCurrency(plan.outerwearAlt.price, plan.outerwearAlt.currency ?? currency) : `${plan.outerwearAlt.currency ?? currency} —`;
-    alternates.push(
-      `Outerwear save: ${plan.outerwearAlt.brand ?? ""} ${plan.outerwearAlt.title ?? ""} — ${price} at ${plan.outerwearAlt.retailer ?? safeHost(plan.outerwearAlt.url)} → ${plan.outerwearAlt.url}`
-    );
-  }
-  if (plan.shoesAlt) {
-    const price = typeof plan.shoesAlt.price === "number" ? formatCurrency(plan.shoesAlt.price, plan.shoesAlt.currency ?? currency) : `${plan.shoesAlt.currency ?? currency} —`;
-    alternates.push(
-      `Shoes save: ${plan.shoesAlt.brand ?? ""} ${plan.shoesAlt.title ?? ""} — ${price} at ${plan.shoesAlt.retailer ?? safeHost(plan.shoesAlt.url)} → ${plan.shoesAlt.url}`
-    );
-  }
-
-  const accessoriesLines = plan.accessories
-    .map((item, index) => {
-      const price = typeof item.price === "number" ? formatCurrency(item.price, item.currency ?? currency) : `${item.currency ?? currency} —`;
-      const retailer = item.retailer ?? safeHost(item.url);
-      const why = describeFit("accessories", prefs);
-      const image = item.imageUrl ? ` (Image: ${item.imageUrl})` : "";
-      return `Accessory ${index + 1}: ${item.brand ?? ""} ${item.title ?? ""} — ${price} at ${retailer} → ${item.url}${image}\n  Why: ${why}`;
-    })
-    .map((line) => `${line}`);
-
-  const outfitLines = [
-    formatProductLine("Top", plan.top, prefs, currency),
-    formatProductLine("Bottom", plan.bottom, prefs, currency),
-    formatProductLine("Dress", plan.dress, prefs, currency),
-    formatProductLine("Outerwear", plan.outerwear, prefs, currency),
-    formatProductLine("Shoes", plan.shoes, prefs, currency),
-    formatProductLine("Bag", plan.bag, prefs, currency),
-    ...accessoriesLines,
-  ]
-    .filter(Boolean)
-    .map((line) => line as string);
-
-  return [
-    "Vibe: Polished silhouettes in ready-to-wear rotation.",
-    bodyFocus,
-    muse,
-    "",
-    "Outfit:",
-    ...outfitLines,
-    "",
-    totalLine,
-    budgetLine,
-    "",
-    "Alternates:",
-    alternates.length ? alternates.join("\n") : "Outerwear save: still sourcing • Shoes save: still sourcing",
-    "",
-    "Capsule & Tips:",
-    "- Remix the top with your favourite vintage denim and slingbacks for a curated brunch moment.",
-    "- Layer the outerwear over a slip dress for night, swapping in the save boots for a lighter feel.",
-    "- Tip: tailor the hem to hit just at the ankle so the leg reads mile-long.",
-    "- Tip: echo jewellery hardware with your bag to keep the palette luxe and intentional.",
-    "",
-    "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
-  ]
-    .filter(Boolean)
     .join("\n");
 }
 
@@ -489,15 +122,9 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   });
 }
 
-function preferEU(country?: string): boolean {
-  if (!country) return true;
-  const upper = country.toUpperCase();
-  return !["US", "CA", "AU"].includes(upper);
-}
-
 async function loadProducts(
   ask: string,
-  prefs: NormalizedPrefs,
+  prefs: NormalizedChatPreferences,
   currency: string
 ): Promise<Product[]> {
   const query = [ask, prefs.styleKeywordsText]
@@ -517,27 +144,59 @@ async function loadProducts(
         budgetMax: prefs.budgetValue,
         preferEU: preferEU(prefs.country),
       }),
-      16_000,
+      12_000,
       "product-search-timeout"
     );
-    if (items.length) return items;
+    return Array.isArray(items) ? items : [];
   } catch (error) {
     console.warn("[RunwayTwin] product search failed", error);
-  }
-
-  try {
-    const fallback = await legacySearchProducts({
-      query: "classic trench coat black loafers sleek tote neutral knit",
-      country,
-      currency,
-      limit: 8,
-      preferEU: preferEU(prefs.country),
-    });
-    return fallback;
-  } catch (error) {
-    console.warn("[RunwayTwin] fallback search failed", error);
     return [];
   }
+}
+
+const PRODUCT_SOFT_DEADLINE_MS = Number(process.env.PRODUCT_SOFT_DEADLINE_MS ?? "5000");
+
+function demoProductsForCurrency(currency: string): Product[] {
+  const normalized = currency.toUpperCase();
+  const catalog = getDemoCatalog();
+  const matches = catalog.filter((item) => (item.currency ?? "").toUpperCase() === normalized);
+  const source = matches.length ? matches : catalog;
+  return source.slice(0, 8);
+}
+
+async function gatherProducts(
+  ask: string,
+  prefs: NormalizedChatPreferences,
+  currency: string
+): Promise<Product[]> {
+  const searchPromise = loadProducts(ask, prefs, currency);
+
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const fallbackPromise = new Promise<Product[]>((resolve) => {
+    timeoutHandle = setTimeout(() => {
+      resolve(demoProductsForCurrency(currency));
+    }, PRODUCT_SOFT_DEADLINE_MS);
+  });
+
+  const first = await Promise.race([
+    searchPromise.then((items) => (Array.isArray(items) && items.length ? items : [])),
+    fallbackPromise,
+  ]);
+
+  if (timeoutHandle) {
+    clearTimeout(timeoutHandle);
+  }
+
+  if (first.length) {
+    return first;
+  }
+
+  const final = await searchPromise;
+  if (final.length) {
+    return final;
+  }
+
+  return demoProductsForCurrency(currency);
 }
 
 function openAIToolDefinitions() {
@@ -720,7 +379,7 @@ export async function POST(req: NextRequest) {
 
   const rawMessages: RawMessage[] = Array.isArray(body?.messages) ? body.messages : [];
   const finalUser = body?.finalUser && typeof body.finalUser === "object" ? (body.finalUser as RawMessage) : null;
-  const normalizedPrefs = normalizePreferences(body?.preferences || {});
+  const normalizedPrefs = normalizeChatPreferences(body?.preferences || {});
 
   const history: ChatMessage[] = rawMessages
     .filter((msg) => msg && (msg.role === "user" || msg.role === "assistant"))
@@ -739,7 +398,7 @@ export async function POST(req: NextRequest) {
   const baseMessages: ChatMessage[] = [
     { role: "system", content: STYLIST_SYSTEM_PROMPT },
     personaMessage,
-    { role: "system", content: prefsToSystem(normalizedPrefs) },
+    { role: "system", content: preferencesToSystem(normalizedPrefs) },
     ...history,
   ];
 
@@ -748,29 +407,19 @@ export async function POST(req: NextRequest) {
   }
 
   const ask = lastUserText(baseMessages);
-  const currency = currencyForPrefs(normalizedPrefs);
+  const currency = currencyForPreferences(normalizedPrefs);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       send(controller, "ready", { ok: true });
       const keepAlive = setInterval(() => send(controller, "ping", { t: Date.now() }), 15_000);
 
-      const productPromise = loadProducts(ask, normalizedPrefs, currency);
+      const productPromise = gatherProducts(ask, normalizedPrefs, currency);
       let resolvedProducts: Product[] = [];
 
       try {
         const greet = "Hi! I’m your celebrity stylist—assembling a head-to-toe look with linked pieces and fit intel.";
-        const briefParts = [
-          normalizedPrefs.bodyType,
-          normalizedPrefs.styleKeywordsText,
-          ask,
-        ].filter(Boolean);
-        const budgetNote = normalizedPrefs.budgetLabel
-          ? `budget ${normalizedPrefs.budgetLabel}`
-          : normalizedPrefs.budgetValue
-          ? `budget ~${Math.round(normalizedPrefs.budgetValue)} ${currency}`
-          : null;
-        if (budgetNote) briefParts.push(budgetNote);
+        const briefParts = summarizePreferencesForBrief(normalizedPrefs, ask);
         const brief = briefParts.length
           ? `Brief: ${briefParts.join(" • ")}`
           : "Share body type, occasion, and any muse (e.g., “Zendaya for a gallery opening”).";
@@ -790,17 +439,10 @@ export async function POST(req: NextRequest) {
         send(controller, "assistant_draft_done", { ok: true });
 
         const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-        const modelCandidates = [
-          process.env.OPENAI_MODEL,
-          process.env.OPENAI_FALLBACK_MODEL,
-          "gpt-4o",
-          "gpt-4o-mini",
-        ]
-          .filter((model): model is string => Boolean(model && model.trim()))
-          .filter((model, index, array) => array.indexOf(model) === index);
+        const modelCandidates = resolveModelCandidates();
 
         if (!OPENAI_API_KEY) {
-          const fallback = fallbackCopy(resolvedProducts, currency, ask, normalizedPrefs);
+          const fallback = buildFallbackCopy(resolvedProducts, currency, ask, normalizedPrefs);
           send(controller, "assistant_final", { text: fallback });
           send(controller, "done", { ok: false, reason: "missing-openai" });
           return;
@@ -856,7 +498,7 @@ export async function POST(req: NextRequest) {
             console.error(`[RunwayTwin] streaming model ${candidate} failed`, error);
             if (idx < modelCandidates.length - 1) {
               send(controller, "notice", {
-                text: "Re-routing to a backup couture brain to finish your look…",
+                text: formatModelNotice(modelCandidates[idx + 1]),
               });
             }
           }
@@ -937,7 +579,7 @@ export async function POST(req: NextRequest) {
               console.error(`[RunwayTwin] second-pass model ${candidate} failed`, error);
               if (idx < secondPassModels.length - 1) {
                 send(controller, "notice", {
-                  text: "That atelier lagged—pivoting to another styling brain for your look…",
+                  text: formatModelNotice(secondPassModels[idx + 1]),
                 });
               }
             }
@@ -974,7 +616,7 @@ export async function POST(req: NextRequest) {
               console.error(`[RunwayTwin] refinement model ${candidate} failed`, error);
               if (idx < refinementModels.length - 1) {
                 send(controller, "notice", {
-                  text: "One more couture brain is weighing in to lock your outfit…",
+                  text: formatModelNotice(refinementModels[idx + 1]),
                 });
               }
             }
@@ -986,7 +628,7 @@ export async function POST(req: NextRequest) {
             if (refineError) {
               console.error("[RunwayTwin] refinement exhausted", refineError);
             }
-            finalText = fallbackCopy(resolvedProducts, currency, ask, normalizedPrefs);
+            finalText = buildFallbackCopy(resolvedProducts, currency, ask, normalizedPrefs);
           }
         }
 
@@ -995,7 +637,7 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.error("[RunwayTwin] route fatal", error);
         const safeProducts = resolvedProducts.length ? resolvedProducts : await productPromise.catch(() => []);
-        const fallback = fallbackCopy(safeProducts, currency, ask, normalizedPrefs);
+        const fallback = buildFallbackCopy(safeProducts, currency, ask, normalizedPrefs);
         send(controller, "notice", {
           text:
             "I refreshed your look with our curated wardrobe while reconnecting to live ateliers—here’s a polished plan you can shop now.",

@@ -55,8 +55,8 @@ export default function SiteHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--rt-border)]/70 bg-[var(--rt-ivory)]/90 backdrop-blur supports-[backdrop-filter]:bg-[var(--rt-ivory)]/80">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+    <header className="sticky top-0 z-40 border-b border-[var(--rt-border)]/70 bg-[var(--rt-ivory)]/85 backdrop-blur supports-[backdrop-filter]:bg-white/75">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6">
         <div className="flex flex-1 items-center gap-3 md:gap-4">
           <Link
             href="/"
@@ -65,23 +65,23 @@ export default function SiteHeader() {
           >
             RunwayTwin
           </Link>
-          <span className="hidden text-[11px] font-medium uppercase tracking-[0.32em] text-[var(--rt-muted)] sm:inline">
+          <span className="hidden text-[11px] font-medium uppercase tracking-[0.3em] text-[var(--rt-muted)] md:inline">
             {SITE_TAGLINE}
           </span>
         </div>
 
         <nav
-          className="hidden items-center gap-2.5 text-[12px] font-medium text-[var(--rt-muted)] lg:flex"
+          className="hidden items-center gap-2 text-[12px] font-medium text-[var(--rt-muted)] lg:flex"
           aria-label="Primary"
         >
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`inline-flex items-center rounded-full px-4 py-1.5 text-[11px] uppercase tracking-[0.22em] transition ${
+              className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[11px] uppercase tracking-[0.22em] transition ${
                 item.active
-                  ? "bg-[var(--rt-charcoal)] text-white shadow-[0_10px_26px_rgba(17,24,39,0.16)]"
-                  : "text-[var(--rt-muted)] hover:bg-white/70 hover:text-[var(--rt-charcoal)]"
+                  ? "bg-[var(--rt-charcoal)] text-white shadow-[0_14px_28px_rgba(17,24,39,0.18)]"
+                  : "text-[var(--rt-muted)] hover:bg-white/80 hover:text-[var(--rt-charcoal)]"
               }`}
             >
               {item.label}
@@ -89,10 +89,10 @@ export default function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-4 lg:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           <Link
             href="/stylist"
-            className="inline-flex items-center gap-2 rounded-full bg-[radial-gradient(circle_at_top,var(--rt-gold),var(--rt-charcoal))] px-5 py-2 text-[12px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_18px_42px_rgba(17,24,39,0.25)] transition hover:-translate-y-[1px] hover:shadow-[0_22px_54px_rgba(17,24,39,0.32)]"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[linear-gradient(140deg,#121212,#272727)] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_20px_46px_rgba(17,24,39,0.26)] transition hover:-translate-y-[1px] hover:bg-black"
           >
             <span className="text-sm">✨</span>
             <span>Try the stylist</span>
@@ -103,13 +103,13 @@ export default function SiteHeader() {
         <div className="flex shrink-0 items-center gap-2 lg:hidden">
           <Link
             href="/stylist"
-            className="inline-flex items-center gap-1 rounded-full bg-[radial-gradient(circle_at_top,var(--rt-gold),var(--rt-charcoal))] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_14px_32px_rgba(17,24,39,0.28)] transition hover:-translate-y-[1px] hover:shadow-[0_18px_44px_rgba(17,24,39,0.35)]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-[linear-gradient(140deg,#161616,#2e2e2e)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-[0_16px_36px_rgba(17,24,39,0.24)] transition hover:-translate-y-[1px] hover:bg-black"
           >
             ✨ Try it
           </Link>
           <button
             type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--rt-border)] bg-white text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/35"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--rt-border)] bg-white/90 text-[var(--rt-charcoal)] shadow-sm transition hover:-translate-y-[1px] hover:border-[var(--rt-charcoal)]/35"
             onClick={toggleMenu}
             aria-expanded={menuOpen}
             aria-label="Toggle navigation"
@@ -183,7 +183,7 @@ export default function SiteHeader() {
             <div className="space-y-4 border-t border-[var(--rt-border)] px-5 py-5">
               <Link
                 href="/stylist"
-                className="btn w-full justify-center"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-[linear-gradient(140deg,#141414,#292929)] px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.2em] text-white shadow-[0_20px_46px_rgba(17,24,39,0.26)] transition hover:-translate-y-[1px] hover:bg-black"
                 onClick={closeMenu}
               >
                 ✨ Try the stylist
