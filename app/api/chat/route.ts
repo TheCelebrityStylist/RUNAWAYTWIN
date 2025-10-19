@@ -790,7 +790,14 @@ export async function POST(req: NextRequest) {
         send(controller, "assistant_draft_done", { ok: true });
 
         const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-        const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+        const modelCandidates = [
+          process.env.OPENAI_MODEL,
+          process.env.OPENAI_FALLBACK_MODEL,
+          "gpt-4o",
+          "gpt-4o-mini",
+        ]
+          .filter((model): model is string => Boolean(model && model.trim()))
+          .filter((model, index, array) => array.indexOf(model) === index);
 
         if (!OPENAI_API_KEY) {
           const fallback = fallbackCopy(resolvedProducts, currency, ask, normalizedPrefs);
@@ -819,24 +826,49 @@ export async function POST(req: NextRequest) {
           { role: "system", content: productBlock },
         ];
 
-        const firstPass = await withTimeout(
-          streamChatCompletion(firstPassMessages, MODEL, OPENAI_API_KEY, {
-            onTextDelta: (text) => {
-              send(controller, "assistant_delta", { text });
-            },
-            onToolCall: (call) => {
-              send(controller, "tool_call", {
-                id: call.id,
-                name: call.name,
+        let activeModel = "";
+        let firstPass: { text: string; toolCalls: PendingToolCall[] } | null = null;
+        let firstError: unknown = null;
+
+        for (let idx = 0; idx < modelCandidates.length; idx++) {
+          const candidate = modelCandidates[idx]!;
+          try {
+            const streamed = await withTimeout(
+              streamChatCompletion(firstPassMessages, candidate, OPENAI_API_KEY, {
+                onTextDelta: (text) => {
+                  send(controller, "assistant_delta", { text });
+                },
+                onToolCall: (call) => {
+                  send(controller, "tool_call", {
+                    id: call.id,
+                    name: call.name,
+                  });
+                },
+              }),
+              25_000,
+              `openai-stream-timeout-${candidate}`
+            );
+            firstPass = streamed;
+            activeModel = candidate;
+            break;
+          } catch (error) {
+            firstError = error;
+            console.error(`[RunwayTwin] streaming model ${candidate} failed`, error);
+            if (idx < modelCandidates.length - 1) {
+              send(controller, "notice", {
+                text: "Re-routing to a backup couture brain to finish your look…",
               });
-            },
-          }),
-          25_000,
-          "openai-stream-timeout"
-        );
+            }
+          }
+        }
+
+        if (!firstPass) {
+          throw (firstError as Error) ?? new Error("openai-stream-failed");
+        }
 
         let finalText = firstPass.text.trim();
         const toolCalls = firstPass.toolCalls;
+        let followUpMessages: ChatMessage[] | null = null;
 
         const assistantToolMessage: ChatMessage | null = toolCalls.length
           ? {
@@ -881,16 +913,81 @@ export async function POST(req: NextRequest) {
             assistantToolMessage!,
             ...toolResults,
           ];
+          followUpMessages = secondPassMessages;
 
-          finalText = await withTimeout(
-            openaiComplete(secondPassMessages, MODEL, OPENAI_API_KEY),
-            20_000,
-            "openai-second-pass-timeout"
-          );
+          let refinedText: string | null = null;
+          let refineError: unknown = null;
+          const secondPassModels = [
+            activeModel,
+            ...modelCandidates.filter((model) => model !== activeModel),
+          ];
+
+          for (let idx = 0; idx < secondPassModels.length; idx++) {
+            const candidate = secondPassModels[idx]!;
+            try {
+              refinedText = await withTimeout(
+                openaiComplete(secondPassMessages, candidate, OPENAI_API_KEY),
+                20_000,
+                `openai-second-pass-timeout-${candidate}`
+              );
+              activeModel = candidate;
+              break;
+            } catch (error) {
+              refineError = error;
+              console.error(`[RunwayTwin] second-pass model ${candidate} failed`, error);
+              if (idx < secondPassModels.length - 1) {
+                send(controller, "notice", {
+                  text: "That atelier lagged—pivoting to another styling brain for your look…",
+                });
+              }
+            }
+          }
+
+          if (typeof refinedText === "string" && refinedText.trim()) {
+            finalText = refinedText;
+          } else if (refineError) {
+            console.error("[RunwayTwin] second pass exhausted", refineError);
+          }
         }
 
         if (!finalText || !finalText.trim()) {
-          finalText = fallbackCopy(resolvedProducts, currency, ask, normalizedPrefs);
+          const refinementMessages = followUpMessages ?? firstPassMessages;
+          let refinedText: string | null = null;
+          let refineError: unknown = null;
+          const refinementModels = [
+            activeModel,
+            ...modelCandidates.filter((model) => model && model !== activeModel),
+          ].filter((model, index, array) => Boolean(model) && array.indexOf(model) === index);
+
+          for (let idx = 0; idx < refinementModels.length; idx++) {
+            const candidate = refinementModels[idx]!;
+            try {
+              refinedText = await withTimeout(
+                openaiComplete(refinementMessages, candidate, OPENAI_API_KEY),
+                20_000,
+                `openai-refine-timeout-${candidate}`
+              );
+              activeModel = candidate;
+              break;
+            } catch (error) {
+              refineError = error;
+              console.error(`[RunwayTwin] refinement model ${candidate} failed`, error);
+              if (idx < refinementModels.length - 1) {
+                send(controller, "notice", {
+                  text: "One more couture brain is weighing in to lock your outfit…",
+                });
+              }
+            }
+          }
+
+          if (typeof refinedText === "string" && refinedText.trim()) {
+            finalText = refinedText;
+          } else {
+            if (refineError) {
+              console.error("[RunwayTwin] refinement exhausted", refineError);
+            }
+            finalText = fallbackCopy(resolvedProducts, currency, ask, normalizedPrefs);
+          }
         }
 
         send(controller, "assistant_final", { text: finalText });
