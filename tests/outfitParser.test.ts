@@ -3,7 +3,7 @@ import { parseOutfit } from "@/lib/look/parseOutfit";
 
 describe("parseOutfit", () => {
   it("extracts outfit items with price, retailer, link, and image", () => {
-    const text = `Vibe: sleek minimalism.\n\nOutfit:\n- Top — Totême Contour Ribbed Top (EUR 190, NET-A-PORTER) · https://www.net-a-porter.com/product · Image: https://images.net-a-porter.com/hero.jpg\n- Shoes — The Row Adela Boots (EUR 1190, SSENSE) · https://www.ssense.com/product · Image: https://res.cloudinary.com/boot.jpg\n\nBody Notes:\n- Balanced lines.\n`;
+    const text = `Vibe: sleek minimalism.\n\nOutfit:\n- Top — [Totême Contour Ribbed Top](https://www.net-a-porter.com/product) (EUR 190, NET-A-PORTER) · Image: https://images.net-a-porter.com/hero.jpg\n- Shoes — [The Row Adela Boots](https://www.ssense.com/product) (EUR 1190, SSENSE) · Image: https://res.cloudinary.com/boot.jpg\n\nBody Notes:\n- Balanced lines.\n`;
 
     const items = parseOutfit(text);
     expect(items).toHaveLength(2);

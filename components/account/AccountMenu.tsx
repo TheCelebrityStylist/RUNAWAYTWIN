@@ -128,11 +128,11 @@ export default function AccountMenu({
         : "flex flex-wrap items-center gap-2";
     const signInClass =
       variant === "header"
-        ? "inline-flex items-center gap-2 rounded-full border border-[var(--rt-border)] bg-white/85 px-4 py-2 text-[13px] font-medium text-[var(--rt-charcoal)] shadow-sm transition hover:border-[var(--rt-charcoal)]/40 hover:bg-white"
+        ? "text-[12px] font-medium text-[var(--rt-muted)] underline-offset-4 transition hover:text-[var(--rt-charcoal)] hover:underline"
         : "btn-outline h-10 px-4 text-sm";
     const joinClass =
       variant === "header"
-        ? "inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#111111,#2c2c2c)] px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.16em] text-white shadow-[0_20px_44px_rgba(15,23,42,0.22)] transition hover:-translate-y-[1px] hover:brightness-105"
+        ? "inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#111111,#2c2c2c)] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-white shadow-[0_20px_44px_rgba(15,23,42,0.18)] transition hover:-translate-y-[1px] hover:brightness-110"
         : "btn h-10 px-5 text-sm";
 
     return (

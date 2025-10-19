@@ -123,6 +123,23 @@ function describeFit(category: string, prefs: NormalizedChatPreferences): string
   }
 }
 
+function linkLabel(product: Product): string {
+  const brand = product.brand ?? "";
+  const title = product.title ?? "";
+  return `${brand} ${title}`.trim() || "Piece";
+}
+
+function formatDetailParts(product: Product | null | undefined, currency: string) {
+  if (!product) return "";
+  const parts: string[] = [];
+  if (typeof product.price === "number") {
+    parts.push(formatCurrency(product.price, product.currency ?? currency));
+  }
+  const retailer = product?.retailer ?? safeHost(product?.url);
+  if (retailer) parts.push(retailer);
+  return parts.length ? ` (${parts.join(", ")})` : "";
+}
+
 function formatProductLine(
   label: string,
   product: Product | null | undefined,
@@ -130,30 +147,28 @@ function formatProductLine(
   currency: string
 ) {
   if (!product) return null;
-  const price = typeof product.price === "number" ? formatCurrency(product.price, product.currency ?? currency) : `${product.currency ?? currency} —`;
-  const retailer = product.retailer ?? safeHost(product.url);
+  const link = product.url ? `[${linkLabel(product)}](${product.url})` : linkLabel(product);
+  const details = formatDetailParts(product, currency);
+  const image = product.imageUrl ? ` · Image: ${product.imageUrl}` : "";
   const reasoning = describeFit(label.toLowerCase(), prefs);
-  const image = product.imageUrl ? ` (Image: ${product.imageUrl})` : "";
-  return `${label}: ${product.brand ?? ""} ${product.title ?? ""} — ${price} at ${retailer} → ${product.url}${image}\n  Why: ${reasoning}`;
+  return `- ${label} — ${link}${details}${image}\n  Why: ${reasoning}`;
 }
 
 function buildAlternates(plan: OutfitPlan, currency: string): string[] {
   const alternates: string[] = [];
   if (plan.outerwearAlt) {
-    const price = typeof plan.outerwearAlt.price === "number"
-      ? formatCurrency(plan.outerwearAlt.price, plan.outerwearAlt.currency ?? currency)
-      : `${plan.outerwearAlt.currency ?? currency} —`;
-    alternates.push(
-      `Outerwear save: ${plan.outerwearAlt.brand ?? ""} ${plan.outerwearAlt.title ?? ""} — ${price} at ${plan.outerwearAlt.retailer ?? safeHost(plan.outerwearAlt.url)} → ${plan.outerwearAlt.url}`
-    );
+    const details = formatDetailParts(plan.outerwearAlt, currency);
+    const link = plan.outerwearAlt.url
+      ? `[${linkLabel(plan.outerwearAlt)}](${plan.outerwearAlt.url})`
+      : linkLabel(plan.outerwearAlt);
+    alternates.push(`- Outerwear save — ${link}${details}`);
   }
   if (plan.shoesAlt) {
-    const price = typeof plan.shoesAlt.price === "number"
-      ? formatCurrency(plan.shoesAlt.price, plan.shoesAlt.currency ?? currency)
-      : `${plan.shoesAlt.currency ?? currency} —`;
-    alternates.push(
-      `Shoes save: ${plan.shoesAlt.brand ?? ""} ${plan.shoesAlt.title ?? ""} — ${price} at ${plan.shoesAlt.retailer ?? safeHost(plan.shoesAlt.url)} → ${plan.shoesAlt.url}`
-    );
+    const details = formatDetailParts(plan.shoesAlt, currency);
+    const link = plan.shoesAlt.url
+      ? `[${linkLabel(plan.shoesAlt)}](${plan.shoesAlt.url})`
+      : linkLabel(plan.shoesAlt);
+    alternates.push(`- Shoes save — ${link}${details}`);
   }
   return alternates;
 }
@@ -222,12 +237,11 @@ export function buildFallbackCopy(
     ? `How to wear it: lead with the ${hero.brand ?? "hero piece"} ${hero.title ?? "look"}, keep makeup polished and finish with sculpted hair for camera-ready contrast.`
     : "How to wear it: balance sharp structure with fluid movement and edit accessories to two statement moments.";
 
-  const totalLine = `Total: ${formatCurrency(plan.total, currency)}`;
   const budgetLine =
     typeof prefs.budgetValue === "number"
       ? plan.total > prefs.budgetValue
-        ? `Budget check: swap in the save picks to glide under ${currency} ${Math.round(prefs.budgetValue)}.`
-        : `Budget check: we land within ~${currency} ${Math.round(prefs.budgetValue)}.`
+        ? `Save: swap in the alternates to glide under ${currency} ${Math.round(prefs.budgetValue)}.`
+        : `On budget: comfortably within ${currency} ${Math.round(prefs.budgetValue)}.`
       : "";
 
   const silhouetteNotes: string[] = [];
@@ -238,15 +252,14 @@ export function buildFallbackCopy(
   if (plan.shoes) silhouetteNotes.push(`Shoes: ${describeFit("shoes", prefs)}`);
   if (plan.bag) silhouetteNotes.push(`Bag: ${describeFit("bag", prefs)}`);
 
-  const accessoriesLines = plan.accessories
-    .map((item, index) => {
-      const price = typeof item.price === "number" ? formatCurrency(item.price, item.currency ?? currency) : `${item.currency ?? currency} —`;
-      const retailer = item.retailer ?? safeHost(item.url);
-      const why = describeFit("accessories", prefs);
-      const image = item.imageUrl ? ` (Image: ${item.imageUrl})` : "";
-      return `Accessory ${index + 1}: ${item.brand ?? ""} ${item.title ?? ""} — ${price} at ${retailer} → ${item.url}${image}\n  Why: ${why}`;
-    })
-    .map((line) => `${line}`);
+  const accessoriesLines = plan.accessories.map((item, index) => {
+    const label = `Accessory ${index + 1}`;
+    const link = item.url ? `[${linkLabel(item)}](${item.url})` : linkLabel(item);
+    const details = formatDetailParts(item, currency);
+    const image = item.imageUrl ? ` · Image: ${item.imageUrl}` : "";
+    const reasoning = describeFit("accessories", prefs);
+    return `- ${label} — ${link}${details}${image}\n  Why: ${reasoning}`;
+  });
 
   const outfitLines = [
     formatProductLine("Top", plan.top, prefs, currency),
@@ -273,14 +286,20 @@ export function buildFallbackCopy(
     "Outfit:",
     ...outfitLines,
     "",
-    totalLine,
-    budgetLine,
+    "Budget:",
+    `- Total spend: ${formatCurrency(plan.total, currency)}`,
+    budgetLine ? `- ${budgetLine}` : null,
     "",
-    "Silhouette science:",
+    "Body Notes:",
     ...silhouetteNotes.map((note) => `- ${note}`),
     "",
     "Alternates:",
-    alternates.length ? alternates.join("\n") : "Outerwear save: still sourcing • Shoes save: still sourcing",
+    ...(alternates.length
+      ? alternates
+      : [
+          "- Outerwear save — still sourcing a like-for-like layer",
+          "- Shoes save — scouting an on-budget swap",
+        ]),
     "",
     "Capsule & Tips:",
     ...capsule.map((line) => `- ${line}`),

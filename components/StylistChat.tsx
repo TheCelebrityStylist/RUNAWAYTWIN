@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useStylistChat, Msg } from "./useStylistChat";
 import PreferencesPanel from "./preferences/PreferencesPanel";
 import LookBuilder from "./look/LookBuilder";
@@ -21,6 +23,37 @@ type Props = { initialPreferences: Preferences };
 type BubbleProps = {
   message: Msg;
 };
+
+function MarkdownContent({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({ node, ...props }) => (
+          <a
+            {...props}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-[var(--rt-charcoal)]/40 underline-offset-4 transition hover:decoration-[var(--rt-charcoal)]"
+          />
+        ),
+        ul: ({ node, ...props }) => (
+          <ul {...props} className="mt-2 list-disc space-y-1 pl-5" />
+        ),
+        ol: ({ node, ...props }) => (
+          <ol {...props} className="mt-2 list-decimal space-y-1 pl-5" />
+        ),
+        li: ({ node, ...props }) => <li {...props} className="leading-relaxed" />,
+        p: ({ node, ...props }) => <p {...props} className="leading-relaxed" />,
+        strong: ({ node, ...props }) => <strong {...props} className="font-semibold" />,
+        em: ({ node, ...props }) => <em {...props} className="italic" />,
+        h2: ({ node, ...props }) => <h2 {...props} className="mt-4 text-[15px] font-semibold uppercase tracking-[0.18em]" />,
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+}
 
 function Bubble({ message }: BubbleProps) {
   const isUser = message.role === "user";
@@ -55,6 +88,7 @@ function Bubble({ message }: BubbleProps) {
       </div>
     );
   }
+  const assistantText = typeof message.content === "string" ? message.content : "";
   return (
     <div className="flex justify-start">
       <div
@@ -65,7 +99,7 @@ function Bubble({ message }: BubbleProps) {
           color: "var(--rt-charcoal)",
         }}
       >
-        {message.content}
+        <MarkdownContent text={assistantText} />
       </div>
     </div>
   );

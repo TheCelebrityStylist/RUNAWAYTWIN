@@ -43,9 +43,22 @@ export function parseOutfit(text: string): OutfitItem[] {
     const image = imageMatch ? imageMatch[1] : undefined;
     const afterImage = imageMatch ? afterDash.replace(imageMatch[0], "").trim() : afterDash;
 
-    const urlMatch = afterImage.match(/https?:\/\/[^\s)]+/);
-    const link = urlMatch ? urlMatch[0] : undefined;
-    const noUrl = urlMatch ? afterImage.replace(urlMatch[0], "").trim() : afterImage;
+    let link: string | undefined;
+    let noUrl = afterImage;
+
+    const markdownMatch = afterImage.match(/\[([^\]]+)\]\((https?:[^\s)]+)\)/);
+    if (markdownMatch) {
+      link = markdownMatch[2];
+      noUrl = afterImage.replace(markdownMatch[0], markdownMatch[1]).trim();
+    } else {
+      const urlMatch = afterImage.match(/https?:\/\/[^\s)]+/);
+      if (urlMatch) {
+        link = urlMatch[0];
+        noUrl = afterImage.replace(urlMatch[0], "").trim();
+      }
+    }
+
+    noUrl = noUrl.replace(/^[-•·]\s*/, "").trim();
 
     const parenIndex = noUrl.indexOf("(");
     const dotIndex = noUrl.indexOf("·");
