@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { searchProducts as legacySearchProducts, type Product } from "../tools";
 import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
-import { runTool, toolSchemas } from "./tools";
+import { affiliateLink as affiliateLinkTool, runTool, toolSchemas } from "./tools";
 import type { AdapterContext } from "./tools/types";
 import { getDemoCatalog } from "./tools/adapters/demo";
 import {
@@ -122,15 +122,98 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   });
 }
 
+function detectMuse(ask: string): string | null {
+  if (!ask) return null;
+  const directiveMatch = ask.match(/\b(?:inspired by|like|channel|muse|dress(?:ed)? as)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/i);
+  if (directiveMatch?.[1]) {
+    return directiveMatch[1].trim();
+  }
+  const celebMatch = ask.match(
+    /\b(Zendaya|Beyoncé|Beyonce|Rihanna|Bella Hadid|Hailey Bieber|Rosie Huntington|Jennifer Lopez|Blake Lively|Taylor Swift|Dua Lipa|Kim Kardashian|Megan Thee Stallion|Kylie Jenner|Victoria Beckham|Amelia Gray|Rosie HW)\b/i
+  );
+  if (celebMatch?.[1]) {
+    return celebMatch[1].trim();
+  }
+  const capitalized = ask
+    .split(/[,.;!?\n]/)
+    .map((segment) => segment.trim())
+    .find((segment) => /[A-Z][a-z]+\s+[A-Z][a-z]+/.test(segment));
+  if (capitalized) {
+    const match = capitalized.match(/([A-Z][a-z]+\s+[A-Z][a-z]+)/);
+    if (match?.[1]) return match[1].trim();
+  }
+  return null;
+}
+
+function buildPreferenceDirectives(
+  prefs: NormalizedChatPreferences,
+  ask: string,
+  muse: string | null
+): string {
+  const directives: string[] = [];
+  if (muse) {
+    directives.push(
+      `Pull direct inspiration from ${muse}'s signature looks—reference their proportions, fabrics, and palette without copying wholesale.`
+    );
+  }
+  if (prefs.bodyType) {
+    directives.push(
+      `Body architecture: ${prefs.bodyType}. Prioritize silhouettes that celebrate this shape using strategic rise, drape, and waist emphasis.`
+    );
+  }
+  if (prefs.sizeTop || prefs.sizeBottom || prefs.sizeDress || prefs.sizeShoe) {
+    const sizeParts = [
+      prefs.sizeTop ? `top ${prefs.sizeTop}` : null,
+      prefs.sizeBottom ? `bottom ${prefs.sizeBottom}` : null,
+      prefs.sizeDress ? `dress ${prefs.sizeDress}` : null,
+      prefs.sizeShoe ? `shoe ${prefs.sizeShoe}` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    directives.push(`Ensure size availability around ${sizeParts}. If unclear, suggest the closest viable option.`);
+  }
+  if (typeof prefs.budgetValue === "number") {
+    directives.push(
+      `Respect an all-in budget near ${Math.round(prefs.budgetValue)} ${currencyForPreferences(prefs)}. Provide totals and smart 'Save' swaps if exceeded.`
+    );
+  }
+  if (prefs.styleKeywordsList.length) {
+    directives.push(
+      `Style DNA cues: ${prefs.styleKeywordsList.join(", ")}. Weave these into fabric, palette, and accessories.`
+    );
+  }
+  if (ask) {
+    directives.push(`The latest ask from the client: “${ask}”. Address it head-on.`);
+  }
+  directives.push("Every item must include brand, exact item name, price, currency, retailer, working link, and image when present.");
+  return ["Preference Directives:", ...directives.map((line) => `- ${line}`)].join("\n");
+}
+
+function buildSearchQuery(
+  ask: string,
+  prefs: NormalizedChatPreferences,
+  muse: string | null,
+  currency: string
+): string {
+  const segments: string[] = [];
+  if (muse) segments.push(`${muse} style`);
+  if (prefs.styleKeywordsText) segments.push(prefs.styleKeywordsText);
+  if (prefs.bodyType) segments.push(`${prefs.bodyType} flattering`);
+  if (typeof prefs.budgetValue === "number") segments.push(`under ${Math.round(prefs.budgetValue)} ${currency}`);
+  if (ask) segments.push(ask);
+  segments.push("luxury ready to wear");
+  return segments.filter(Boolean).join(" | ");
+}
+
 async function loadProducts(
   ask: string,
   prefs: NormalizedChatPreferences,
-  currency: string
+  currency: string,
+  muse: string | null
 ): Promise<Product[]> {
-  const query = [ask, prefs.styleKeywordsText]
-    .filter(Boolean)
-    .join(" | ")
-    .trim() || "elevated minimal look: structured top, wide-leg trousers, trench, leather loafers";
+  const query =
+    buildSearchQuery(ask, prefs, muse, currency) ||
+    "elevated minimal look: structured top, wide-leg trousers, trench, leather loafers";
   const country = prefs.country || (preferEU(prefs.country) ? "NL" : "US");
 
   try {
@@ -139,10 +222,16 @@ async function loadProducts(
         query,
         country,
         currency,
-        limit: 10,
+        limit: 12,
         budget: prefs.budgetValue,
         budgetMax: prefs.budgetValue,
         preferEU: preferEU(prefs.country),
+        size:
+          prefs.sizeDress ||
+          prefs.sizeTop ||
+          prefs.sizeBottom ||
+          prefs.sizeShoe ||
+          undefined,
       }),
       12_000,
       "product-search-timeout"
@@ -164,12 +253,43 @@ function demoProductsForCurrency(currency: string): Product[] {
   return source.slice(0, 8);
 }
 
+async function enrichAffiliateLinks(
+  products: Product[],
+  ctx: AdapterContext
+): Promise<Product[]> {
+  if (!products.length) return products;
+  const enriched: Product[] = [];
+  for (const product of products) {
+    if (!product?.url) {
+      enriched.push(product);
+      continue;
+    }
+    try {
+      const linked = await affiliateLinkTool(
+        { url: product.url, retailer: product.retailer },
+        ctx
+      );
+      if (linked?.url && linked.url !== product.url) {
+        enriched.push({ ...product, url: linked.url });
+      } else {
+        enriched.push(product);
+      }
+    } catch (error) {
+      console.error("affiliate enrichment failed", error);
+      enriched.push(product);
+    }
+  }
+  return enriched;
+}
+
 async function gatherProducts(
   ask: string,
   prefs: NormalizedChatPreferences,
-  currency: string
+  currency: string,
+  muse: string | null,
+  ctx: AdapterContext
 ): Promise<Product[]> {
-  const searchPromise = loadProducts(ask, prefs, currency);
+  const searchPromise = loadProducts(ask, prefs, currency, muse);
 
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
   const fallbackPromise = new Promise<Product[]>((resolve) => {
@@ -188,15 +308,15 @@ async function gatherProducts(
   }
 
   if (first.length) {
-    return first;
+    return enrichAffiliateLinks(first, ctx);
   }
 
   const final = await searchPromise;
   if (final.length) {
-    return final;
+    return enrichAffiliateLinks(final, ctx);
   }
 
-  return demoProductsForCurrency(currency);
+  return enrichAffiliateLinks(demoProductsForCurrency(currency), ctx);
 }
 
 function openAIToolDefinitions() {
@@ -408,14 +528,18 @@ export async function POST(req: NextRequest) {
   }
 
   const ask = lastUserText(baseMessages);
+  const muse = detectMuse(ask);
+  const directiveMessage = buildPreferenceDirectives(normalizedPrefs, ask, muse);
+  baseMessages.splice(3, 0, { role: "system", content: directiveMessage });
   const currency = currencyForPreferences(normalizedPrefs);
+  const adapterContext: AdapterContext = { preferences: normalizedPrefs };
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       send(controller, "ready", { ok: true });
       const keepAlive = setInterval(() => send(controller, "ping", { t: Date.now() }), 15_000);
 
-      const productPromise = gatherProducts(ask, normalizedPrefs, currency);
+      const productPromise = gatherProducts(ask, normalizedPrefs, currency, muse, adapterContext);
       let resolvedProducts: Product[] = [];
 
       try {
@@ -462,8 +586,6 @@ export async function POST(req: NextRequest) {
           "Tone: cinematic, editorial, precise, never generic.",
           "Close with the upsell line verbatim.",
         ].join(" ");
-
-        const adapterContext: AdapterContext = { preferences: normalizedPrefs };
 
         const firstPassMessages: ChatMessage[] = [
           ...baseMessages,
