@@ -254,6 +254,128 @@ function bulletsFromProducts(products: Product[]): string {
     .join("\n");
 }
 
+function formatCurrency(amount: number, currency: string) {
+  if (!Number.isFinite(amount)) return "—";
+  return `${currency} ${Math.round(amount)}`;
+}
+
+type OutfitPlan = {
+  top?: Product | null;
+  bottom?: Product | null;
+  dress?: Product | null;
+  outerwear?: Product | null;
+  shoes?: Product | null;
+  bag?: Product | null;
+  accessories: Product[];
+  outerwearAlt?: Product | null;
+  shoesAlt?: Product | null;
+  total: number;
+  selected: Product[];
+};
+
+function sortByPrice(products: Product[]): Product[] {
+  return [...products].sort((a, b) => {
+    const priceA = typeof a.price === "number" ? a.price : Number.POSITIVE_INFINITY;
+    const priceB = typeof b.price === "number" ? b.price : Number.POSITIVE_INFINITY;
+    return priceA - priceB;
+  });
+}
+
+function groupByCategory(products: Product[]): Record<string, Product[]> {
+  return products.reduce<Record<string, Product[]>>((acc, product) => {
+    const key = product.category?.toLowerCase() ?? "misc";
+    if (!acc[key]) acc[key] = [];
+    acc[key]!.push(product);
+    return acc;
+  }, {});
+}
+
+function pickOutfit(products: Product[], currency: string, prefs: NormalizedPrefs): OutfitPlan {
+  const groups = groupByCategory(products);
+  const take = (category: string) => sortByPrice(groups[category.toLowerCase()] ?? []);
+
+  const dresses = take("dress");
+  const tops = take("top");
+  const bottoms = take("bottom");
+  const outerwear = take("outerwear");
+  const shoes = take("shoes");
+  const bags = take("bag");
+  const accessories = take("accessories");
+
+  const usingDress = dresses.length > 0 && (!tops.length || !bottoms.length);
+
+  const dress = usingDress ? dresses[0] ?? null : null;
+  const top = usingDress ? null : tops[0] ?? null;
+  const bottom = usingDress ? null : bottoms[0] ?? null;
+  const outerwearPrimary = outerwear[0] ?? null;
+  const shoesPrimary = shoes[0] ?? null;
+  const bag = bags[0] ?? null;
+  const jewellery = accessories.slice(0, 2);
+
+  const selected: Product[] = [];
+  for (const item of [top, bottom, dress, outerwearPrimary, shoesPrimary, bag, ...jewellery]) {
+    if (item) selected.push(item);
+  }
+
+  const total = selected.reduce((sum, item) => sum + (typeof item.price === "number" ? item.price : 0), 0);
+
+  return {
+    top,
+    bottom,
+    dress,
+    outerwear: outerwearPrimary,
+    shoes: shoesPrimary,
+    bag,
+    accessories: jewellery,
+    outerwearAlt: outerwear.find((item) => item !== outerwearPrimary) ?? null,
+    shoesAlt: shoes.find((item) => item !== shoesPrimary) ?? null,
+    total,
+    selected,
+  };
+}
+
+function describeFit(category: string, prefs: NormalizedPrefs): string {
+  const body = prefs.bodyType?.toLowerCase();
+  if (!body) {
+    const defaults: Record<string, string> = {
+      top: "Slim, structured lines keep the proportions clean.",
+      bottom: "Tailoring lengthens the leg line for polish.",
+      dress: "A sculpted waist keeps the silhouette refined.",
+      outerwear: "Sharp shoulders frame the look without bulk.",
+      shoes: "Sleek profile elongates the line of the leg.",
+      bag: "Structured leather finishes the look with intention.",
+      accessories: "Refined accents tie the palette together.",
+    };
+    return defaults[category] ?? "Polished details keep the story cohesive.";
+  }
+
+  switch (category) {
+    case "top":
+      return `${body} silhouettes love a top that skims the waist so curves stay defined.`;
+    case "bottom":
+      return `${body} bodies benefit from a tailored leg—this pair creates long, clean lines.`;
+    case "dress":
+      return `${body} frames shine in a dress that nips at the waist and floats over curves.`;
+    case "outerwear":
+      return `${body} proportions stay balanced with structured shoulders and a controlled drape.`;
+    case "shoes":
+      return `${body} lines look longer with a streamlined shoe and modest rise.`;
+    case "bag":
+      return `${body} styling stays sleek with a structured bag that mirrors the outfit's geometry.`;
+    default:
+      return `${body} styling feels elevated with polished accessories to echo the hardware.`;
+  }
+}
+
+function formatProductLine(label: string, product: Product | null | undefined, prefs: NormalizedPrefs, currency: string) {
+  if (!product) return null;
+  const price = typeof product.price === "number" ? formatCurrency(product.price, product.currency ?? currency) : `${product.currency ?? currency} —`;
+  const retailer = product.retailer ?? safeHost(product.url);
+  const reasoning = describeFit(label.toLowerCase(), prefs);
+  const image = product.imageUrl ? ` (Image: ${product.imageUrl})` : "";
+  return `${label}: ${product.brand ?? ""} ${product.title ?? ""} — ${price} at ${retailer} → ${product.url}${image}\n  Why: ${reasoning}`;
+}
+
 function fallbackCopy(products: Product[], currency: string, ask: string, prefs: NormalizedPrefs): string {
   if (!products.length) {
     return [
@@ -275,30 +397,73 @@ function fallbackCopy(products: Product[], currency: string, ask: string, prefs:
       .join("\n");
   }
 
-  const total = products.reduce((sum, product) => sum + (typeof product.price === "number" ? product.price : 0), 0);
-  const approx = total ? `Approx total: ~${Math.round(total)} ${currency}` : "";
-  const bodyType = prefs.bodyType ? `Body type focus: ${prefs.bodyType}.` : "";
+  const plan = pickOutfit(products, currency, prefs);
+  const bodyFocus = prefs.bodyType ? `Body type focus: ${prefs.bodyType}.` : "Balanced to flatter every line.";
+  const muse = ask ? `Muse: “${ask}”.` : prefs.styleKeywordsText ? `Style DNA: ${prefs.styleKeywordsText}.` : "";
 
-  const lines = products.slice(0, 6).map((product) => {
-    const label = [product.brand, product.title].filter(Boolean).join(" ");
-    const price = product.price ? `${product.currency ?? currency} ${Math.round(product.price)}` : `${product.currency ?? currency} —`;
-    return `- ${label} (${price}, ${product.retailer ?? safeHost(product.url)}) → ${product.url}`;
-  });
+  const totalLine = `Total: ${formatCurrency(plan.total, currency)}`;
+  const budgetLine =
+    typeof prefs.budgetValue === "number"
+      ? plan.total > prefs.budgetValue
+        ? `Budget check: swap in the save picks to glide under ${currency} ${Math.round(prefs.budgetValue)}.`
+        : `Budget check: we land within ~${currency} ${Math.round(prefs.budgetValue)}.`
+      : "";
+
+  const alternates: string[] = [];
+  if (plan.outerwearAlt) {
+    const price = typeof plan.outerwearAlt.price === "number" ? formatCurrency(plan.outerwearAlt.price, plan.outerwearAlt.currency ?? currency) : `${plan.outerwearAlt.currency ?? currency} —`;
+    alternates.push(
+      `Outerwear save: ${plan.outerwearAlt.brand ?? ""} ${plan.outerwearAlt.title ?? ""} — ${price} at ${plan.outerwearAlt.retailer ?? safeHost(plan.outerwearAlt.url)} → ${plan.outerwearAlt.url}`
+    );
+  }
+  if (plan.shoesAlt) {
+    const price = typeof plan.shoesAlt.price === "number" ? formatCurrency(plan.shoesAlt.price, plan.shoesAlt.currency ?? currency) : `${plan.shoesAlt.currency ?? currency} —`;
+    alternates.push(
+      `Shoes save: ${plan.shoesAlt.brand ?? ""} ${plan.shoesAlt.title ?? ""} — ${price} at ${plan.shoesAlt.retailer ?? safeHost(plan.shoesAlt.url)} → ${plan.shoesAlt.url}`
+    );
+  }
+
+  const accessoriesLines = plan.accessories
+    .map((item, index) => {
+      const price = typeof item.price === "number" ? formatCurrency(item.price, item.currency ?? currency) : `${item.currency ?? currency} —`;
+      const retailer = item.retailer ?? safeHost(item.url);
+      const why = describeFit("accessories", prefs);
+      const image = item.imageUrl ? ` (Image: ${item.imageUrl})` : "";
+      return `Accessory ${index + 1}: ${item.brand ?? ""} ${item.title ?? ""} — ${price} at ${retailer} → ${item.url}${image}\n  Why: ${why}`;
+    })
+    .map((line) => `${line}`);
+
+  const outfitLines = [
+    formatProductLine("Top", plan.top, prefs, currency),
+    formatProductLine("Bottom", plan.bottom, prefs, currency),
+    formatProductLine("Dress", plan.dress, prefs, currency),
+    formatProductLine("Outerwear", plan.outerwear, prefs, currency),
+    formatProductLine("Shoes", plan.shoes, prefs, currency),
+    formatProductLine("Bag", plan.bag, prefs, currency),
+    ...accessoriesLines,
+  ]
+    .filter(Boolean)
+    .map((line) => line as string);
 
   return [
     "Vibe: Polished silhouettes in ready-to-wear rotation.",
-    bodyType,
+    bodyFocus,
+    muse,
     "",
-    "Outfit scout:",
-    ...lines,
+    "Outfit:",
+    ...outfitLines,
     "",
-    approx,
+    totalLine,
+    budgetLine,
+    "",
+    "Alternates:",
+    alternates.length ? alternates.join("\n") : "Outerwear save: still sourcing • Shoes save: still sourcing",
     "",
     "Capsule & Tips:",
-    "- Swap in tonal outerwear to sharpen transitions from day to night.",
-    "- Anchor with structured leather accessories for longevity.",
-    "- Tip: steam outerwear so drape stays razor sharp.",
-    "- Tip: echo jewellery tones with bag hardware.",
+    "- Remix the top with your favourite vintage denim and slingbacks for a curated brunch moment.",
+    "- Layer the outerwear over a slip dress for night, swapping in the save boots for a lighter feel.",
+    "- Tip: tailor the hem to hit just at the ankle so the leg reads mile-long.",
+    "- Tip: echo jewellery hardware with your bag to keep the palette luxe and intentional.",
     "",
     "Want more personalized seasonal wardrobe plans or unlimited style coaching? Upgrade for €19/month or €5 per additional styling session 💎",
   ]
