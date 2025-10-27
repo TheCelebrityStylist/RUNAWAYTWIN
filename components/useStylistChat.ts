@@ -4,9 +4,9 @@
 import { useState, useCallback } from "react";
 import type { Message as _Message } from "@/lib/types";
 
-// -- Type exports expected by StylistChat.tsx --
-export type { Msg } from "@/lib/types";     // <- ensures `Msg` is exported from this module
-export type Message = _Message;             // (optional) also expose Message for convenience
+// Re-export expected types for backward compatibility
+export type { Msg } from "@/lib/types";
+export type Message = _Message;
 
 export function useStylistChat(
   endpoint: string = "/api/chat",
@@ -23,6 +23,7 @@ export function useStylistChat(
       const text = (input ?? draft).trim();
       if (!text) return;
 
+      // push user message first
       const userMsg: _Message = { role: "user", content: text };
       setMessages((m) => [...m, userMsg]);
       setDraft("");
@@ -31,29 +32,83 @@ export function useStylistChat(
 
       try {
         const body: Record<string, unknown> = { input: text };
-        if (prefs && Object.keys(prefs).length > 0) {
-          body.prefs = sanitize(prefs);
-        }
+        // Backward-compat with your route that expects { messages, preferences }
+        const legacyBody = {
+          messages: [{ role: "user", content: text }],
+          preferences: prefs ?? {},
+        };
 
+        // Prefer streaming route shape (current route supports both shapes)
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          // Try legacy shape if needed by swapping body variable:
+          body: JSON.stringify(legacyBody),
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Prepare an assistant message slot for progressive updates
+        let assistantIndex = -1;
+        setMessages((m) => {
+          assistantIndex = m.length;
+          return [...m, { role: "assistant", content: "" }];
+        });
 
-        let replyText = "";
-        const ct = res.headers.get("content-type") ?? "";
-        if (ct.includes("application/json")) {
-          const data = (await res.json()) as { reply?: string };
-          replyText = data.reply ?? "";
+        const contentType = res.headers.get("content-type") || "";
+        const isStream = res.body && contentType.includes("text/plain");
+
+        if (isStream && res.body) {
+          // Progressive streaming consumption
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let acc = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            acc += chunk;
+
+            // apply sanitized partial
+            setMessages((m) => {
+              const next = [...m];
+              const cur = (next[assistantIndex]?.content as string) ?? "";
+              next[assistantIndex] = {
+                role: "assistant",
+                content: cur + chunk,
+              };
+              return next;
+            });
+          }
+
+          // final sanitize pass
+          const finalText = acc.trim();
+          setMessages((m) => {
+            const next = [...m];
+            next[assistantIndex] = {
+              role: "assistant",
+              content: finalText || "(no reply)",
+            };
+            return next;
+          });
         } else {
-          replyText = await res.text();
+          // Non-streaming fallback (JSON or plain text)
+          let replyText = "";
+          if (contentType.includes("application/json")) {
+            const data = (await res.json()) as { reply?: string };
+            replyText = data.reply ?? "";
+          } else {
+            replyText = await res.text();
+          }
+          setMessages((m) => {
+            const next = [...m];
+            if (assistantIndex === -1) assistantIndex = m.length;
+            next[assistantIndex] = {
+              role: "assistant",
+              content: replyText || "(no reply)",
+            };
+            return next;
+          });
         }
-
-        const assistantMsg: _Message = { role: "assistant", content: replyText || "(no reply)" };
-        setMessages((m) => [...m, assistantMsg]);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -76,43 +131,3 @@ export function useStylistChat(
     error,
   };
 }
-
-/**
- * Utility: sanitize preference objects before sending to API
- * (removes null/undefined/empty-string fields, trims strings, prunes empties)
- */
-export function sanitize<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Partial<T> = {};
-
-  for (const [key, value] of Object.entries(obj) as [keyof T, T[keyof T]][]) {
-    if (value === undefined || value === null) continue;
-
-    if (typeof value === "string") {
-      const t = value.trim();
-      if (t !== "") out[key] = t as T[keyof T];
-      continue;
-    }
-
-    if (typeof value === "number" || typeof value === "boolean") {
-      out[key] = value as T[keyof T];
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      const filtered = (value as unknown[])
-        .map((v) => (typeof v === "string" ? v.trim() : v))
-        .filter((v) => v !== "" && v !== null && v !== undefined);
-      if (filtered.length > 0) out[key] = filtered as unknown as T[keyof T];
-      continue;
-    }
-
-    if (typeof value === "object") {
-      const nested = sanitize(value as Record<string, unknown>);
-      if (Object.keys(nested).length > 0) out[key] = nested as unknown as T[keyof T];
-      continue;
-    }
-  }
-
-  return out;
-}
-
