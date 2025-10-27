@@ -7,6 +7,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
 }
+export type Msg = Message; // <- alias for backwards-compat with StylistChat.tsx
 
 export interface ChatState {
   messages: Message[];
@@ -21,8 +22,10 @@ export function useStylistChat(initial?: Message[]) {
   });
 
   const sendMessage = useCallback(async (input: string) => {
-    if (!input.trim()) return;
-    const newMsg: Message = { role: "user", content: input.trim() };
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    const newMsg: Message = { role: "user", content: trimmed };
 
     setState((s) => ({
       ...s,
@@ -35,11 +38,11 @@ export function useStylistChat(initial?: Message[]) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ input: trimmed }),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data: { reply?: string } = await res.json();
 
       const reply: Message = {
         role: "assistant",
@@ -73,30 +76,29 @@ export function useStylistChat(initial?: Message[]) {
 export function sanitize<T extends Record<string, unknown>>(obj: T): Partial<T> {
   const out: Partial<T> = {};
 
-  for (const [k, v] of Object.entries(obj)) {
+  for (const [k, v] of Object.entries(obj) as [keyof T, T[keyof T]][]) {
     if (v === undefined || v === null) continue;
 
-    // Handle primitives safely
     if (typeof v === "string") {
       const t = v.trim();
-      if (t !== "") (out as any)[k] = t;
+      if (t !== "") out[k] = t as T[keyof T];
       continue;
     }
 
     if (typeof v === "number") {
-      (out as any)[k] = v;
+      out[k] = v as T[keyof T];
       continue;
     }
 
     if (Array.isArray(v)) {
-      const filtered = v.filter((el) => el != null && el !== "");
-      if (filtered.length > 0) (out as any)[k] = filtered;
+      const filtered = (v as unknown[]).filter((el) => el != null && el !== "");
+      if (filtered.length > 0) out[k] = filtered as unknown as T[keyof T];
       continue;
     }
 
     if (typeof v === "object") {
       const nested = sanitize(v as Record<string, unknown>);
-      if (Object.keys(nested).length > 0) (out as any)[k] = nested;
+      if (Object.keys(nested).length > 0) out[k] = nested as unknown as T[keyof T];
       continue;
     }
   }
