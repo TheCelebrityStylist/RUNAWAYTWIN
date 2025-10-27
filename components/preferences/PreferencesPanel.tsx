@@ -1,145 +1,168 @@
-// components/preferences/PreferencesPanel.tsx
+// FILE: components/preferences/PreferencesPanel.tsx
 "use client";
 
 import React from "react";
 
-// FILE: components/preferences/PreferencesPanel.tsx
-export type Prefs = import("../useStylistChat").Prefs; // <— guarantees the same shape
+/**
+ * Local, robust types (no any). `sizes` is optional so the panel
+ * works whether the caller passes it or not.
+ */
+type Gender = "female" | "male" | "other";
+type CountryCode = string;
+
+export type Sizes = {
+  top?: string;
+  bottom?: string;
+  dress?: string;
+  shoe?: string;
+};
+
+export type Prefs = {
+  gender?: Gender;
+  bodyType?: string;
+  budget?: string;
+  country?: CountryCode;
+  keywords?: string[];
+  sizes?: Sizes; // <- optional
+};
 
 type Props = {
   value: Prefs;
-  onChange: (v: Prefs) => void;
+  onChange: (next: Prefs) => void;
 };
 
 export default function PreferencesPanel({ value, onChange }: Props) {
-  const update = <K extends keyof Prefs>(key: K, next: Prefs[K]) =>
+  const onField = <K extends keyof Prefs>(key: K, next: NonNullable<Prefs[K]>) => {
     onChange({ ...value, [key]: next });
+  };
 
-  const updateSize = (k: keyof Prefs["sizes"], v: string) =>
-    onChange({ ...value, sizes: { ...value.sizes, [k]: v } });
+  const ensureSizes = (s?: Sizes): Sizes => (s ? s : {});
 
-  const onKeywords = (v: string) =>
-    update("styleKeywords", v.split(",").map((x) => x.trim()).filter(Boolean));
+  const updateSize = (k: keyof Sizes, v: string) => {
+    const nextSizes: Sizes = { ...ensureSizes(value.sizes), [k]: v };
+    onChange({ ...value, sizes: nextSizes });
+  };
+
+  const onKeywords = (v: string) => {
+    const arr = v
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    onChange({ ...value, keywords: arr });
+  };
 
   return (
-    <div className="card p-4 space-y-3">
-      <h3 className="font-semibold text-[15px]">Your Preferences</h3>
+    <section className="grid gap-4 rounded-xl border p-4 md:p-6">
+      <h2 className="text-lg font-semibold">Your Preferences</h2>
 
-      <div className="space-y-2">
-        <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Gender</label>
+      {/* Gender */}
+      <div className="grid gap-2">
+        <label htmlFor="gender" className="text-sm font-medium">
+          Gender
+        </label>
         <select
-          className="h-10 rounded-full border px-3 text-[14px] w-full"
-          style={{ borderColor: "var(--rt-border)", background: "white" }}
-          value={value.gender}
-          onChange={(e) =>
-            update("gender", e.target.value as Prefs["gender"])
-          }
-        >
-          <option value="female">Female</option>
-          <option value="male">Male</option>
-          <option value="unisex">Unisex</option>
-          <option value="unspecified">Unspecified</option>
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Top</label>
-          <input
-            className="h-10 rounded-full border px-3 text-[14px] w-full"
-            style={{ borderColor: "var(--rt-border)", background: "white" }}
-            value={value.sizes.top || ""}
-            onChange={(e) => updateSize("top", e.target.value)}
-            placeholder="e.g., M"
-          />
-        </div>
-        <div>
-          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Bottom</label>
-          <input
-            className="h-10 rounded-full border px-3 text-[14px] w-full"
-            style={{ borderColor: "var(--rt-border)", background: "white" }}
-            value={value.sizes.bottom || ""}
-            onChange={(e) => updateSize("bottom", e.target.value)}
-            placeholder="e.g., 28"
-          />
-        </div>
-        <div>
-          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Dress</label>
-          <input
-            className="h-10 rounded-full border px-3 text-[14px] w-full"
-            style={{ borderColor: "var(--rt-border)", background: "white" }}
-            value={value.sizes.dress || ""}
-            onChange={(e) => updateSize("dress", e.target.value)}
-            placeholder="e.g., 38"
-          />
-        </div>
-        <div>
-          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Shoe</label>
-          <input
-            className="h-10 rounded-full border px-3 text-[14px] w-full"
-            style={{ borderColor: "var(--rt-border)", background: "white" }}
-            value={value.sizes.shoe || ""}
-            onChange={(e) => updateSize("shoe", e.target.value)}
-            placeholder="e.g., 39"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Body Type</label>
-        <select
-          className="h-10 rounded-full border px-3 text-[14px] w-full"
-          style={{ borderColor: "var(--rt-border)", background: "white" }}
-          value={value.bodyType}
-          onChange={(e) => update("bodyType", e.target.value)}
+          id="gender"
+          className="rounded-md border px-3 py-2"
+          value={value.gender ?? ""}
+          onChange={(e) => onField("gender", e.target.value as Gender)}
         >
           <option value="">Select…</option>
-          <option value="hourglass">Hourglass</option>
-          <option value="pear">Pear</option>
-          <option value="rectangle">Rectangle</option>
-          <option value="inverted-triangle">Inverted triangle</option>
-          <option value="petite">Petite</option>
-          <option value="tall">Tall</option>
-          <option value="plus">Plus</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+          <option value="other">Other</option>
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Budget</label>
-          <input
-            className="h-10 rounded-full border px-3 text-[14px] w-full"
-            style={{ borderColor: "var(--rt-border)", background: "white" }}
-            value={value.budget}
-            onChange={(e) => update("budget", e.target.value)}
-            placeholder="e.g., €300–€600"
-          />
-        </div>
-        <div>
-          <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Country</label>
-          <input
-            className="h-10 rounded-full border px-3 text-[14px] w-full"
-            style={{ borderColor: "var(--rt-border)", background: "white" }}
-            value={value.country}
-            onChange={(e) => update("country", e.target.value)}
-            placeholder="e.g., NL / US"
-          />
-        </div>
+      {/* Body Type */}
+      <div className="grid gap-2">
+        <label htmlFor="bodyType" className="text-sm font-medium">
+          Body type
+        </label>
+        <input
+          id="bodyType"
+          className="rounded-md border px-3 py-2"
+          placeholder="hourglass, athletic, petite…"
+          value={value.bodyType ?? ""}
+          onChange={(e) => onField("bodyType", e.target.value)}
+        />
       </div>
 
-      <div className="space-y-2">
-        <label className="text-[12px]" style={{ color: "var(--rt-charcoal)" }}>Style Keywords</label>
+      {/* Budget */}
+      <div className="grid gap-2">
+        <label htmlFor="budget" className="text-sm font-medium">
+          Budget
+        </label>
         <input
-          className="h-10 rounded-full border px-3 text-[14px] w-full"
-          style={{ borderColor: "var(--rt-border)", background: "white" }}
-          value={value.styleKeywords.join(", ")}
-          onChange={(e) => onKeywords(e.target.value)}
-          placeholder="e.g., minimal, elevated basics, clean lines"
+          id="budget"
+          className="rounded-md border px-3 py-2"
+          placeholder="€300–€600"
+          value={value.budget ?? ""}
+          onChange={(e) => onField("budget", e.target.value)}
         />
-        <p className="text-[11px]" style={{ color: "var(--rt-muted)" }}>
-          Comma-separated. Used to guide palette and silhouette choices.
-        </p>
       </div>
-    </div>
+
+      {/* Country */}
+      <div className="grid gap-2">
+        <label htmlFor="country" className="text-sm font-medium">
+          Country
+        </label>
+        <input
+          id="country"
+          className="rounded-md border px-3 py-2"
+          placeholder="NL"
+          value={value.country ?? ""}
+          onChange={(e) => onField("country", e.target.value)}
+        />
+      </div>
+
+      {/* Sizes (optional) */}
+      <fieldset className="grid gap-2">
+        <legend className="text-sm font-medium">Sizes (optional)</legend>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <input
+            aria-label="Top size"
+            className="rounded-md border px-3 py-2"
+            placeholder="Top (e.g., M)"
+            value={value.sizes?.top ?? ""}
+            onChange={(e) => updateSize("top", e.target.value)}
+          />
+          <input
+            aria-label="Bottom size"
+            className="rounded-md border px-3 py-2"
+            placeholder="Bottom (e.g., 28)"
+            value={value.sizes?.bottom ?? ""}
+            onChange={(e) => updateSize("bottom", e.target.value)}
+          />
+          <input
+            aria-label="Dress size"
+            className="rounded-md border px-3 py-2"
+            placeholder="Dress (e.g., 38)"
+            value={value.sizes?.dress ?? ""}
+            onChange={(e) => updateSize("dress", e.target.value)}
+          />
+          <input
+            aria-label="Shoe size"
+            className="rounded-md border px-3 py-2"
+            placeholder="Shoe (e.g., 39)"
+            value={value.sizes?.shoe ?? ""}
+            onChange={(e) => updateSize("shoe", e.target.value)}
+          />
+        </div>
+      </fieldset>
+
+      {/* Keywords */}
+      <div className="grid gap-2">
+        <label htmlFor="keywords" className="text-sm font-medium">
+          Style keywords (comma-separated)
+        </label>
+        <input
+          id="keywords"
+          className="rounded-md border px-3 py-2"
+          placeholder="minimalist, streetwear, neutral tones…"
+          value={(value.keywords ?? []).join(", ")}
+          onChange={(e) => onKeywords(e.target.value)}
+        />
+      </div>
+    </section>
   );
 }
