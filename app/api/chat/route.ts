@@ -15,7 +15,7 @@ const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* =======================================
-   Types (keep your current public shape)
+   Types
    ======================================= */
 type Role = "system" | "user" | "assistant";
 
@@ -220,22 +220,89 @@ Capsule & Tips:
 }
 
 /* =======================================
-   MOCK reply (when no OPENAI_API_KEY)
+   Streaming helpers
    ======================================= */
-function mockReply(cands: Cand[], prefs: Prefs, userText: string): string {
-  // Reuse your robust fallback formatting with a mock note header.
-  const base = fallbackFromCandidates(cands, prefs, userText);
-  return `Mock stylist reply (no OPENAI_API_KEY)\n\n${base}`;
+function textStream(enqueue: (chunk: string) => void) {
+  return {
+    write: (s: string) => enqueue(s),
+    writeln: (s: string) => enqueue(s + "\n"),
+  };
+}
+
+function sseToTextReader(resp: Response) {
+  // Parses OpenAI SSE and yields delta.content pieces as plain text
+  const reader = resp.body?.getReader();
+  const decoder = new TextDecoder();
+  return new ReadableStream<string>({
+    start(controller) {
+      if (!reader) {
+        controller.close();
+        return;
+      }
+      const pump = (): void => {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            controller.close();
+            return;
+          }
+          const chunk = decoder.decode(value, { stream: true });
+          // Split SSE lines and parse `data: { ... }`
+          for (const line of chunk.split("\n")) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const payload = trimmed.slice(5).trim();
+            if (payload === "[DONE]") {
+              controller.close();
+              return;
+            }
+            try {
+              const json = JSON.parse(payload) as {
+                choices?: Array<{ delta?: { content?: string } }>;
+              };
+              const token = json?.choices?.[0]?.delta?.content ?? "";
+              if (token) controller.enqueue(token);
+            } catch {
+              // ignore malformed lines
+            }
+          }
+          pump();
+        });
+      };
+      pump();
+    },
+  });
 }
 
 /* =======================================
-   ROUTE
+   MOCK stream (when no OPENAI_API_KEY)
+   ======================================= */
+function mockStream(prefs: Prefs, userText: string, cands: Cand[]) {
+  const base = fallbackFromCandidates(cands, prefs, userText);
+  const parts = ("Mock stylist reply (no OPENAI_API_KEY)\n\n" + base).split(/(\s+)/);
+  let i = 0;
+  return new ReadableStream<string>({
+    pull(controller) {
+      if (i >= parts.length) {
+        controller.close();
+        return;
+      }
+      // push small chunks to simulate typing
+      controller.enqueue(parts[i++]);
+    },
+  });
+}
+
+/* =======================================
+   ROUTE (streaming)
    ======================================= */
 export async function POST(req: NextRequest) {
-  const headers = new Headers({ "Content-Type": "text/plain; charset=utf-8" });
+  const headers = new Headers({
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+    "x-stream": "1",
+  });
 
   try {
-    // Guard content type
     const ct = req.headers.get("content-type") || "";
     if (!ct.includes("application/json")) {
       return new Response("Expected application/json body.", { status: 415, headers });
@@ -257,7 +324,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch candidates with a hard timeout for reliability
+    // Get product candidates (optional)
     let cands: Cand[] = [];
     if (ALLOW_WEB && process.env.TAVILY_API_KEY) {
       const q = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
@@ -269,7 +336,6 @@ export async function POST(req: NextRequest) {
       ]);
     }
 
-    // Build messages exactly like your original, plus prefs/system blocks
     const messages: ChatMessage[] = [
       { role: "system", content: STYLIST_SYSTEM_PROMPT },
       { role: "system", content: prefsToSystem(preferences) },
@@ -286,32 +352,46 @@ export async function POST(req: NextRequest) {
       content: typeof m.content === "string" ? m.content : contentToText(m.content),
     }));
 
-    // ---- MOCK MODE: run without OpenAI key ----
+    // If no key: return a mock streaming Response
     if (!HAS_KEY) {
-      const text = mockReply(cands, preferences, userText);
-      return new Response(sanitizeAnswer(text), { headers });
+      return new Response(mockStream(preferences, userText, cands), { headers });
     }
 
-    // ---- REAL CALL ----
-    let text = "";
-    try {
-      const completion = await client.chat.completions.create({
+    // Real OpenAI call in streaming mode
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
         model: MODEL,
         messages: strMessages,
         temperature: 0.6,
-        stream: false,
-      });
-      text = completion?.choices?.[0]?.message?.content || "";
-    } catch {
-      text = "";
+        stream: true,
+      }),
+    });
+
+    if (!resp.ok || !resp.body) {
+      // Fall back to non-streaming composition if streaming is not available
+      let text = "";
+      try {
+        const completion = await client.chat.completions.create({
+          model: MODEL,
+          messages: strMessages,
+          temperature: 0.6,
+          stream: false,
+        });
+        text = completion?.choices?.[0]?.message?.content || "";
+      } catch {
+        text = "";
+      }
+      if (!text.trim()) text = fallbackFromCandidates(cands, preferences, userText);
+      return new Response(sanitizeAnswer(text), { headers });
     }
 
-    if (!text.trim()) {
-      // Fallback ensures the UI still shows a styled plan (never invents links)
-      text = fallbackFromCandidates(cands, preferences, userText);
-    }
-
-    return new Response(sanitizeAnswer(text), { headers });
+    const textReadable = sseToTextReader(resp);
+    return new Response(textReadable, { headers });
   } catch (err: unknown) {
     const msg =
       "I hit a hiccup finishing the look. Here’s a quick starter you can use right now.\n\n(" +
