@@ -2,29 +2,7 @@
 "use client";
 
 import React from "react";
-
-/**
- * Local, robust types (no any). `sizes` is optional so the panel
- * works whether the caller passes it or not.
- */
-type Gender = "female" | "male" | "other";
-type CountryCode = string;
-
-export type Sizes = {
-  top?: string;
-  bottom?: string;
-  dress?: string;
-  shoe?: string;
-};
-
-export type Prefs = {
-  gender?: Gender;
-  bodyType?: string;
-  budget?: string;
-  country?: CountryCode;
-  keywords?: string[];
-  sizes?: Sizes; // <- optional
-};
+import type { Prefs, Sizes, Gender } from "@/lib/types";
 
 type Props = {
   value: Prefs;
