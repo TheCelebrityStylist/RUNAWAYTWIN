@@ -21,7 +21,7 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
   const q = query.toLowerCase().trim();
   const kw: string[] =
     prefs?.keywords?.map((k) => k.toLowerCase().trim()).filter(Boolean) ?? [];
-  const desiredGender = prefs?.gender; // "female" | "male" | "other" (we’ll treat "other" as unisex)
+  const desiredGender = prefs?.gender; // "female" | "male" | "other"
   const budget = parseBudget(prefs?.budget);
 
   const scored = products.map((p) => {
@@ -63,9 +63,19 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
     const wantSizes = prefs?.sizes;
     const haveSizes = p.fit?.sizes;
     if (wantSizes && haveSizes && haveSizes.length) {
-      const desiredVals = Object.values(wantSizes).filter(Boolean).map(String.toLowerCase);
+      // Normalize desired sizes → lowercase strings
+      const desiredVals = Object.values(wantSizes)
+        .filter((v): v is string | number => v !== undefined && v !== null)
+        .map((v) => String(v).trim().toLowerCase())
+        .filter((s) => s.length > 0);
+
       if (desiredVals.length) {
-        const haveLower = new Set(haveSizes.map((s) => s.toLowerCase()));
+        // Normalize available sizes from provider
+        const haveLower = new Set(
+          (haveSizes as Array<string | number>)
+            .map((s) => String(s).trim().toLowerCase())
+            .filter((s) => s.length > 0)
+        );
         const hits = desiredVals.reduce((acc, s) => acc + (haveLower.has(s) ? 1 : 0), 0);
         score += hits * 0.5;
       }
@@ -81,9 +91,17 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
 function parseBudget(b?: string): { value: number; currency?: string } | null {
   if (!b) return null;
   // Accept formats like "€300–€600" or "500" or "500 EUR"
-  const nums = Array.from(b.matchAll(/\d+(?:[.,]\d+)?/g)).map((m) => Number(m[0].replace(",", ".")));
+  const nums = Array.from(b.matchAll(/\d+(?:[.,]\d+)?/g)).map((m) =>
+    Number(m[0].replace(",", "."))
+  );
   if (!nums.length) return null;
   const avg = nums.length >= 2 ? (nums[0] + nums[1]) / 2 : nums[0];
-  const currency = /€|eur/i.test(b) ? "EUR" : /usd|\$/i.test(b) ? "USD" : /gbp|£/i.test(b) ? "GBP" : undefined;
+  const currency = /€|eur/i.test(b)
+    ? "EUR"
+    : /usd|\$/i.test(b)
+    ? "USD"
+    : /gbp|£/i.test(b)
+    ? "GBP"
+    : undefined;
   return { value: Math.max(0, Math.round(avg)), currency };
 }
