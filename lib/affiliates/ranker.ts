@@ -51,11 +51,9 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
     // 4) Budget proximity (soft distance)
     if (typeof p.price === "number" && budget) {
       const d = Math.abs(p.price - budget.value);
-      // closer is better; within 20% gets most credit
-      const rel = d / Math.max(1, budget.value);
+      const rel = d / Math.max(1, budget.value); // closer is better
       const clamp = Math.max(0, 1 - rel);
       score += clamp * 2.0;
-      // small currency bump if matches prefs currency
       if (budget.currency && (!p.currency || p.currency === budget.currency)) score += 0.25;
     }
 
@@ -63,14 +61,12 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
     const wantSizes = prefs?.sizes;
     const haveSizes = p.fit?.sizes;
     if (wantSizes && haveSizes && haveSizes.length) {
-      // Normalize desired sizes → lowercase strings
+      // Prefs.sizes fields are strings (optional). Use a string-only predicate.
       const desiredVals = Object.values(wantSizes)
-        .filter((v): v is string | number => v !== undefined && v !== null)
-        .map((v) => String(v).trim().toLowerCase())
-        .filter((s) => s.length > 0);
+        .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+        .map((v) => v.trim().toLowerCase());
 
       if (desiredVals.length) {
-        // Normalize available sizes from provider
         const haveLower = new Set(
           (haveSizes as Array<string | number>)
             .map((s) => String(s).trim().toLowerCase())
