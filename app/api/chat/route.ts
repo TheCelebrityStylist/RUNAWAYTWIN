@@ -10,11 +10,12 @@ import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
    ======================================= */
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
+const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* =======================================
-   Types
+   Types (keep your current public shape)
    ======================================= */
 type Role = "system" | "user" | "assistant";
 
@@ -84,7 +85,7 @@ function prefsToSystem(p: Prefs) {
     `- Sizes: top=${p.sizeTop ?? "-"}, bottom=${p.sizeBottom ?? "-"}, dress=${p.sizeDress ?? "-"}, shoe=${p.sizeShoe ?? "-"}`,
     `- Body Type: ${p.bodyType ?? "-"}`,
     `- Height/Weight: ${p.heightCm ?? "-"}cm / ${p.weightKg ?? "-"}kg`,
-    `- Budget: ${p.budget ? `${p.budget} ${cur}` : "-"}`,
+    `- Budget: ${typeof p.budget === "number" ? `${p.budget} ${cur}` : "-"}`,
     `- Country: ${p.country ?? "-"}`,
     `- Currency: ${cur}`,
     `- Style Keywords: ${p.styleKeywords ?? "-"}`,
@@ -168,7 +169,7 @@ function retailerFromUrl(u: string) {
 
 function fallbackFromCandidates(cands: Cand[], prefs: Prefs, userText: string): string {
   const cur = currencyFor(prefs);
-  const budget = prefs.budget ? `${prefs.budget} ${cur}` : `-`;
+  const budget = typeof prefs.budget === "number" ? `${prefs.budget} ${cur}` : `-`;
 
   const pick = (i: number): Cand | null => (i >= 0 && i < cands.length ? cands[i] : null);
 
@@ -219,14 +220,25 @@ Capsule & Tips:
 }
 
 /* =======================================
+   MOCK reply (when no OPENAI_API_KEY)
+   ======================================= */
+function mockReply(cands: Cand[], prefs: Prefs, userText: string): string {
+  // Reuse your robust fallback formatting with a mock note header.
+  const base = fallbackFromCandidates(cands, prefs, userText);
+  return `Mock stylist reply (no OPENAI_API_KEY)\n\n${base}`;
+}
+
+/* =======================================
    ROUTE
    ======================================= */
 export async function POST(req: NextRequest) {
   const headers = new Headers({ "Content-Type": "text/plain; charset=utf-8" });
 
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response("Missing OPENAI_API_KEY.", { status: 500, headers });
+    // Guard content type
+    const ct = req.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      return new Response("Expected application/json body.", { status: 415, headers });
     }
 
     const body = (await req.json().catch(() => ({}))) as {
@@ -257,6 +269,7 @@ export async function POST(req: NextRequest) {
       ]);
     }
 
+    // Build messages exactly like your original, plus prefs/system blocks
     const messages: ChatMessage[] = [
       { role: "system", content: STYLIST_SYSTEM_PROMPT },
       { role: "system", content: prefsToSystem(preferences) },
@@ -273,6 +286,13 @@ export async function POST(req: NextRequest) {
       content: typeof m.content === "string" ? m.content : contentToText(m.content),
     }));
 
+    // ---- MOCK MODE: run without OpenAI key ----
+    if (!HAS_KEY) {
+      const text = mockReply(cands, preferences, userText);
+      return new Response(sanitizeAnswer(text), { headers });
+    }
+
+    // ---- REAL CALL ----
     let text = "";
     try {
       const completion = await client.chat.completions.create({
