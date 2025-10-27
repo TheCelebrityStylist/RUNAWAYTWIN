@@ -1,41 +1,31 @@
-// app/stylist/page.tsx
-import type { Metadata } from "next";
+// FILE: app/stylist/page.tsx
+import React from "react";
 import StylistChat from "@/components/StylistChat";
-import type { Prefs } from "@/components/preferences/PreferencesPanel";
 
-export const metadata: Metadata = {
-  title: "RunwayTwin │ Talk to a Celebrity-grade AI Stylist",
-  description:
-    "Head-to-toe outfits with real EU/US links, body-type flattering logic, and capsule tips — powered by RunwayTwin.",
-  openGraph: {
-    title: "RunwayTwin — AI Stylist",
-    description:
-      "Precise, shoppable looks. Body-type smart. Budget-aware. EU/US stock.",
-  },
-};
+// Server component that renders the client chat.
+// We keep optional extra fields locally but only pass the props required by `Prefs`.
+export const dynamic = "force-dynamic";
 
 export default function StylistPage() {
-  const initialPreferences: Prefs = {
+  // NOTE: no explicit `: Prefs` annotation here to avoid excess-property checks.
+  const initialPreferences = {
     gender: "female",
-    sizes: { top: "M", bottom: "28", dress: "38", shoe: "39" },
+    sizes: { top: "M", bottom: "28", dress: "38", shoe: "39" }, // kept locally for future use
     bodyType: "hourglass",
     budget: "€300–€600",
     country: "NL",
-    styleKeywords: ["minimal", "elevated basics", "clean lines"],
-  };
+  } as const;
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8 py-6 space-y-6">
-      <section className="space-y-2">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Your AI Stylist</h1>
-        <p className="text-[15px]" style={{ color: "var(--rt-charcoal)" }}>
-          Drop a muse, an image, and an occasion. Get a complete, body-type-smart look with real links.
-        </p>
-      </section>
-
-      <section>
-        <StylistChat initialPreferences={initialPreferences} />
-      </section>
+    <main className="min-h-screen">
+      <StylistChat
+        initialPreferences={{
+          gender: initialPreferences.gender,
+          bodyType: initialPreferences.bodyType,
+          budget: initialPreferences.budget,
+          country: initialPreferences.country,
+        }}
+      />
     </main>
   );
 }
