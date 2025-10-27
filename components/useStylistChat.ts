@@ -2,14 +2,18 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { Message, Msg } from "@/lib/types"; // re-exported alias Msg
+import type { Message as _Message } from "@/lib/types";
+
+// -- Type exports expected by StylistChat.tsx --
+export type { Msg } from "@/lib/types";     // <- ensures `Msg` is exported from this module
+export type Message = _Message;             // (optional) also expose Message for convenience
 
 export function useStylistChat(
   endpoint: string = "/api/chat",
-  initial?: Message[],
+  initial?: _Message[],
   prefs?: Record<string, unknown>
 ) {
-  const [messages, setMessages] = useState<Message[]>(initial ?? []);
+  const [messages, setMessages] = useState<_Message[]>(initial ?? []);
   const [draft, setDraft] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -19,7 +23,7 @@ export function useStylistChat(
       const text = (input ?? draft).trim();
       if (!text) return;
 
-      const userMsg: Message = { role: "user", content: text };
+      const userMsg: _Message = { role: "user", content: text };
       setMessages((m) => [...m, userMsg]);
       setDraft("");
       setLoading(true);
@@ -48,7 +52,7 @@ export function useStylistChat(
           replyText = await res.text();
         }
 
-        const assistantMsg: Message = { role: "assistant", content: replyText || "(no reply)" };
+        const assistantMsg: _Message = { role: "assistant", content: replyText || "(no reply)" };
         setMessages((m) => [...m, assistantMsg]);
       } catch (err) {
         setError((err as Error).message);
@@ -111,3 +115,4 @@ export function sanitize<T extends Record<string, unknown>>(obj: T): Partial<T> 
 
   return out;
 }
+
