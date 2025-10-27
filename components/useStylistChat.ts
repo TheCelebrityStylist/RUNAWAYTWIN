@@ -1,13 +1,13 @@
 // FILE: components/useStylistChat.ts
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 export interface Message {
   role: "user" | "assistant";
   content: string;
 }
-export type Msg = Message; // <- alias for backwards-compat with StylistChat.tsx
+export type Msg = Message; // compatibility with existing imports
 
 export interface ChatState {
   messages: Message[];
@@ -15,90 +15,108 @@ export interface ChatState {
   error?: string;
 }
 
-export function useStylistChat(initial?: Message[]) {
-  const [state, setState] = useState<ChatState>({
-    messages: initial ?? [],
-    loading: false,
-  });
+export function useStylistChat(
+  endpoint: string = "/api/chat",
+  initial?: Message[],
+  prefs?: Record<string, unknown>
+) {
+  const [messages, setMessages] = useState<Message[]>(initial ?? []);
+  const [draft, setDraft] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | undefined>(undefined);
 
-  const sendMessage = useCallback(async (input: string) => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
+  const send = useCallback(
+    async (input?: string) => {
+      const text = (input ?? draft).trim();
+      if (!text) return;
 
-    const newMsg: Message = { role: "user", content: trimmed };
+      const userMsg: Message = { role: "user", content: text };
+      setMessages((m) => [...m, userMsg]);
+      setDraft("");
+      setLoading(true);
+      setError(undefined);
 
-    setState((s) => ({
-      ...s,
-      messages: [...s.messages, newMsg],
-      loading: true,
-      error: undefined,
-    }));
+      try {
+        const body: Record<string, unknown> = { input: text };
+        if (prefs && Object.keys(prefs).length > 0) {
+          body.prefs = sanitize(prefs);
+        }
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: trimmed }),
-      });
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: { reply?: string } = await res.json();
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Support both JSON and text replies (some routes may stream/flush plain text)
+        let replyText = "";
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("application/json")) {
+          const data = (await res.json()) as { reply?: string };
+          replyText = data.reply ?? "";
+        } else {
+          replyText = await res.text();
+        }
 
-      const reply: Message = {
-        role: "assistant",
-        content: data.reply ?? "(no reply)",
-      };
+        const assistantMsg: Message = {
+          role: "assistant",
+          content: replyText || "(no reply)",
+        };
+        setMessages((m) => [...m, assistantMsg]);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [draft, endpoint, prefs]
+  );
 
-      setState((s) => ({
-        ...s,
-        messages: [...s.messages, reply],
-        loading: false,
-      }));
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        loading: false,
-        error: (err as Error).message,
-      }));
-    }
-  }, []);
+  // Legacy name kept for any other components
+  const sendMessage = send;
 
   return {
-    ...state,
+    messages,
+    draft,
+    setDraft,
+    send,
     sendMessage,
+    loading,
+    error,
   };
 }
 
 /**
  * Utility: sanitize preference objects before sending to API
- * (removes null/undefined/empty-string fields)
+ * (removes null/undefined/empty-string fields, trims strings, prunes empties)
  */
 export function sanitize<T extends Record<string, unknown>>(obj: T): Partial<T> {
   const out: Partial<T> = {};
 
-  for (const [k, v] of Object.entries(obj) as [keyof T, T[keyof T]][]) {
-    if (v === undefined || v === null) continue;
+  for (const [key, value] of Object.entries(obj) as [keyof T, T[keyof T]][]) {
+    if (value === undefined || value === null) continue;
 
-    if (typeof v === "string") {
-      const t = v.trim();
-      if (t !== "") out[k] = t as T[keyof T];
+    if (typeof value === "string") {
+      const t = value.trim();
+      if (t !== "") out[key] = t as T[keyof T];
       continue;
     }
 
-    if (typeof v === "number") {
-      out[k] = v as T[keyof T];
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value as T[keyof T];
       continue;
     }
 
-    if (Array.isArray(v)) {
-      const filtered = (v as unknown[]).filter((el) => el != null && el !== "");
-      if (filtered.length > 0) out[k] = filtered as unknown as T[keyof T];
+    if (Array.isArray(value)) {
+      const filtered = (value as unknown[]).map((v) => (typeof v === "string" ? v.trim() : v)).filter((v) => v !== "" && v !== null && v !== undefined);
+      if (filtered.length > 0) out[key] = filtered as unknown as T[keyof T];
       continue;
     }
 
-    if (typeof v === "object") {
-      const nested = sanitize(v as Record<string, unknown>);
-      if (Object.keys(nested).length > 0) out[k] = nested as unknown as T[keyof T];
+    if (typeof value === "object") {
+      const nested = sanitize(value as Record<string, unknown>);
+      if (Object.keys(nested).length > 0) out[key] = nested as unknown as T[keyof T];
       continue;
     }
   }
