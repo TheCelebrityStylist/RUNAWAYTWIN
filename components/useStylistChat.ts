@@ -2,18 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-
-export interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-export type Msg = Message; // compatibility with existing imports
-
-export interface ChatState {
-  messages: Message[];
-  loading: boolean;
-  error?: string;
-}
+import type { Message, Msg } from "@/lib/types"; // re-exported alias Msg
 
 export function useStylistChat(
   endpoint: string = "/api/chat",
@@ -49,7 +38,7 @@ export function useStylistChat(
         });
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        // Support both JSON and text replies (some routes may stream/flush plain text)
+
         let replyText = "";
         const ct = res.headers.get("content-type") ?? "";
         if (ct.includes("application/json")) {
@@ -59,10 +48,7 @@ export function useStylistChat(
           replyText = await res.text();
         }
 
-        const assistantMsg: Message = {
-          role: "assistant",
-          content: replyText || "(no reply)",
-        };
+        const assistantMsg: Message = { role: "assistant", content: replyText || "(no reply)" };
         setMessages((m) => [...m, assistantMsg]);
       } catch (err) {
         setError((err as Error).message);
@@ -73,7 +59,7 @@ export function useStylistChat(
     [draft, endpoint, prefs]
   );
 
-  // Legacy name kept for any other components
+  // Legacy alias kept
   const sendMessage = send;
 
   return {
@@ -109,7 +95,9 @@ export function sanitize<T extends Record<string, unknown>>(obj: T): Partial<T> 
     }
 
     if (Array.isArray(value)) {
-      const filtered = (value as unknown[]).map((v) => (typeof v === "string" ? v.trim() : v)).filter((v) => v !== "" && v !== null && v !== undefined);
+      const filtered = (value as unknown[])
+        .map((v) => (typeof v === "string" ? v.trim() : v))
+        .filter((v) => v !== "" && v !== null && v !== undefined);
       if (filtered.length > 0) out[key] = filtered as unknown as T[keyof T];
       continue;
     }
