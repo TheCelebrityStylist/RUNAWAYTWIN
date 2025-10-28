@@ -1,7 +1,7 @@
 // FILE: lib/affiliates/ranker.ts
 import type { Product } from "./types";
 import type { Prefs } from "@/lib/types";
-import { convert, normalizeCode, currencyFromCountry } from "./currency";
+import { convert, normalizeCode, currencyFromCountry, type IsoCurrency } from "./currency";
 
 type RankInput = {
   products: Product[];
@@ -23,8 +23,9 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
   const kw: string[] =
     prefs?.keywords?.map((k) => k.toLowerCase().trim()).filter(Boolean) ?? [];
   const desiredGender = prefs?.gender;
-  const targetCurrency =
-    normalizeCode(prefs?.currency) ?? currencyFromCountry(prefs?.country) ?? "EUR";
+
+  // ► Choose a target currency purely from country (no Prefs.currency in this codebase)
+  const targetCurrency: IsoCurrency = currencyFromCountry(prefs?.country) ?? "EUR";
 
   const budgetInfo = parseBudget(prefs?.budget, targetCurrency);
 
@@ -93,8 +94,8 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
 
 function parseBudget(
   b: string | undefined,
-  currency: ReturnType<typeof normalizeCode> extends infer _T ? "EUR" | "USD" | "GBP" | "JPY" : never
-): { value: number; currency: string } | null {
+  currency: IsoCurrency
+): { value: number; currency: IsoCurrency } | null {
   if (!b) return null;
   // Accept "€300–€600", "500", "500 EUR", etc.
   const nums = Array.from(b.matchAll(/\d+(?:[.,]\d+)?/g)).map((m) =>
