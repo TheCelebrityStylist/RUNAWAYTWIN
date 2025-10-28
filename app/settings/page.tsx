@@ -5,7 +5,7 @@ import * as React from "react";
 import { usePrefs } from "@/lib/hooks/usePrefs";
 import type { Gender } from "@/lib/types";
 
-const GENDERS: Gender[] = ["female", "male"]; // align with Prefs.gender union
+const GENDERS: Gender[] = ["female", "male"]; // aligned with Prefs.gender
 const BODIES = ["hourglass", "pear", "apple", "rectangle", "inverted-triangle", "athletic"] as const;
 
 export default function SettingsPage() {
@@ -151,23 +151,27 @@ export default function SettingsPage() {
           <div className="grid gap-3 md:grid-cols-4">
             <SizeInput
               label="Top"
-              value={prefs.sizes.top}
-              onChange={(v) => update({ sizes: { ...prefs.sizes, top: v || undefined } })}
+              value={prefs.sizes?.top}
+              onChange={(v) => update({ sizes: { ...(prefs.sizes ?? {}), top: v || undefined } })}
             />
             <SizeInput
               label="Bottom"
-              value={prefs.sizes.bottom}
-              onChange={(v) => update({ sizes: { ...prefs.sizes, bottom: v || undefined } })}
+              value={prefs.sizes?.bottom}
+              onChange={(v) =>
+                update({ sizes: { ...(prefs.sizes ?? {}), bottom: v || undefined } })
+              }
             />
             <SizeInput
               label="Dress"
-              value={prefs.sizes.dress}
-              onChange={(v) => update({ sizes: { ...prefs.sizes, dress: v || undefined } })}
+              value={prefs.sizes?.dress}
+              onChange={(v) =>
+                update({ sizes: { ...(prefs.sizes ?? {}), dress: v || undefined } })
+              }
             />
             <SizeInput
               label="Shoe"
-              value={prefs.sizes.shoe}
-              onChange={(v) => update({ sizes: { ...prefs.sizes, shoe: v || undefined } })}
+              value={prefs.sizes?.shoe}
+              onChange={(v) => update({ sizes: { ...(prefs.sizes ?? {}), shoe: v || undefined } })}
             />
           </div>
         </div>
