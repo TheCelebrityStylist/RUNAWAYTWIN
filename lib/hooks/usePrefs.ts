@@ -6,12 +6,11 @@ import type { Prefs } from "@/lib/types";
 
 const KEY = "rwt-prefs";
 
-const DEFAULT: Prefs = {
+const DEFAULT_PREFS: Prefs = {
   gender: undefined,
   bodyType: undefined,
-  budget: undefined,
-  country: undefined,
-  currency: undefined,
+  budget: undefined, // e.g., "€300–€600"
+  country: undefined, // e.g., "NL"
   keywords: [],
   sizes: {
     top: undefined,
@@ -19,16 +18,59 @@ const DEFAULT: Prefs = {
     dress: undefined,
     shoe: undefined,
   },
+  heightCm: undefined,
+  weightKg: undefined,
 };
 
-function mergePrefs(a?: Prefs, b?: Prefs): Prefs {
-  const out: Prefs = { ...DEFAULT, ...(a ?? {}) };
-  const add = b ?? {};
-  out.gender = add.gender ?? out.gender;
-  out.bodyType = add.bodyType ?? out.bodyType;
-  out.budget = add.budget ?? out.budget;
-  out.country = add.country ?? out.country;
-  out.currency = add.currency ?? out.currency;
-  out.keywords = Array.isArray(add.keywords) ? add.keywords : out.keywords;
-  out.sizes = { ...(out.sizes ?? {}), ...(add.sizes ?? {}) };
- 
+export function usePrefs() {
+  const [prefs, setPrefs] = React.useState<Prefs>(DEFAULT_PREFS);
+
+  // Load once
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<Prefs>;
+        setPrefs((p) => ({
+          ...p,
+          ...parsed,
+          sizes: { ...p.sizes, ...(parsed.sizes ?? {}) },
+          keywords: Array.isArray(parsed.keywords) ? parsed.keywords : p.keywords,
+        }));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Persist on change
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(prefs));
+    } catch {
+      /* ignore */
+    }
+  }, [prefs]);
+
+  const update = React.useCallback(
+    (patch: Partial<Prefs>) => {
+      setPrefs((p) => ({
+        ...p,
+        ...patch,
+        sizes: { ...p.sizes, ...(patch.sizes ?? {}) },
+        keywords:
+          patch.keywords !== undefined
+            ? Array.isArray(patch.keywords)
+              ? patch.keywords
+              : p.keywords
+            : p.keywords,
+      }));
+    },
+    [setPrefs]
+  );
+
+  const reset = React.useCallback(() => setPrefs(DEFAULT_PREFS), []);
+
+  return { prefs, update, reset };
+}
+
