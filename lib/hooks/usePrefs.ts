@@ -23,7 +23,7 @@ const DEFAULT_PREFS: Prefs = {
 export function usePrefs() {
   const [prefs, setPrefs] = React.useState<Prefs>(DEFAULT_PREFS);
 
-  // Load once
+  // Load once from localStorage
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
@@ -41,7 +41,7 @@ export function usePrefs() {
     }
   }, []);
 
-  // Persist
+  // Persist to localStorage
   React.useEffect(() => {
     try {
       localStorage.setItem(KEY, JSON.stringify(prefs));
@@ -64,12 +64,9 @@ export function usePrefs() {
     }));
   }, []);
 
-  const reset = React.useCallback(() => setPrefs(DEFAULT_PREFS), []);
-
-  return { prefs, update, reset };
-}
-
-  const reset = React.useCallback(() => setPrefs(DEFAULT_PREFS), []);
+  const reset = React.useCallback(() => {
+    setPrefs(() => DEFAULT_PREFS);
+  }, []);
 
   return { prefs, update, reset };
 }
