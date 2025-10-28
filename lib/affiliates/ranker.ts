@@ -1,6 +1,7 @@
 // FILE: lib/affiliates/ranker.ts
 import type { Product } from "./types";
 import type { Prefs } from "@/lib/types";
+import { convert, normalizeCode, currencyFromCountry } from "./currency";
 
 type RankInput = {
   products: Product[];
@@ -10,19 +11,22 @@ type RankInput = {
 
 /**
  * Heuristic scorer (0..∞). Higher is better.
- * We combine:
+ * Components:
  * - Query/title/brand match
- * - Gender/unisex compatibility
- * - Budget proximity (soft)
- * - Size "availability" hint if provider includes sizes
- * - Style keywords overlap
+ * - Keyword overlap
+ * - Gender compatibility
+ * - Budget proximity in *target currency*
+ * - Size compatibility (if available)
  */
 export function rankProducts({ products, query, prefs }: RankInput): Product[] {
   const q = query.toLowerCase().trim();
   const kw: string[] =
     prefs?.keywords?.map((k) => k.toLowerCase().trim()).filter(Boolean) ?? [];
-  const desiredGender = prefs?.gender; // "female" | "male" | "other"
-  const budget = parseBudget(prefs?.budget);
+  const desiredGender = prefs?.gender;
+  const targetCurrency =
+    normalizeCode(prefs?.currency) ?? currencyFromCountry(prefs?.country) ?? "EUR";
+
+  const budgetInfo = parseBudget(prefs?.budget, targetCurrency);
 
   const scored = products.map((p) => {
     const title = p.title.toLowerCase();
@@ -43,25 +47,28 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
     // 3) Gender compatibility
     const fitGender = p.fit?.gender;
     if (desiredGender) {
-      if (!fitGender || fitGender === "unisex") score += 0.25; // neutral bump
+      if (!fitGender || fitGender === "unisex") score += 0.25;
       else if (fitGender === desiredGender) score += 1.0;
-      else score -= 0.5; // small penalty if explicitly mismatched
+      else score -= 0.5;
     }
 
-    // 4) Budget proximity (soft distance)
-    if (typeof p.price === "number" && budget) {
-      const d = Math.abs(p.price - budget.value);
-      const rel = d / Math.max(1, budget.value); // closer is better
-      const clamp = Math.max(0, 1 - rel);
+    // 4) Budget proximity (convert prices into targetCurrency)
+    if (typeof p.price === "number" && budgetInfo) {
+      const productPrice = convert(p.price, p.currency, targetCurrency);
+      const d = Math.abs(productPrice - budgetInfo.value);
+      const rel = d / Math.max(1, budgetInfo.value);
+      const clamp = Math.max(0, 1 - rel); // closer → closer to 1
       score += clamp * 2.0;
-      if (budget.currency && (!p.currency || p.currency === budget.currency)) score += 0.25;
+
+      // Tiny bump if product currency already matches target
+      const pCur = normalizeCode(p.currency);
+      if (pCur && pCur === targetCurrency) score += 0.15;
     }
 
-    // 5) Sizes compatibility (if provider exposes it)
+    // 5) Sizes compatibility
     const wantSizes = prefs?.sizes;
     const haveSizes = p.fit?.sizes;
     if (wantSizes && haveSizes && haveSizes.length) {
-      // Prefs.sizes fields are strings (optional). Use a string-only predicate.
       const desiredVals = Object.values(wantSizes)
         .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
         .map((v) => v.trim().toLowerCase());
@@ -84,20 +91,16 @@ export function rankProducts({ products, query, prefs }: RankInput): Product[] {
   return scored.map((x) => x.p);
 }
 
-function parseBudget(b?: string): { value: number; currency?: string } | null {
+function parseBudget(
+  b: string | undefined,
+  currency: ReturnType<typeof normalizeCode> extends infer _T ? "EUR" | "USD" | "GBP" | "JPY" : never
+): { value: number; currency: string } | null {
   if (!b) return null;
-  // Accept formats like "€300–€600" or "500" or "500 EUR"
+  // Accept "€300–€600", "500", "500 EUR", etc.
   const nums = Array.from(b.matchAll(/\d+(?:[.,]\d+)?/g)).map((m) =>
     Number(m[0].replace(",", "."))
   );
   if (!nums.length) return null;
   const avg = nums.length >= 2 ? (nums[0] + nums[1]) / 2 : nums[0];
-  const currency = /€|eur/i.test(b)
-    ? "EUR"
-    : /usd|\$/i.test(b)
-    ? "USD"
-    : /gbp|£/i.test(b)
-    ? "GBP"
-    : undefined;
   return { value: Math.max(0, Math.round(avg)), currency };
 }
