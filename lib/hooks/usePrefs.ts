@@ -18,8 +18,6 @@ const DEFAULT_PREFS: Prefs = {
     dress: undefined,
     shoe: undefined,
   },
-  heightCm: undefined,
-  weightKg: undefined,
 };
 
 export function usePrefs() {
@@ -43,7 +41,7 @@ export function usePrefs() {
     }
   }, []);
 
-  // Persist on change
+  // Persist
   React.useEffect(() => {
     try {
       localStorage.setItem(KEY, JSON.stringify(prefs));
@@ -52,22 +50,24 @@ export function usePrefs() {
     }
   }, [prefs]);
 
-  const update = React.useCallback(
-    (patch: Partial<Prefs>) => {
-      setPrefs((p) => ({
-        ...p,
-        ...patch,
-        sizes: { ...p.sizes, ...(patch.sizes ?? {}) },
-        keywords:
-          patch.keywords !== undefined
-            ? Array.isArray(patch.keywords)
-              ? patch.keywords
-              : p.keywords
-            : p.keywords,
-      }));
-    },
-    [setPrefs]
-  );
+  const update = React.useCallback((patch: Partial<Prefs>) => {
+    setPrefs((p) => ({
+      ...p,
+      ...patch,
+      sizes: { ...p.sizes, ...(patch.sizes ?? {}) },
+      keywords:
+        patch.keywords !== undefined
+          ? Array.isArray(patch.keywords)
+            ? patch.keywords
+            : p.keywords
+          : p.keywords,
+    }));
+  }, []);
+
+  const reset = React.useCallback(() => setPrefs(DEFAULT_PREFS), []);
+
+  return { prefs, update, reset };
+}
 
   const reset = React.useCallback(() => setPrefs(DEFAULT_PREFS), []);
 
