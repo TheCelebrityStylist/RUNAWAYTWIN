@@ -3,8 +3,9 @@
 
 import * as React from "react";
 import { usePrefs } from "@/lib/hooks/usePrefs";
+import type { Gender } from "@/lib/types";
 
-const GENDERS = ["female", "male", "unisex"] as const;
+const GENDERS: Gender[] = ["female", "male"]; // align with Prefs.gender union
 const BODIES = ["hourglass", "pear", "apple", "rectangle", "inverted-triangle", "athletic"] as const;
 
 export default function SettingsPage() {
@@ -215,3 +216,4 @@ function SizeInput({
     </div>
   );
 }
+
