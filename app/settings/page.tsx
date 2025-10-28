@@ -8,6 +8,18 @@ import type { Gender } from "@/lib/types";
 const GENDERS: Gender[] = ["female", "male"]; // aligned with Prefs.gender
 const BODIES = ["hourglass", "pear", "apple", "rectangle", "inverted-triangle", "athletic"] as const;
 
+function guessCountryFromLocale(): string | undefined {
+  try {
+    // navigator.language examples: "nl-NL", "en-US", "fr", "de-DE"
+    const lang = (navigator.language || "").toUpperCase().trim();
+    const m = lang.match(/-[A-Z]{2}$/);
+    if (m && m[0]) return m[0].slice(1); // "NL", "US"
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
 export default function SettingsPage() {
   const { prefs, update, reset } = usePrefs();
   const [keywords, setKeywords] = React.useState<string>((prefs.keywords ?? []).join(", "));
@@ -24,6 +36,13 @@ export default function SettingsPage() {
       .filter(Boolean);
     update({ keywords: arr });
   };
+
+  const setDetectedCountry = () => {
+    const code = guessCountryFromLocale();
+    if (code) update({ country: code });
+  };
+
+  const setBudget = (s: string) => update({ budget: s });
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 md:px-6 lg:px-8">
@@ -93,13 +112,24 @@ export default function SettingsPage() {
             <label htmlFor="country" className="text-sm font-semibold">
               Country (ISO-2)
             </label>
-            <input
-              id="country"
-              placeholder="e.g., NL, US, GB, JP"
-              value={prefs.country ?? ""}
-              onChange={(e) => update({ country: e.target.value.toUpperCase() || undefined })}
-              className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-black/60"
-            />
+            <div className="flex gap-2">
+              <input
+                id="country"
+                placeholder="e.g., NL, US, GB, JP"
+                value={prefs.country ?? ""}
+                onChange={(e) => update({ country: e.target.value.toUpperCase() || undefined })}
+                className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm outline-none focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-black/60"
+              />
+              <button
+                type="button"
+                onClick={setDetectedCountry}
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-black/60"
+                aria-label="Detect country from browser language"
+                title="Detect from browser language"
+              >
+                Detect
+              </button>
+            </div>
             <p className="text-xs text-gray-500">
               Used to infer currency for ranking (e.g., NL → EUR, US → USD).
             </p>
@@ -116,6 +146,18 @@ export default function SettingsPage() {
               onChange={(e) => update({ budget: e.target.value || undefined })}
               className="rounded-xl border px-3 py-2 text-sm outline-none focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-black/60"
             />
+            <div className="flex flex-wrap gap-2">
+              {["€75–€150", "€150–€300", "€300–€600", "€600+"].map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setBudget(b)}
+                  className="rounded-full border px-3 py-1 text-xs hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-black/60"
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
             <p className="text-xs text-gray-500">
               Free text accepted; the ranker extracts numbers and averages if a range.
             </p>
