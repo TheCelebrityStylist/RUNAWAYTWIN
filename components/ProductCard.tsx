@@ -3,6 +3,8 @@
 
 import * as React from "react";
 import type { Product } from "@/lib/affiliates/types";
+import { Heart } from "lucide-react";
+import { useFavorites } from "@/lib/hooks/useFavorites";
 
 type Props = {
   item: Product;
@@ -24,9 +26,22 @@ function formatPrice(value?: number, currency?: string) {
 export function ProductCard({ item }: Props) {
   const price = formatPrice(item.price, item.currency);
   const retailer = item.retailer ?? "store";
+  const { toggle, isFav } = useFavorites();
+  const fav = isFav(item);
 
   return (
-    <article className="group grid rounded-2xl border bg-white transition hover:shadow-md focus-within:shadow-md">
+    <article className="group relative grid rounded-2xl border bg-white transition hover:shadow-md focus-within:shadow-md">
+      <button
+        type="button"
+        onClick={() => toggle(item)}
+        className="absolute right-3 top-3 z-10 rounded-full bg-white/80 p-1 text-gray-600 backdrop-blur-sm transition hover:text-red-500 focus-visible:ring-2 focus-visible:ring-black/60"
+        aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+      >
+        <Heart
+          className={`h-5 w-5 ${fav ? "fill-red-500 text-red-500" : "fill-none"}`}
+        />
+      </button>
+
       <a
         href={item.url}
         target="_blank"
@@ -34,7 +49,6 @@ export function ProductCard({ item }: Props) {
         className="relative block aspect-[4/5] overflow-hidden rounded-t-2xl"
         aria-label={`${item.title} — open product`}
       >
-        {/* Image */}
         {item.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -44,12 +58,8 @@ export function ProductCard({ item }: Props) {
             loading="lazy"
           />
         ) : (
-          <div
-            aria-hidden
-            className="h-full w-full bg-gray-100"
-          />
+          <div aria-hidden className="h-full w-full bg-gray-100" />
         )}
-        {/* Retailer badge */}
         <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-medium text-white">
           {retailer}
         </div>
@@ -61,7 +71,6 @@ export function ProductCard({ item }: Props) {
           <span className="truncate">{item.brand ?? "—"}</span>
           <span className="font-semibold text-gray-900">{price}</span>
         </div>
-
         <div className="mt-1 flex gap-2">
           <a
             href={item.url}
