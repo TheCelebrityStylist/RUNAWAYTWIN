@@ -3,64 +3,47 @@
 
 import * as React from "react";
 import type { Product } from "@/lib/affiliates/types";
-import { useFavorites } from "@/lib/hooks/useFavorites";
+import { convert, currencyFromCountry, normalizeCode, type IsoCurrency } from "@/lib/affiliates/currency";
+import { usePrefs } from "@/lib/hooks/usePrefs";
 
 type Props = {
   item: Product;
 };
 
-function formatPrice(value?: number, currency?: string) {
+function fmt(value?: number, currency?: string) {
   if (typeof value !== "number") return "—";
+  const cur = (currency ?? "EUR") as string;
   try {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
-      currency: currency || "EUR",
+      currency: cur,
       maximumFractionDigits: 0,
     }).format(value);
   } catch {
-    return `${value} ${currency ?? ""}`.trim();
+    return `${Math.round(value)} ${cur}`;
   }
 }
 
-// Minimal inline heart icon to avoid external deps
-function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={`h-5 w-5 ${filled ? "text-red-500" : "text-gray-600"}`}
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.94 0-3.609 1.117-4.312 2.719-.703-1.602-2.372-2.719-4.312-2.719C5.1 3.75 3 5.765 3 8.25c0 6 7.5 9.75 9 10.5 1.5-.75 9-4.5 9-10.5z"
-      />
-    </svg>
-  );
-}
-
 export function ProductCard({ item }: Props) {
-  const price = formatPrice(item.price, item.currency);
+  const { prefs } = usePrefs();
+
+  // Determine target currency from country
+  const targetCurrency: IsoCurrency = currencyFromCountry(prefs.country) ?? "EUR";
+
+  const basePrice = typeof item.price === "number" ? item.price : undefined;
+  const baseCur = normalizeCode(item.currency) ?? "EUR";
+
+  // Compute local price if needed
+  const showLocal = basePrice !== undefined && baseCur !== targetCurrency;
+  const localPrice = showLocal ? convert(basePrice!, baseCur, targetCurrency) : undefined;
+
+  const price = fmt(basePrice, baseCur);
+  const local = showLocal ? fmt(localPrice, targetCurrency) : null;
+
   const retailer = item.retailer ?? "store";
-  const { toggle, isFav } = useFavorites();
-  const fav = isFav(item);
 
   return (
-    <article className="group relative grid rounded-2xl border bg-white transition hover:shadow-md focus-within:shadow-md">
-      {/* Favorite toggle */}
-      <button
-        type="button"
-        onClick={() => toggle(item)}
-        aria-pressed={fav}
-        className="absolute right-3 top-3 z-10 rounded-full bg-white/80 p-1 backdrop-blur-sm transition hover:text-red-500 focus-visible:ring-2 focus-visible:ring-black/60"
-        aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-      >
-        <HeartIcon filled={fav} />
-      </button>
-
+    <article className="group grid rounded-2xl border bg-white transition hover:shadow-md focus-within:shadow-md">
       <a
         href={item.url}
         target="_blank"
@@ -80,7 +63,6 @@ export function ProductCard({ item }: Props) {
         ) : (
           <div aria-hidden className="h-full w-full bg-gray-100" />
         )}
-
         {/* Retailer badge */}
         <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-medium text-white">
           {retailer}
@@ -89,10 +71,18 @@ export function ProductCard({ item }: Props) {
 
       <div className="grid gap-2 p-3">
         <h3 className="line-clamp-2 text-sm font-medium leading-snug">{item.title}</h3>
+
         <div className="flex items-center justify-between text-xs text-gray-600">
           <span className="truncate">{item.brand ?? "—"}</span>
           <span className="font-semibold text-gray-900">{price}</span>
         </div>
+
+        {local && (
+          <div className="text-[11px] text-gray-500">
+            ≈ {local}
+            <span className="ml-1">in your currency</span>
+          </div>
+        )}
 
         <div className="mt-1 flex gap-2">
           <a
@@ -116,6 +106,7 @@ export function ProductCardSkeleton() {
       <div className="grid gap-2 p-3">
         <div className="h-4 w-3/4 rounded bg-gray-100" />
         <div className="h-3 w-1/2 rounded bg-gray-100" />
+        <div className="h-3 w-2/3 rounded bg-gray-100" />
         <div className="mt-1 h-9 w-full rounded-xl bg-gray-100" />
       </div>
     </article>
