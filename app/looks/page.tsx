@@ -5,10 +5,26 @@ import * as React from "react";
 import { useFavorites } from "@/lib/hooks/useFavorites";
 import { ProductCard } from "@/components/ProductCard";
 import { encodeProductsToCode, decodeProductsFromCode, downloadJson } from "@/lib/share";
+import type { Product } from "@/lib/affiliates/types";
+import type { Prefs } from "@/lib/types";
 
 export default function LooksPage() {
   const { list, clear } = useFavorites();
   const [importText, setImportText] = React.useState<string>("");
+  const [note, setNote] = React.useState<string>("");
+  const [building, setBuilding] = React.useState(false);
+  const [plan, setPlan] = React.useState<string>("");
+
+  // Optional: read prefs from localStorage if you store them there; else stays undefined
+  const [prefs, setPrefs] = React.useState<Prefs | undefined>(undefined);
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem("rwt-prefs");
+      if (raw) setPrefs(JSON.parse(raw) as Prefs);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const shareLink = React.useMemo(() => {
     if (!list.length) return "";
@@ -22,7 +38,6 @@ export default function LooksPage() {
       await navigator.clipboard.writeText(shareLink);
       alert("Share link copied ✅");
     } catch {
-      // fallback
       prompt("Copy this link", shareLink);
     }
   };
@@ -39,10 +54,9 @@ export default function LooksPage() {
       alert("Import failed. Check the code and try again.");
       return;
     }
-    // store into localStorage favorites key format used by useFavorites
     try {
       const KEY = "rwt-favorites-v1";
-      const map: Record<string, any> = {};
+      const map: Record<string, Product> = {};
       for (const p of items) {
         const key = p.url || p.id || p.title;
         map[key] = p;
@@ -54,13 +68,49 @@ export default function LooksPage() {
     }
   };
 
+  const onBuild = async () => {
+    if (!list.length) {
+      alert("Add a few items to your board first.");
+      return;
+    }
+    setBuilding(true);
+    setPlan("");
+    try {
+      const res = await fetch("/api/look/build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: list.map((p) => ({
+            id: p.id ?? null,
+            title: p.title,
+            brand: p.brand ?? null,
+            price: p.price ?? null,
+            currency: p.currency ?? null,
+            image: p.image ?? null,
+            url: p.url,
+            retailer: p.retailer ?? null,
+          })),
+          prefs,
+          note,
+        }),
+      });
+      const txt = await res.text();
+      setPlan(txt);
+    } catch (e) {
+      setPlan(String((e as Error).message || e));
+    } finally {
+      setBuilding(false);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8">
       <header className="mb-6 grid gap-2 sm:flex sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Lookboard</h1>
           <p className="text-sm text-gray-600">
-            Save items you love. Share your board with a link or export/import as JSON.
+            Save items you love. Share, export/import, and build an AI-styled outfit from this
+            board.
           </p>
         </div>
 
@@ -90,6 +140,37 @@ export default function LooksPage() {
         </div>
       </header>
 
+      {/* Build outfit */}
+      <section className="mb-8 grid gap-2 rounded-2xl border bg-white p-4">
+        <h2 className="text-lg font-semibold">Build an Outfit from this Board</h2>
+        <label htmlFor="note" className="text-sm text-gray-700">
+          Optional note (occasion, vibe, constraints)
+        </label>
+        <textarea
+          id="note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g., Smart-casual dinner in Paris, prefer flats, rainy weather."
+          className="min-h-[64px] rounded-xl border px-3 py-2 text-sm outline-none focus:border-gray-400 focus-visible:ring-2 focus-visible:ring-black/60"
+        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onBuild}
+            disabled={building || !list.length}
+            className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
+          >
+            {building ? "Styling…" : "Build Outfit"}
+          </button>
+          {building && <span className="text-sm text-gray-600">Composing look…</span>}
+        </div>
+        {plan && (
+          <pre className="whitespace-pre-wrap rounded-xl border bg-gray-50 p-3 text-sm">
+{plan}
+          </pre>
+        )}
+      </section>
+
+      {/* Import */}
       <section className="mb-10">
         <label htmlFor="import" className="mb-1 block text-sm font-medium text-gray-700">
           Import from share code
@@ -111,6 +192,7 @@ export default function LooksPage() {
         </div>
       </section>
 
+      {/* Grid */}
       {list.length === 0 ? (
         <p className="text-sm text-gray-600">
           You haven’t saved anything yet. Click the ❤️ icon on any product to add it here.
