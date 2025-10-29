@@ -1,133 +1,283 @@
+// FILE: app/stylist/page.tsx
 "use client";
 
 import * as React from "react";
-import { usePrefs } from "@/lib/hooks/usePrefs";
+import type { Prefs, Gender, Msg } from "@/lib/types";
+
+const DEFAULT_PREFS: Prefs = {
+  gender: undefined,
+  bodyType: undefined,
+  budget: undefined,
+  country: undefined,
+  keywords: [],
+  sizes: { top: undefined, bottom: undefined, dress: undefined, shoe: undefined },
+};
+
+const DEMOS = [
+  `Zendaya for a gala in Paris`,
+  `Taylor Russell — gallery opening, rainy 16°C`,
+  `Timothée Chalamet — smart casual date`,
+  `Hailey Bieber — street style, under €300`,
+];
+
+function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500 ${props.className ?? ""}`}
+    />
+  );
+}
+
+function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={`w-full rounded-md border border-gray-300 px-2 py-2 text-sm outline-none focus:border-gray-500 ${props.className ?? ""}`}
+    />
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <label className="text-xs font-medium text-gray-700">{children}</label>;
+}
+
+function PreferencesPanel({
+  prefs,
+  update,
+}: {
+  prefs: Prefs;
+  update: (patch: Partial<Prefs>) => void;
+}) {
+  const sizes = prefs.sizes ?? {};
+
+  return (
+    <section className="grid gap-3 rounded-2xl border bg-white p-4">
+      <p className="text-sm font-semibold">Preferences</p>
+
+      {/* Gender */}
+      <div className="grid gap-1">
+        <Label>Gender</Label>
+        <Select
+          value={prefs.gender ?? ""}
+          onChange={(e) => update({ gender: e.target.value as Gender })}
+        >
+          <option value="">Select</option>
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+          <option value="other">Other</option>
+        </Select>
+      </div>
+
+      {/* Body type / Budget / Country */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid gap-1">
+          <Label>Body type</Label>
+          <TextInput
+            placeholder="pear / hourglass / apple / rectangle"
+            value={prefs.bodyType ?? ""}
+            onChange={(e) => update({ bodyType: e.target.value || undefined })}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label>Budget band</Label>
+          <TextInput
+            placeholder="high-street / mid / luxury or a number"
+            value={prefs.budget ?? ""}
+            onChange={(e) => update({ budget: e.target.value || undefined })}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label>Country (ISO-2 or name)</Label>
+          <TextInput
+            placeholder="NL / US / UK / France…"
+            value={prefs.country ?? ""}
+            onChange={(e) => update({ country: e.target.value || undefined })}
+          />
+        </div>
+      </div>
+
+      {/* Sizes */}
+      <div className="grid gap-1">
+        <Label>Sizes (optional)</Label>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <TextInput
+            placeholder="Top"
+            value={sizes.top ?? ""}
+            onChange={(e) =>
+              update({ sizes: { ...sizes, top: e.target.value || undefined } })
+            }
+          />
+          <TextInput
+            placeholder="Bottom"
+            value={sizes.bottom ?? ""}
+            onChange={(e) =>
+              update({ sizes: { ...sizes, bottom: e.target.value || undefined } })
+            }
+          />
+          <TextInput
+            placeholder="Dress"
+            value={sizes.dress ?? ""}
+            onChange={(e) =>
+              update({ sizes: { ...sizes, dress: e.target.value || undefined } })
+            }
+          />
+          <TextInput
+            placeholder="Shoe"
+            value={sizes.shoe ?? ""}
+            onChange={(e) =>
+              update({ sizes: { ...sizes, shoe: e.target.value || undefined } })
+            }
+          />
+        </div>
+      </div>
+
+      {/* Keywords */}
+      <div className="grid gap-1">
+        <Label>Style keywords (comma-separated)</Label>
+        <TextInput
+          placeholder="minimal, monochrome, soft tailoring"
+          value={(prefs.keywords ?? []).join(", ")}
+          onChange={(e) =>
+            update({
+              keywords: e.target.value
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            })
+          }
+        />
+      </div>
+    </section>
+  );
+}
 
 export default function StylistPage() {
-  const { prefs, update } = usePrefs();
-  const [messages, setMessages] = React.useState<{ role: "user" | "assistant"; text: string }[]>([]);
-  const [input, setInput] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-
-  const send = async () => {
-    if (!input.trim()) return;
-    const newMsg = { role: "user" as const, text: input };
-    setMessages((prev) => [...prev, newMsg]);
-    setInput("");
-    setLoading(true);
+  const [prefs, setPrefs] = React.useState<Prefs>(() => {
     try {
-      const res = await fetch("/api/stylist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input, prefs }),
-      });
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
+      const raw = localStorage.getItem("rwt-prefs");
+      if (raw) return { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Prefs) };
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", text: "Sorry, I couldn’t style this right now." }]);
-    } finally {
-      setLoading(false);
+      /* ignore */
     }
+    return { ...DEFAULT_PREFS };
+  });
+
+  const updatePrefs = React.useCallback((patch: Partial<Prefs>) => {
+    setPrefs((p) => {
+      const next = { ...p, ...patch, sizes: { ...(p.sizes ?? {}), ...(patch.sizes ?? {}) } };
+      try {
+        localStorage.setItem("rwt-prefs", JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const [messages, setMessages] = React.useState<Msg[]>([]);
+  const [input, setInput] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+
+  const send = React.useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const nextMsgs: Msg[] = [...messages, { role: "user", content: trimmed }];
+      setMessages(nextMsgs);
+      setInput("");
+      setSending(true);
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: nextMsgs, preferences: prefs }),
+        });
+        const reply = await res.text();
+        setMessages((m) => [...m, { role: "assistant", content: reply }]);
+      } catch (e) {
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content:
+              "I hit a hiccup finishing the look. Please try again, or tweak your prompt.",
+          },
+        ]);
+      } finally {
+        setSending(false);
+      }
+    },
+    [messages, prefs]
+  );
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void send(input);
   };
 
   return (
-    <main className="grid min-h-[90vh] grid-cols-1 gap-6 bg-[#FAF9F6] p-4 md:grid-cols-[280px_1fr] md:p-10">
-      {/* Sidebar — Preferences */}
-      <aside className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Preferences</h2>
-        <div className="mt-4 space-y-3 text-sm">
-          <label className="block">
-            <span className="text-gray-600">Gender</span>
-            <select
-              value={prefs.gender ?? ""}
-              onChange={(e) => update({ gender: e.target.value })}
-              className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1"
-            >
-              <option value="">Select</option>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
-              <option value="unisex">Unisex</option>
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-gray-600">Body Type</span>
-            <select
-              value={prefs.bodyType ?? ""}
-              onChange={(e) => update({ bodyType: e.target.value })}
-              className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1"
-            >
-              <option value="">Select</option>
-              <option value="pear">Pear</option>
-              <option value="hourglass">Hourglass</option>
-              <option value="apple">Apple</option>
-              <option value="rectangle">Rectangle</option>
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-gray-600">Budget</span>
-            <select
-              value={prefs.budget ?? ""}
-              onChange={(e) => update({ budget: e.target.value })}
-              className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1"
-            >
-              <option value="">Select</option>
-              <option value="high-street">High-street</option>
-              <option value="mid">Mid</option>
-              <option value="luxury">Luxury</option>
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-gray-600">Region</span>
-            <select
-              value={prefs.region ?? ""}
-              onChange={(e) => update({ region: e.target.value })}
-              className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1"
-            >
-              <option value="">Auto</option>
-              <option value="EU">EU</option>
-              <option value="US">US</option>
-            </select>
-          </label>
-        </div>
-      </aside>
-
-      {/* Chat Area */}
-      <section className="flex flex-col justify-between rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <div className="space-y-4 overflow-y-auto">
-          {messages.length === 0 ? (
-            <p className="text-sm text-neutral-500">
-              Muse + occasion → I’ll assemble a shoppable outfit with capsule-friendly picks.
-            </p>
-          ) : (
-            messages.map((m, i) => (
-              <div key={i} className={m.role === "user" ? "text-black" : "text-neutral-700"}>
-                <b>{m.role === "user" ? "You:" : "Stylist:"}</b> {m.text}
-              </div>
-            ))
-          )}
-          {loading && <p className="text-sm text-gray-400">Styling your look… ✨</p>}
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            placeholder="e.g. Zendaya, Paris gala, 18°C drizzle, smart-casual"
-            className="flex-1 rounded-full border border-gray-300 px-4 py-2 text-sm outline-none focus:border-black"
-          />
+    <main className="mx-auto max-w-6xl px-4 py-6">
+      {/* Demo chips */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {DEMOS.map((d) => (
           <button
-            onClick={send}
-            disabled={loading}
-            className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white hover:opacity-90"
+            key={d}
+            onClick={() => setInput(d)}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium hover:bg-gray-50"
           >
-            Send
+            {d}
           </button>
-        </div>
-      </section>
+        ))}
+      </div>
+
+      {/* Layout: left chat, right prefs */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[1.6fr_1fr]">
+        {/* Chat */}
+        <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
+          <p className="text-sm text-gray-700">
+            Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes,
+            and capsule tips.
+          </p>
+
+          <div className="grid gap-3">
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={`whitespace-pre-wrap rounded-xl border p-3 text-sm ${
+                  m.role === "user" ? "bg-gray-50" : "bg-white"
+                }`}
+              >
+                <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                  {m.role}
+                </p>
+                <div>{m.content}</div>
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={onSubmit} className="mt-2 flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={`"Zendaya, Paris gallery opening, 18°C drizzle, smart-casual"`}
+              className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-3 text-sm outline-none focus:border-gray-500"
+            />
+            <button
+              type="submit"
+              disabled={sending}
+              className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-black/90 disabled:opacity-50"
+            >
+              {sending ? "Sending…" : "Send"}
+            </button>
+          </form>
+        </section>
+
+        {/* Preferences */}
+        <PreferencesPanel prefs={prefs} update={updatePrefs} />
+      </div>
     </main>
   );
 }
+
