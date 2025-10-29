@@ -7,9 +7,11 @@ import * as React from "react";
  * ProductCard with local favorite toggle.
  * Works with the /looks page by writing to the shared KEY "rwt-favorites-v1"
  * as a map of uniqueKey -> Product JSON.
+ * 
+ * Also exports ProductCardSkeleton to support route-level loading UIs.
  */
 
-type Product = {
+export type Product = {
   id?: string | null;
   title: string;
   brand?: string | null;
@@ -127,3 +129,25 @@ export function ProductCard({ item }: { item: Product }) {
     </article>
   );
 }
+
+/** Skeleton used in route-level loading UIs */
+export function ProductCardSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="animate-pulse rounded-2xl border bg-white shadow-sm"
+    >
+      <div className="aspect-[3/4] w-full bg-neutral-100" />
+      <div className="space-y-2 p-3">
+        <div className="h-3 w-24 rounded bg-neutral-200" />
+        <div className="h-4 w-5/6 rounded bg-neutral-200" />
+        <div className="h-3 w-1/3 rounded bg-neutral-200" />
+      </div>
+      <div className="flex items-center justify-between border-t px-3 py-3">
+        <div className="h-4 w-16 rounded bg-neutral-200" />
+        <div className="h-6 w-16 rounded-full border bg-neutral-100" />
+      </div>
+    </div>
+  );
+}
+
