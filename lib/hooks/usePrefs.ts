@@ -2,72 +2,65 @@
 "use client";
 
 import * as React from "react";
-import type { Prefs } from "@/lib/types";
+import type { Prefs, Gender } from "@/lib/types";
 
-const KEY = "rwt-prefs";
+const LS_KEY = "rwt-prefs";
 
 const DEFAULT_PREFS: Prefs = {
   gender: undefined,
   bodyType: undefined,
-  budget: undefined, // e.g., "€300–€600"
-  country: undefined, // e.g., "NL"
+  budget: undefined,
+  country: undefined,
   keywords: [],
-  sizes: {
-    top: undefined,
-    bottom: undefined,
-    dress: undefined,
-    shoe: undefined,
-  },
+  sizes: { top: undefined, bottom: undefined, dress: undefined, shoe: undefined },
 };
 
 export function usePrefs() {
   const [prefs, setPrefs] = React.useState<Prefs>(DEFAULT_PREFS);
 
-  // Load once from localStorage
+  // load once
   React.useEffect(() => {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(LS_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as Partial<Prefs>;
-        setPrefs((p) => ({
-          ...p,
-          ...parsed,
-          sizes: { ...p.sizes, ...(parsed.sizes ?? {}) },
-          keywords: Array.isArray(parsed.keywords) ? parsed.keywords : p.keywords,
-        }));
+        const parsed = JSON.parse(raw) as Prefs;
+        setPrefs({ ...DEFAULT_PREFS, ...parsed });
       }
     } catch {
       /* ignore */
     }
   }, []);
 
-  // Persist to localStorage
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(prefs));
-    } catch {
-      /* ignore */
-    }
-  }, [prefs]);
-
   const update = React.useCallback((patch: Partial<Prefs>) => {
-    setPrefs((p) => ({
-      ...p,
-      ...patch,
-      sizes: { ...p.sizes, ...(patch.sizes ?? {}) },
-      keywords:
-        patch.keywords !== undefined
-          ? Array.isArray(patch.keywords)
-            ? patch.keywords
-            : p.keywords
-          : p.keywords,
-    }));
+    setPrefs((p) => {
+      const next: Prefs = {
+        ...p,
+        ...patch,
+        sizes: { ...(p.sizes ?? {}), ...(patch.sizes ?? {}) },
+      };
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
   }, []);
 
   const reset = React.useCallback(() => {
-    setPrefs(() => DEFAULT_PREFS);
+    setPrefs(DEFAULT_PREFS);
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  return { prefs, update, reset };
-}
+  // typed helpers for UI
+  const setGender = React.useCallback(
+    (g?: Gender) => update({ gender: g }),
+    [update]
+  );
 
+  return { prefs, update, reset, setGender };
+}
