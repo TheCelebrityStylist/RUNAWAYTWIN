@@ -1,141 +1,209 @@
 // FILE: lib/catalog/mock.ts
-// Lightweight mock catalog so the app works without external keys.
-// Replace/extend with real providers later.
+// Lightweight local catalog used when providers/keys are missing.
+// Images point to Unsplash placeholders; URLs go to the retailer domain homepage.
+// Currency defaults to EUR unless overridden per item.
 
-export type CatalogProduct = {
+export type Cat =
+  | "top"
+  | "bottom"
+  | "outerwear"
+  | "dress"
+  | "shoes"
+  | "bag"
+  | "accessory";
+
+export type MockItem = {
   id: string;
   title: string;
   brand: string;
+  categories: Cat[];
+  gender: "female" | "male" | "unisex";
   price: number;
   currency: "EUR" | "USD" | "GBP";
-  image: string;
-  url: string;
   retailer: string;
-  gender?: "female" | "male" | "unisex";
-  categories: string[]; // ["top","bottom","outerwear","shoes","bag","dress","accessory"]
-  keywords: string[];   // ["minimal","tailoring","street","evening"]
-  colors?: string[];
+  url: string;
+  image: string;
+  tags: string[]; // style keywords
 };
 
-export const MOCK_CATALOG: CatalogProduct[] = [
+const U = (w = 800, h = 1000, q = "fashion") =>
+  `https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=${w}&h=${h}&q=80&sat=-20&blend=ffffff&bm=normal` +
+  `&ixid=mock-${q}`;
+
+export const CATALOG: MockItem[] = [
+  // ——— Womens / unisex ———
   {
-    id: "zara-trench-cream",
-    title: "Waterproof Belted Trench Coat",
-    brand: "Zara",
-    price: 99,
-    currency: "EUR",
-    image:
-      "https://static.zara.net/photos///2024/I/0/1/p/8075/301/710/2/w/560/8075301710_1_1_1.jpg",
-    url: "https://www.zara.com/",
-    retailer: "zara.com",
-    gender: "female",
+    id: "zara-trench",
+    title: "Water-Resistant Trench Coat",
+    brand: "ZARA",
     categories: ["outerwear"],
-    keywords: ["trench", "tailoring", "minimal"],
-    colors: ["beige"],
+    gender: "female",
+    price: 119,
+    currency: "EUR",
+    retailer: "zara.com",
+    url: "https://www.zara.com/",
+    image: U(800, 1000, "trench"),
+    tags: ["minimal", "tailoring", "rain", "neutral"],
   },
   {
-    id: "cos-knit-merino",
-    title: "Fine-Knit Merino Wool Sweater",
+    id: "cos-knit",
+    title: "Fine Merino Knit Sweater",
     brand: "COS",
-    price: 89,
-    currency: "EUR",
-    image:
-      "https://media.cosstores.com/image/fetch/c_limit,f_auto,q_auto:eco,w_1200/https://www.cosstores.com/content/dam/cos/2023/w24/ladies/knitwear/merino/merino_1.jpg",
-    url: "https://www.cos.com/",
-    retailer: "cos.com",
-    gender: "female",
     categories: ["top"],
-    keywords: ["knit", "minimal", "capsule"],
-    colors: ["black", "cream", "grey"],
-  },
-  {
-    id: "stories-trouser-tailored",
-    title: "High-Waist Tailored Trousers",
-    brand: "& Other Stories",
+    gender: "unisex",
     price: 89,
     currency: "EUR",
-    image:
-      "https://lp2.hm.com/hmgoepprod?set=source[/1c/5c/1c5c1d22f.jpg],type[DESCRIPTIVE],res[m],hmver[1]&call=url[file:/product/main]",
-    url: "https://www.stories.com/",
-    retailer: "stories.com",
-    gender: "female",
+    retailer: "cos.com",
+    url: "https://www.cos.com/",
+    image: U(800, 1000, "knit"),
+    tags: ["capsule", "minimal", "layering"],
+  },
+  {
+    id: "arket-trouser",
+    title: "High-Waist Tailored Trouser",
+    brand: "Arket",
     categories: ["bottom"],
-    keywords: ["tailoring", "black", "minimal"],
-    colors: ["black"],
+    gender: "female",
+    price: 129,
+    currency: "EUR",
+    retailer: "arket.com",
+    url: "https://www.arket.com/",
+    image: U(800, 1000, "trouser"),
+    tags: ["tailoring", "work", "black"],
   },
   {
-    id: "mango-ankle-rain-boot",
-    title: "Rubber Ankle Rain Boots",
-    brand: "Mango",
-    price: 59,
-    currency: "EUR",
-    image:
-      "https://st.mngbcn.com/rcs/pics/static/T6/images/37/12/35/37123521_99_B.jpg",
-    url: "https://shop.mango.com/",
-    retailer: "mango.com",
-    gender: "female",
+    id: "stories-ankle-boot",
+    title: "Leather Ankle Boots",
+    brand: "& Other Stories",
     categories: ["shoes"],
-    keywords: ["rain", "ankle boot", "utility"],
-    colors: ["black"],
-  },
-  {
-    id: "aritzia-crossbody",
-    title: "Structured Leather Crossbody",
-    brand: "Aritzia",
-    price: 110,
-    currency: "EUR",
-    image:
-      "https://aritzia.scene7.com/is/image/Aritzia/large/f22_07_a09_86010_1274_on_a.jpg",
-    url: "https://www.aritzia.com/",
-    retailer: "aritzia.com",
     gender: "female",
-    categories: ["bag"],
-    keywords: ["leather", "minimal", "structured"],
-    colors: ["black"],
+    price: 165,
+    currency: "EUR",
+    retailer: "stories.com",
+    url: "https://www.stories.com/",
+    image: U(800, 1000, "boots"),
+    tags: ["minimal", "weather", "heel-low"],
   },
   {
-    id: "uniqlo-heattech-tee",
-    title: "HEATTECH Crew Neck T-Shirt",
+    id: "mango-shoulder-bag",
+    title: "Structured Shoulder Bag",
+    brand: "Mango",
+    categories: ["bag"],
+    gender: "female",
+    price: 49,
+    currency: "EUR",
+    retailer: "mango.com",
+    url: "https://shop.mango.com/",
+    image: U(800, 1000, "bag"),
+    tags: ["event", "minimal", "black"],
+  },
+  {
+    id: "net-sandal",
+    title: "Metallic Heeled Sandal",
+    brand: "Gianvito Rossi",
+    categories: ["shoes"],
+    gender: "female",
+    price: 690,
+    currency: "EUR",
+    retailer: "net-a-porter.com",
+    url: "https://www.net-a-porter.com/",
+    image: U(800, 1000, "sandal"),
+    tags: ["evening", "glam"],
+  },
+  // ——— Mens / unisex ———
+  {
+    id: "uniqlo-tee",
+    title: "U Crew Neck T-Shirt",
     brand: "Uniqlo",
+    categories: ["top"],
+    gender: "male",
     price: 19,
     currency: "EUR",
-    image:
-      "https://im.uniqlo.com/global-cms/spa/res2cd3a9c6df383f6af.jpg",
-    url: "https://www.uniqlo.com/",
     retailer: "uniqlo.com",
+    url: "https://www.uniqlo.com/",
+    image: U(800, 1000, "tee"),
+    tags: ["minimal", "capsule"],
+  },
+  {
+    id: "levi-501",
+    title: "501 Original Jeans",
+    brand: "Levi's",
+    categories: ["bottom"],
+    gender: "male",
+    price: 110,
+    currency: "EUR",
+    retailer: "levi.com",
+    url: "https://www.levi.com/",
+    image: U(800, 1000, "jeans"),
+    tags: ["denim", "casual"],
+  },
+  {
+    id: "cos-blazer",
+    title: "Sharp Wool Blazer",
+    brand: "COS",
+    categories: ["outerwear"],
+    gender: "male",
+    price: 225,
+    currency: "EUR",
+    retailer: "cos.com",
+    url: "https://www.cos.com/",
+    image: U(800, 1000, "blazer"),
+    tags: ["tailoring", "work", "smart-casual"],
+  },
+  {
+    id: "nike-court",
+    title: "Court Sneakers",
+    brand: "Nike",
+    categories: ["shoes"],
     gender: "unisex",
-    categories: ["top"],
-    keywords: ["layering", "thermal", "capsule"],
-    colors: ["black", "white"],
+    price: 99,
+    currency: "EUR",
+    retailer: "nike.com",
+    url: "https://www.nike.com/",
+    image: U(800, 1000, "sneaker"),
+    tags: ["street", "casual", "white"],
   },
 ];
 
-export type SearchInput = {
-  q?: string;
-  gender?: "female" | "male" | "unisex";
-  categories?: string[];
-  budgetMax?: number;
+export function searchCatalog(opts: {
+  q: string;
+  gender: "female" | "male" | "unisex";
+  budgetMax: number;
   keywords?: string[];
-};
+}): MockItem[] {
+  const kws = (opts.keywords ?? [])
+    .map((k) => k.toLowerCase())
+    .filter(Boolean);
 
-export function searchCatalog(input: SearchInput = {}): CatalogProduct[] {
-  const { q, gender, categories, budgetMax, keywords } = input;
-  const ql = (q || "").toLowerCase();
+  const inBudget = (p: MockItem) => p.price <= opts.budgetMax * 0.9 || p.price <= opts.budgetMax;
+  const byGender = (p: MockItem) =>
+    p.gender === "unisex" || p.gender === opts.gender || opts.gender === "unisex";
 
-  return MOCK_CATALOG
-    .filter((p) => {
-      if (gender && p.gender && p.gender !== gender && p.gender !== "unisex")
-        return false;
-      if (categories && categories.length && !categories.some((c) => p.categories.includes(c)))
-        return false;
-      if (typeof budgetMax === "number" && p.price > budgetMax) return false;
-      if (keywords && keywords.length && !keywords.some((k) => p.keywords.includes(k)))
-        return false;
-      if (ql) {
-        const hay = `${p.title} ${p.brand} ${p.retailer} ${p.keywords.join(" ")}`.toLowerCase();
-        if (!hay.includes(ql)) return false;
-      }
-      return true;
-    })
-    .slice(0, 24);
+  const byKeywords = (p: MockItem) =>
+    !kws.length || kws.some((k) => p.tags.includes(k) || p.title.toLowerCase().includes(k));
+
+  const byQuery = (p: MockItem) => {
+    const q = opts.q.toLowerCase();
+    return (
+      p.title.toLowerCase().includes(q) ||
+      p.brand.toLowerCase().includes(q) ||
+      p.tags.some((t) => q.includes(t))
+    );
+  };
+
+  const scored = CATALOG.map((p) => {
+    let score = 0;
+    if (inBudget(p)) score += 2;
+    if (byGender(p)) score += 1.5;
+    if (byKeywords(p)) score += 1;
+    if (byQuery(p)) score += 1;
+    return { p, score };
+  })
+    .filter((x) => x.score >= 2.5)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.p);
+
+  // Always return at least a basic set in deterministic order
+  return scored.length ? scored : CATALOG.slice(0, 6);
 }
+
