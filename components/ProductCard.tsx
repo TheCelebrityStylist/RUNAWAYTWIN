@@ -5,10 +5,10 @@ import * as React from "react";
 import type { Product } from "@/lib/affiliates/types";
 import { convert, currencyFromCountry, normalizeCode, type IsoCurrency } from "@/lib/affiliates/currency";
 import { usePrefs } from "@/lib/hooks/usePrefs";
+import { useFavorites } from "@/lib/hooks/useFavorites";
+import { Heart } from "lucide-react";
 
-type Props = {
-  item: Product;
-};
+type Props = { item: Product };
 
 function fmt(value?: number, currency?: string) {
   if (typeof value !== "number") return "—";
@@ -26,24 +26,40 @@ function fmt(value?: number, currency?: string) {
 
 export function ProductCard({ item }: Props) {
   const { prefs } = usePrefs();
+  const { toggle, has } = useFavorites();
+  const fav = has(item);
 
-  // Determine target currency from country
   const targetCurrency: IsoCurrency = currencyFromCountry(prefs.country) ?? "EUR";
-
   const basePrice = typeof item.price === "number" ? item.price : undefined;
   const baseCur = normalizeCode(item.currency) ?? "EUR";
-
-  // Compute local price if needed
   const showLocal = basePrice !== undefined && baseCur !== targetCurrency;
   const localPrice = showLocal ? convert(basePrice!, baseCur, targetCurrency) : undefined;
-
   const price = fmt(basePrice, baseCur);
   const local = showLocal ? fmt(localPrice, targetCurrency) : null;
-
   const retailer = item.retailer ?? "store";
 
   return (
-    <article className="group grid rounded-2xl border bg-white transition hover:shadow-md focus-within:shadow-md">
+    <article
+      className="group relative grid rounded-2xl border bg-white transition hover:shadow-md focus-within:shadow-md"
+      aria-label={item.title}
+    >
+      {/* Favorite toggle */}
+      <button
+        type="button"
+        onClick={() => toggle(item)}
+        aria-pressed={fav}
+        aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+        className={`absolute right-2 top-2 z-10 rounded-full p-1.5 backdrop-blur-sm transition ${
+          fav ? "bg-red-500/90 text-white" : "bg-white/70 text-gray-700 hover:bg-white"
+        }`}
+      >
+        <Heart
+          size={16}
+          className={fav ? "fill-current" : "stroke-current"}
+          aria-hidden="true"
+        />
+      </button>
+
       <a
         href={item.url}
         target="_blank"
@@ -51,7 +67,6 @@ export function ProductCard({ item }: Props) {
         className="relative block aspect-[4/5] overflow-hidden rounded-t-2xl"
         aria-label={`${item.title} — open product`}
       >
-        {/* Image */}
         {item.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -63,7 +78,6 @@ export function ProductCard({ item }: Props) {
         ) : (
           <div aria-hidden className="h-full w-full bg-gray-100" />
         )}
-        {/* Retailer badge */}
         <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-medium text-white">
           {retailer}
         </div>
@@ -71,29 +85,23 @@ export function ProductCard({ item }: Props) {
 
       <div className="grid gap-2 p-3">
         <h3 className="line-clamp-2 text-sm font-medium leading-snug">{item.title}</h3>
-
         <div className="flex items-center justify-between text-xs text-gray-600">
           <span className="truncate">{item.brand ?? "—"}</span>
           <span className="font-semibold text-gray-900">{price}</span>
         </div>
-
         {local && (
           <div className="text-[11px] text-gray-500">
-            ≈ {local}
-            <span className="ml-1">in your currency</span>
+            ≈ {local} <span className="ml-1">in your currency</span>
           </div>
         )}
-
-        <div className="mt-1 flex gap-2">
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-full items-center justify-center rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
-          >
-            View
-          </a>
-        </div>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-flex w-full items-center justify-center rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
+        >
+          View
+        </a>
       </div>
     </article>
   );
@@ -112,3 +120,4 @@ export function ProductCardSkeleton() {
     </article>
   );
 }
+
