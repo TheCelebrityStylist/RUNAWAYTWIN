@@ -2,11 +2,29 @@
 "use client";
 
 import * as React from "react";
-import type { Prefs, Gender, Msg } from "@/lib/types";
+import type { Prefs, Msg } from "@/lib/types";
 
-/* ============================================================
-   Minimal state (localStorage-backed) + UI helpers
-   ============================================================ */
+type GenProduct = {
+  id: string;
+  title: string;
+  brand: string;
+  category: "top" | "bottom" | "outerwear" | "dress" | "shoes" | "bag" | "accessory";
+  price: number;
+  currency: "EUR" | "USD" | "GBP";
+  image: string;
+  url: string;
+  retailer: string;
+  notes: string;
+};
+type GenResponse =
+  | {
+      brief: string;
+      why: string;
+      tips: string[];
+      products: GenProduct[];
+      total: { value: number; currency: "EUR" | "USD" | "GBP" };
+    }
+  | { error: string };
 
 const DEFAULT_PREFS: Prefs = {
   gender: undefined,
@@ -24,31 +42,79 @@ const DEMOS = [
   `Hailey Bieber — street style, under €300`,
 ];
 
+function Price({ value, currency }: { value: number; currency: GenProduct["currency"] }) {
+  const fmt = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  });
+  return <>{fmt.format(value)}</>;
+}
+
+function ProductCard({ p }: { p: GenProduct }) {
+  return (
+    <article className="group rounded-2xl border bg-white shadow-sm transition hover:shadow-md focus-within:shadow-md">
+      <a
+        href={p.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative block aspect-[4/5] overflow-hidden rounded-t-2xl"
+        aria-label={`${p.title} — open product`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={p.image}
+          alt={p.title}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          loading="lazy"
+        />
+        <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-medium text-white">
+          {p.retailer}
+        </div>
+      </a>
+      <div className="grid gap-2 p-3">
+        <h3 className="line-clamp-2 text-sm font-medium leading-snug">
+          {p.brand} — {p.title}
+        </h3>
+        <div className="flex items-center justify-between text-xs text-neutral-600">
+          <span className="truncate capitalize">{p.category}</span>
+          <span className="font-semibold text-neutral-900">
+            <Price value={p.price} currency={p.currency} />
+          </span>
+        </div>
+        <p className="text-xs text-neutral-600">{p.notes}</p>
+        <a
+          href={p.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-flex items-center justify-center rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50"
+        >
+          View
+        </a>
+      </div>
+    </article>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label className="text-xs font-medium text-neutral-700">{children}</label>;
+}
 function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500 ${props.className ?? ""}`}
+      className={`w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500 ${props.className ?? ""}`}
     />
   );
 }
-
 function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-md border border-gray-300 px-2 py-2 text-sm outline-none focus:border-gray-500 ${props.className ?? ""}`}
+      className={`w-full rounded-md border border-neutral-300 px-2 py-2 text-sm outline-none focus:border-neutral-500 ${props.className ?? ""}`}
     />
   );
 }
-
-function Label({ children }: { children: React.ReactNode }) {
-  return <label className="text-xs font-medium text-gray-700">{children}</label>;
-}
-
-/* ============================================================
-   Preferences Panel
-   ============================================================ */
 
 function PreferencesPanel({
   prefs,
@@ -58,199 +124,108 @@ function PreferencesPanel({
   update: (patch: Partial<Prefs>) => void;
 }) {
   const sizes = prefs.sizes ?? {};
-
   return (
-    <section className="grid gap-3 rounded-2xl border bg-white p-4">
-      <p className="text-sm font-semibold">Preferences</p>
+    <aside className="w-full md:w-[340px] lg:w-[360px] xl:w-[380px]">
+      <section className="sticky top-[76px] grid gap-3 rounded-2xl border bg-white p-4">
+        <p className="text-sm font-semibold">Preferences</p>
 
-      <div className="grid gap-1">
-        <Label>Gender</Label>
-        <Select
-          value={prefs.gender ?? ""}
-          onChange={(e) =>
-            update({
-              gender: (e.target.value || undefined) as Gender | undefined,
-            })
-          }
-        >
-          <option value="">—</option>
-          <option value="female">female</option>
-          <option value="male">male</option>
-          <option value="other">other</option>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="grid gap-1">
-          <Label>Body type</Label>
+          <FieldLabel>Gender</FieldLabel>
+          <Select
+            value={prefs.gender ?? ""}
+            onChange={(e) =>
+              update({ gender: (e.target.value || undefined) as Prefs["gender"] })
+            }
+          >
+            <option value="">—</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="other">Other / Mix</option>
+          </Select>
+        </div>
+
+        <div className="grid gap-1">
+          <FieldLabel>Body type</FieldLabel>
           <TextInput
             placeholder="pear / hourglass / apple / rectangle"
             value={prefs.bodyType ?? ""}
             onChange={(e) => update({ bodyType: e.target.value || undefined })}
           />
         </div>
+
         <div className="grid gap-1">
-          <Label>Budget band</Label>
+          <FieldLabel>Budget band</FieldLabel>
           <TextInput
             placeholder="high-street / mid / luxury or a number"
-            value={prefs.budget ?? ""}
+            value={(prefs.budget as string) ?? ""}
             onChange={(e) => update({ budget: e.target.value || undefined })}
           />
         </div>
+
         <div className="grid gap-1">
-          <Label>Country (ISO-2 or name)</Label>
+          <FieldLabel>Country (ISO-2 or name)</FieldLabel>
           <TextInput
             placeholder="NL / US / UK / France…"
             value={prefs.country ?? ""}
             onChange={(e) => update({ country: e.target.value || undefined })}
           />
         </div>
-      </div>
 
-      <div className="grid gap-1">
-        <Label>Sizes (optional)</Label>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid gap-1">
+          <FieldLabel>Sizes (optional)</FieldLabel>
+          <div className="grid grid-cols-2 gap-3">
+            <TextInput
+              placeholder="Top"
+              value={sizes.top ?? ""}
+              onChange={(e) =>
+                update({ sizes: { ...sizes, top: e.target.value || undefined } })
+              }
+            />
+            <TextInput
+              placeholder="Bottom"
+              value={sizes.bottom ?? ""}
+              onChange={(e) =>
+                update({ sizes: { ...sizes, bottom: e.target.value || undefined } })
+              }
+            />
+            <TextInput
+              placeholder="Dress"
+              value={sizes.dress ?? ""}
+              onChange={(e) =>
+                update({ sizes: { ...sizes, dress: e.target.value || undefined } })
+              }
+            />
+            <TextInput
+              placeholder="Shoe"
+              value={sizes.shoe ?? ""}
+              onChange={(e) =>
+                update({ sizes: { ...sizes, shoe: e.target.value || undefined } })
+              }
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-1">
+          <FieldLabel>Style keywords</FieldLabel>
           <TextInput
-            placeholder="Top"
-            value={sizes.top ?? ""}
-            onChange={(e) => update({ sizes: { ...sizes, top: e.target.value || undefined } })}
-          />
-          <TextInput
-            placeholder="Bottom"
-            value={sizes.bottom ?? ""}
+            placeholder="minimal, monochrome, soft tailoring"
+            value={(prefs.keywords ?? []).join(", ")}
             onChange={(e) =>
-              update({ sizes: { ...sizes, bottom: e.target.value || undefined } })
+              update({
+                keywords: e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              })
             }
           />
-          <TextInput
-            placeholder="Dress"
-            value={sizes.dress ?? ""}
-            onChange={(e) => update({ sizes: { ...sizes, dress: e.target.value || undefined } })}
-          />
-          <TextInput
-            placeholder="Shoe"
-            value={sizes.shoe ?? ""}
-            onChange={(e) => update({ sizes: { ...sizes, shoe: e.target.value || undefined } })}
-          />
         </div>
-      </div>
-
-      <div className="grid gap-1">
-        <Label>Style keywords (comma-separated)</Label>
-        <TextInput
-          placeholder="minimal, monochrome, soft tailoring"
-          value={(prefs.keywords ?? []).join(", ")}
-          onChange={(e) =>
-            update({
-              keywords: e.target.value
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean),
-            })
-          }
-        />
-      </div>
-    </section>
+      </section>
+    </aside>
   );
 }
 
-/* ============================================================
-   Lightweight streaming chat hook (reads text deltas)
-   ============================================================ */
-
-function useStreamingChat() {
-  const [messages, setMessages] = React.useState<Msg[]>([]);
-  const [draft, setDraft] = React.useState<string>("");
-  const [loading, setLoading] = React.useState(false);
-
-  const send = React.useCallback(async (input: string, prefs: Prefs) => {
-    const userMsg: Msg = { role: "user", content: input.trim() };
-    const history = [...messages, userMsg];
-    setMessages(history);
-    setDraft("");
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, preferences: prefs }),
-      });
-
-      // No stream? Just take text once.
-      if (!res.body) {
-        const txt = await res.text();
-        setMessages((prev) => [...prev, { role: "assistant", content: txt }]);
-        setDraft("");
-        setLoading(false);
-        return;
-      }
-
-      // Stream chunks (server returns text/plain stream of tokens)
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        setDraft(acc); // live typing
-      }
-
-      setMessages((prev) => [...prev, { role: "assistant", content: acc }]);
-      setDraft("");
-    } catch (e) {
-      const msg = String((e as Error)?.message || e);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "I ran into an error: " + msg },
-      ]);
-      setDraft("");
-    } finally {
-      setLoading(false);
-    }
-  }, [messages]);
-
-  return { messages, draft, loading, send, setMessages };
-}
-
-/* ============================================================
-   Lookbook parser (grabs lines with a URL from assistant text)
-   ============================================================ */
-
-type LookItem = { label: string; title: string; url: string };
-
-function parseLookbookFrom(text: string): LookItem[] {
-  const items: LookItem[] = [];
-  const lines = text.split(/\n+/);
-  for (const line of lines) {
-    // Expect patterns like:
-    // "- Top: Brand — Full Title | ? EUR | retailer.com | https://..."
-    // "- Shoes: (closest match not linked)"  → skip (no URL)
-    const m = line.match(/^\s*[-•]\s*([^:]+):\s*(.+?)\s*\|\s*.*?\|\s*.*?\|\s*(https?:\/\/\S+)/i);
-    if (m) {
-      const label = m[1].trim();
-      const title = m[2].trim();
-      const url = m[3].trim().replace(/\)*\.?$/, "");
-      items.push({ label, title, url });
-      continue;
-    }
-    // Also accept "• [LINK 1] Title — https://..." from candidates
-    const m2 = line.match(/^•\s*\[LINK\s*\d+\]\s*(.+?)\s*—\s*(https?:\/\/\S+)/i);
-    if (m2) {
-      items.push({ label: "Link", title: m2[1].trim(), url: m2[2].trim() });
-    }
-  }
-  return items.slice(0, 12);
-}
-
-/* ============================================================
-   Page
-   ============================================================ */
-
 export default function StylistPage() {
-  // prefs (persist to LS)
   const [prefs, setPrefs] = React.useState<Prefs>(() => {
     try {
       const raw = localStorage.getItem("rwt-prefs");
@@ -258,7 +233,6 @@ export default function StylistPage() {
     } catch {}
     return { ...DEFAULT_PREFS };
   });
-
   const updatePrefs = React.useCallback((patch: Partial<Prefs>) => {
     setPrefs((p) => {
       const next = { ...p, ...patch, sizes: { ...(p.sizes ?? {}), ...(patch.sizes ?? {}) } };
@@ -269,128 +243,165 @@ export default function StylistPage() {
     });
   }, []);
 
-  // chat
-  const { messages, draft, loading, send } = useStreamingChat();
+  const [messages, setMessages] = React.useState<Msg[]>([]);
+  const [result, setResult] = React.useState<GenResponse | null>(null);
   const [input, setInput] = React.useState("");
-  const streamEndRef = React.useRef<HTMLDivElement | null>(null);
+  const [sending, setSending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
-  // autoscroll on new draft/messages
-  React.useEffect(() => {
-    streamEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, draft]);
+  const send = React.useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const nextMsgs: Msg[] = [...messages, { role: "user", content: trimmed }];
+      setMessages(nextMsgs);
+      setResult(null);
+      setError(null);
+      setSending(true);
+      try {
+        const res = await fetch(`/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: nextMsgs, preferences: prefs }),
+        });
+        const json = (await res.json()) as GenResponse;
+
+        if ("error" in json) {
+          setError(json.error);
+          setMessages((m) => [...m, { role: "assistant", content: "Error received." }]);
+        } else {
+          setResult(json);
+          setMessages((m) => [...m, { role: "assistant", content: json.brief }]);
+          if (!json.products?.length) setError("No products returned.");
+        }
+      } catch (e) {
+        setError(String(e));
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: "I hit a hiccup. Please try again." },
+        ]);
+      } finally {
+        setSending(false);
+      }
+    },
+    [messages, prefs]
+  );
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-    void send(text, prefs);
+    void send(input);
   };
-
-  // derive a lookbook from the latest assistant message (or draft)
-  const latestAssistant =
-    [...messages].reverse().find((m) => m.role === "assistant")?.content || "";
-  const renderSource = draft || latestAssistant;
-  const lookItems = React.useMemo(() => parseLookbookFrom(renderSource), [renderSource]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
       {/* Demo chips */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {DEMOS.map((d) => (
           <button
             key={d}
             onClick={() => setInput(d)}
-            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium hover:bg-gray-50"
+            className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-medium hover:bg-neutral-50"
           >
             {d}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[1.45fr_1fr]">
-        {/* Chat + Composer */}
-        <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-700">
-              Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes,
-              and capsule tips.
-            </p>
-          </div>
+      {/* Two columns: Left chat/results, Right prefs (fixed width) */}
+      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
+        <section className="min-w-0 grid content-start gap-4 rounded-2xl border bg-white p-4">
+          <p className="text-sm text-neutral-700">
+            Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit
+            notes, and capsule tips.
+          </p>
 
+          {/* Conversation */}
           <div className="grid gap-3">
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`rounded-xl border p-3 text-sm leading-relaxed ${
-                  m.role === "user" ? "bg-gray-50" : "bg-white"
+                className={`whitespace-pre-wrap rounded-xl border p-3 text-sm ${
+                  m.role === "user" ? "bg-neutral-50" : "bg-white"
                 }`}
               >
-                <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">{m.role}</p>
-                <div className="whitespace-pre-wrap">{m.content}</div>
+                <p className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">
+                  {m.role}
+                </p>
+                <div>{m.content}</div>
               </div>
             ))}
-
-            {draft && (
-              <div className="rounded-xl border bg-white p-3 text-sm leading-relaxed">
-                <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
-                  assistant (typing)
-                </p>
-                <div className="whitespace-pre-wrap">{draft}</div>
-              </div>
-            )}
-            <div ref={streamEndRef} />
           </div>
 
+          {/* Error */}
+          {error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              {error}
+            </div>
+          )}
+
+          {/* Loading */}
+          {sending && (
+            <div className="rounded-2xl border bg-neutral-50 p-3 text-sm text-neutral-700">
+              Styling your look… fetching products…
+            </div>
+          )}
+
+          {/* Lookbook */}
+          {result && "products" in result && result.products?.length > 0 && (
+            <div className="grid gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-neutral-700">{result.why}</p>
+                <p className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-900">
+                  Total:{" "}
+                  <Price
+                    value={Math.round(
+                      (result as Extract<GenResponse, { products: GenProduct[] }>).total.value
+                    )}
+                    currency={
+                      (result as Extract<GenResponse, { products: GenProduct[] }>).total.currency
+                    }
+                  />
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                {result.products.map((p) => (
+                  <ProductCard key={p.id} p={p} />
+                ))}
+              </div>
+
+              <div className="rounded-2xl border bg-neutral-50 p-3 text-sm">
+                <p className="font-medium">Capsule & styling tips</p>
+                <ul className="mt-1 list-disc pl-5 text-neutral-700">
+                  {result.tips.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Prompt input */}
           <form onSubmit={onSubmit} className="mt-2 flex gap-2">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={`"Zendaya, Paris gallery opening, 18°C drizzle, smart-casual"`}
-              className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-3 text-sm outline-none focus:border-gray-500"
+              className="min-w-0 flex-1 rounded-xl border border-neutral-300 px-3 py-3 text-sm outline-none focus:border-neutral-500"
             />
             <button
               type="submit"
-              disabled={loading}
+              disabled={sending}
               className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-black/90 disabled:opacity-50"
             >
-              {loading ? "Styling…" : "Send"}
+              {sending ? "Styling…" : "Send"}
             </button>
           </form>
         </section>
 
-        {/* Preferences */}
         <PreferencesPanel prefs={prefs} update={updatePrefs} />
       </div>
-
-      {/* Lookbook (parsed links from reply) */}
-      {lookItems.length > 0 && (
-        <section className="mt-6 rounded-2xl border bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Lookbook</h2>
-            <p className="text-xs text-gray-500">Auto-parsed from the assistant’s links</p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {lookItems.map((it, idx) => (
-              <a
-                key={idx}
-                href={it.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group rounded-xl border p-3 transition hover:shadow-sm"
-              >
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                  {it.label}
-                </p>
-                <p className="mt-1 line-clamp-2 text-sm font-medium text-gray-900 group-hover:underline">
-                  {it.title}
-                </p>
-                <p className="mt-1 truncate text-xs text-gray-500">{it.url}</p>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
     </main>
   );
 }
+
