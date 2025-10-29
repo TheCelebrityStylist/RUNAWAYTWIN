@@ -3,40 +3,33 @@ export const runtime = "edge";
 
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
-import { searchCatalog } from "@/lib/catalog/mock";
 
-/** JSON types returned to the client */
-type GenProduct = {
-  id: string;
-  title: string;
-  brand: string;
-  category: "top" | "bottom" | "outerwear" | "dress" | "shoes" | "bag" | "accessory";
-  price: number;
-  currency: "EUR" | "USD" | "GBP";
-  image: string;
-  url: string;
-  retailer: string;
-  notes: string;
-};
-type GenResponse = {
-  brief: string;
-  why: string;
-  tips: string[];
-  products: GenProduct[];
-  total: { value: number; currency: "EUR" | "USD" | "GBP" };
-};
+/**
+ * Clean stylist API:
+ * - Optionally gathers candidate retail links via Tavily
+ * - Asks OpenAI to pick from those links in JSON
+ * - Returns a STRICT JSON payload the UI can render as product cards
+ */
 
 type Role = "system" | "user" | "assistant";
 type ChatMessage = { role: Role; content: string | unknown[] };
+
 type Prefs = {
   gender?: string;
+  sizeTop?: string;
+  sizeBottom?: string;
+  sizeDress?: string;
+  sizeShoe?: string;
   bodyType?: string;
   budget?: number | string;
   country?: string;
   currency?: string;
   styleKeywords?: string;
-  sizes?: { top?: string; bottom?: string; dress?: string; shoe?: string };
+  heightCm?: number;
+  weightKg?: number;
 };
+
+type Cand = { title: string; url: string };
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
@@ -44,7 +37,7 @@ const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/* ---------------- helpers ---------------- */
+/* ------------------------- helpers -------------------------- */
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) {
@@ -66,34 +59,51 @@ function contentToText(c: unknown): string {
   }
   return "";
 }
+
 function lastUserText(msgs: ChatMessage[]): string {
-  for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i]?.role === "user") return contentToText(msgs[i].content);
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i]?.role === "user") return contentToText(msgs[i].content);
+  }
   return "";
 }
-function currencyFor(p: Prefs): "EUR" | "USD" | "GBP" {
-  if (p.currency === "USD" || p.country?.toUpperCase() === "US") return "USD";
-  if (p.currency === "GBP" || p.country?.toUpperCase() === "UK") return "GBP";
+
+function currencyFor(p: Prefs) {
+  if (p.currency) return p.currency;
+  if ((p.country || "").toUpperCase() === "US") return "USD";
   return "EUR";
 }
-function parseBudget(b?: number | string): number | undefined {
-  if (typeof b === "number") return b;
-  if (!b) return undefined;
-  const s = String(b).toLowerCase();
-  const num = Number(s.replace(/[^\d.]/g, ""));
-  if (Number.isFinite(num) && num > 0) return num;
-  if (s.includes("high-street")) return 300;
-  if (s.includes("mid")) return 600;
-  if (s.includes("luxury")) return 1800;
-  return undefined;
+
+function prefsBlock(p: Prefs) {
+  const cur = currencyFor(p);
+  return [
+    `User Profile`,
+    `- Gender: ${p.gender ?? "-"}`,
+    `- Sizes: top=${p.sizeTop ?? "-"}, bottom=${p.sizeBottom ?? "-"}, dress=${p.sizeDress ?? "-"}, shoe=${p.sizeShoe ?? "-"}`,
+    `- Body Type: ${p.bodyType ?? "-"}`,
+    `- Height/Weight: ${p.heightCm ?? "-"}cm / ${p.weightKg ?? "-"}kg`,
+    `- Budget: ${p.budget ?? "-"}`,
+    `- Country: ${p.country ?? "-"}`,
+    `- Currency: ${cur}`,
+    `- Style Keywords: ${p.styleKeywords ?? "-"}`,
+  ].join("\n");
 }
 
-/* ---------------- optional Tavily candidates (for future enhancement) ---------------- */
-type Cand = { title: string; url: string };
+function retailerFromUrl(u: string) {
+  try {
+    return new URL(u).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+/* ---------------- Tavily candidates (optional) ---------------- */
 async function webSearchProducts(query: string): Promise<Cand[]> {
   if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
+
   const booster =
     " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR matchesfashion.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com OR levi.com)";
   const q = `${query}${booster}`;
+
   const resp = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -101,82 +111,64 @@ async function webSearchProducts(query: string): Promise<Cand[]> {
       api_key: process.env.TAVILY_API_KEY,
       query: q,
       search_depth: "basic",
-      max_results: 8,
+      max_results: 12,
       include_answer: false,
       include_raw_content: false,
     }),
   }).catch(() => null);
+
   if (!resp || !resp.ok) return [];
+
   const data = (await resp.json().catch(() => ({}))) as {
     results?: Array<{ title?: unknown; url?: unknown }>;
   };
-  const raw = Array.isArray(data.results) ? data.results : [];
+
+  const raw: Array<{ title?: unknown; url?: unknown }> = Array.isArray(data.results)
+    ? data.results
+    : [];
+
   return raw
-    .map((r) => ({ title: String(r?.title ?? ""), url: String(r?.url ?? "") }))
+    .map((r) => ({
+      title: typeof r?.title === "string" ? r.title : "",
+      url: typeof r?.url === "string" ? r.url : "",
+    }))
     .filter((x) => x.title && x.url)
-    .slice(0, 8);
+    .slice(0, 12);
 }
 
-/* ---------------- synthesize products (mock or model) ---------------- */
-function synthesizeFromCatalog(
-  userText: string,
-  prefs: Prefs,
-  cur: "EUR" | "USD" | "GBP"
-): GenResponse {
-  const gender =
-    prefs.gender === "female" || prefs.gender === "male" ? (prefs.gender as "female" | "male") : "unisex";
-  const budgetMax = parseBudget(prefs.budget) || (cur === "USD" ? 600 : 500);
-  const kws = (prefs.styleKeywords || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const matches = searchCatalog({
-    q: userText,
-    gender,
-    budgetMax,
-    keywords: kws,
-  });
-
-  // choose 4–6 diverse categories
-  const chosen = [];
-  const usedCats = new Set<string>();
-  for (const p of matches) {
-    const cat = p.categories[0];
-    if (!usedCats.has(cat)) {
-      chosen.push(p);
-      usedCats.add(cat);
-    }
-    if (chosen.length >= 6) break;
-  }
-  if (!chosen.length) chosen.push(...matches.slice(0, 4));
-
-  const total = chosen.reduce((s, p) => s + p.price, 0);
-
-  return {
-    brief: userText,
-    why:
-      "Balanced proportions with weather-aware layers. Pieces are capsule-friendly and respect the stated budget band.",
-    tips: [
-      "Keep a tight palette (2–3 tones) for cohesion.",
-      "Tailor trouser hems to shoe height.",
-      "Use thin thermals for warmth without bulk.",
-    ],
-    products: chosen.map((p) => ({
-      id: p.id,
-      title: p.title,
-      brand: p.brand,
-      category: p.categories[0],
-      price: p.price,
-      currency: p.currency || cur,
-      image: p.image,
-      url: p.url,
-      retailer: p.retailer,
-      notes: "True-to-size; easy to mix & match.",
-    })),
-    total: { value: total, currency: cur },
-  };
+function candidatesBlock(cands: Cand[]) {
+  if (!cands.length) return "CANDIDATE_LINKS: []";
+  const lines = cands.map(
+    (c, i) =>
+      `{"i":${i},"title":${JSON.stringify(c.title)},"url":${JSON.stringify(c.url)}}`
+  );
+  return `CANDIDATE_LINKS: [${lines.join(",")}]`;
 }
+
+/* ---------------- JSON schema ---------------- */
+type PlanItem = {
+  category:
+    | "Top"
+    | "Bottom"
+    | "Dress"
+    | "Outerwear"
+    | "Shoes"
+    | "Bag"
+    | "Accessory";
+  title: string;
+  linkIndex: number | null; // index in candidates
+  notes?: string;
+  priceGuess?: string; // text (range or "?")
+};
+
+type Plan = {
+  summary: string;
+  look: PlanItem[];
+  alternates?: PlanItem[];
+  fitNotes: string[];
+  capsuleTips: string[];
+  budgetNote?: string;
+};
 
 /* ---------------- route ---------------- */
 export async function POST(req: NextRequest) {
@@ -187,10 +179,10 @@ export async function POST(req: NextRequest) {
 
   try {
     if (!(req.headers.get("content-type") || "").includes("application/json")) {
-      return new Response(JSON.stringify({ error: "Expected application/json body." }), {
-        status: 415,
-        headers,
-      });
+      return new Response(
+        JSON.stringify({ error: "Expected application/json body." }),
+        { status: 415, headers }
+      );
     }
 
     const body = (await req.json().catch(() => ({}))) as {
@@ -198,7 +190,9 @@ export async function POST(req: NextRequest) {
       preferences?: Prefs;
     };
 
-    const history: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
+    const history: ChatMessage[] = Array.isArray(body?.messages)
+      ? body.messages
+      : [];
     const preferences: Prefs = (body?.preferences || {}) as Prefs;
 
     const userText = lastUserText(history);
@@ -212,91 +206,190 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cur = currencyFor(preferences);
-
-    // If no OPENAI key, or as a fast, deterministic path -> catalog synthesis.
-    if (!HAS_KEY) {
-      const json = synthesizeFromCatalog(userText, preferences, cur);
-      return new Response(JSON.stringify(json), { headers });
-    }
-
-    // Optional: get a few candidates to flash in the prompt (not strictly required now).
+    // 1) Fetch candidate product links (optional)
     let cands: Cand[] = [];
     if (ALLOW_WEB && process.env.TAVILY_API_KEY) {
-      const q = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
+      const q = [
+        userText,
+        preferences.styleKeywords,
+        preferences.bodyType,
+        preferences.country,
+      ]
         .filter(Boolean)
         .join(" ");
       cands = await Promise.race([
         webSearchProducts(q),
-        new Promise<Cand[]>((resolve) => setTimeout(() => resolve([]), 4000)),
+        new Promise<Cand[]>((resolve) => setTimeout(() => resolve([]), 5000)),
       ]);
     }
 
-    // Ask the model for JSON. If it fails, fallback to catalog.
-    let parsed: GenResponse | null = null;
-    try {
-      const sys = [
-        "You are an editorial-level fashion stylist that outputs STRICT JSON only.",
-        "Return a JSON object with keys: brief, why, tips (string[]), products (array), total {value, currency}.",
-        "Each product must include: id, title, brand, category, price, currency, image, url, retailer, notes.",
-        "Use user's country/currency and budget. Prefer capsule-friendly picks.",
-        cands.length
-          ? `You may consider these candidate links (do not invent): ${cands
-              .map((c, i) => `[${i + 1}] ${c.title} — ${c.url}`)
-              .join(" | ")}`
-          : "",
-      ]
-        .join("\n")
-        .trim();
+    // 2) Build strict prompt expecting JSON
+    const sys = [
+      "You are an editorial-level fashion stylist.",
+      "You MUST output a single JSON object EXACTLY matching this TypeScript type:",
+      "type Plan = {",
+      '  summary: string;',
+      '  look: { category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory"; title: string; linkIndex: number | null; notes?: string; priceGuess?: string; }[];',
+      "  alternates?: Plan['look'];",
+      "  fitNotes: string[];",
+      "  capsuleTips: string[];",
+      "  budgetNote?: string;",
+      "};",
+      "",
+      "RULES:",
+      "- Only choose links from CANDIDATE_LINKS via their numeric index; if none fit, set linkIndex=null.",
+      "- Do NOT invent exact prices; use a short range or '?' text (store in priceGuess).",
+      "- Respect body type, weather, occasion, and budget band.",
+      "- Use clean, timeless, capsule-friendly styling.",
+      "",
+      prefsBlock(preferences),
+      "",
+      candidatesBlock(cands),
+    ].join("\n");
 
+    let plan: Plan | null = null;
+
+    if (HAS_KEY) {
       const completion = await client.chat.completions.create({
         model: MODEL,
         temperature: 0.5,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: sys },
-          { role: "user", content: userText },
+          ...history.map((m) => ({
+            role: m.role,
+            content: contentToText(m.content),
+          })),
           {
             role: "user",
-            content: JSON.stringify({
-              country: preferences.country ?? null,
-              currency: cur,
-              budget: preferences.budget ?? null,
-              bodyType: preferences.bodyType ?? null,
-              keywords: preferences.styleKeywords ?? null,
-            }),
+            content:
+              "Create the Plan JSON now. Keep it concise, polished, and wearable. Do not include markdown, only JSON.",
           },
         ],
       });
 
       const raw = completion.choices?.[0]?.message?.content || "{}";
-      parsed = JSON.parse(raw) as GenResponse;
-
-      // Guard rails
-      if (
-        !parsed ||
-        !Array.isArray(parsed.products) ||
-        parsed.products.length === 0 ||
-        typeof parsed.total?.value !== "number"
-      ) {
-        parsed = null;
+      try {
+        plan = JSON.parse(raw) as Plan;
+      } catch {
+        plan = null;
       }
-    } catch {
-      parsed = null;
     }
 
-    if (!parsed) parsed = synthesizeFromCatalog(userText, preferences, cur);
+    // 3) Fallback (no key or parsing failed)
+    if (!plan) {
+      const pick = (i: number): number | null => (i < cands.length ? i : null);
+      plan = {
+        summary:
+          "A refined, weather-aware look balancing proportion and clean lines. Cohesive neutrals you can remix.",
+        look: [
+          {
+            category: "Outerwear",
+            title: cands[pick(0) ?? -1]?.title || "Tailored trench",
+            linkIndex: pick(0),
+            priceGuess: "?",
+            notes: "Keeps lines sharp; works over dresses/denim.",
+          },
+          {
+            category: "Dress",
+            title: cands[pick(1) ?? -1]?.title || "Midi column dress",
+            linkIndex: pick(1),
+            priceGuess: "?",
+            notes: "Column or gentle A-line for easy layering.",
+          },
+          {
+            category: "Shoes",
+            title: cands[pick(2) ?? -1]?.title || "Sleek ankle boot",
+            linkIndex: pick(2),
+            priceGuess: "?",
+            notes: "Weather-friendly; keeps the silhouette long.",
+          },
+          {
+            category: "Bag",
+            title:
+              cands[pick(3) ?? -1]?.title || "Structured shoulder/baguette bag",
+            linkIndex: pick(3),
+            priceGuess: "?",
+            notes: "Scales for events; minimal hardware.",
+          },
+        ],
+        alternates: [
+          {
+            category: "Outerwear",
+            title: cands[pick(4) ?? -1]?.title || "Cropped blazer",
+            linkIndex: pick(4),
+            priceGuess: "?",
+          },
+          {
+            category: "Shoes",
+            title: cands[pick(5) ?? -1]?.title || "Pointed pump",
+            linkIndex: pick(5),
+            priceGuess: "?",
+          },
+        ],
+        fitNotes: [
+          "Balance shoulder/hip ratio; use structured outerwear to sharpen lines.",
+          "Choose necklines that open the face; keep hems tidy to shoe height.",
+        ],
+        capsuleTips: [
+          "Swap dress for knit + wide trousers for daytime.",
+          "Add fine-knit turtleneck under blazer in colder weather.",
+        ],
+        budgetNote:
+          typeof preferences.budget === "string" ||
+          typeof preferences.budget === "number"
+            ? String(preferences.budget)
+            : "within your chosen band",
+      };
+    }
 
-    // Normalize currency just in case
-    parsed.products = parsed.products.map((p) => ({
-      ...p,
-      currency: (p.currency || cur) as GenProduct["currency"],
-    }));
-    parsed.total = { value: parsed.total.value, currency: parsed.total.currency || cur };
+    // 4) Build unified JSON for UI
+    const cur = currencyFor(preferences);
 
-    return new Response(JSON.stringify(parsed), { headers });
+    type UiProduct = {
+      id: string;
+      title: string;
+      url: string | null;
+      brand: string | null;
+      category: string;
+      price: number | null; // unknown -> null
+      currency: string;
+      image: string | null;
+    };
+
+    const products: UiProduct[] = plan.look.map((it, idx) => {
+      const i = typeof it.linkIndex === "number" ? it.linkIndex : -1;
+      const cand = i >= 0 && i < cands.length ? cands[i] : null;
+      return {
+        id: String(idx + 1),
+        title: it.title,
+        url: cand?.url ?? null,
+        brand: cand ? retailerFromUrl(cand.url) : null,
+        category: it.category,
+        price: null, // we don't invent prices
+        currency: cur,
+        image: null,
+      };
+    });
+
+    const payload = {
+      brief: plan.summary,
+      tips: plan.capsuleTips,
+      why: plan.fitNotes,
+      products,
+      total: { value: null as number | null, currency: cur },
+    };
+
+    return new Response(JSON.stringify(payload), { headers });
   } catch (err: unknown) {
-    return new Response(JSON.stringify({ error: String(err) }), { headers });
+    return new Response(
+      JSON.stringify({
+        error: "Stylist failed",
+        detail: String((err as Error)?.message || err),
+      }),
+      { status: 500, headers }
+    );
   }
 }
+
 
