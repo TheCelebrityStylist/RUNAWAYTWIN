@@ -3,10 +3,49 @@
 
 import * as React from "react";
 import type { Product } from "@/lib/affiliates/types";
-import { convert, currencyFromCountry, normalizeCode, type IsoCurrency } from "@/lib/affiliates/currency";
+import {
+  convert,
+  currencyFromCountry,
+  normalizeCode,
+  type IsoCurrency,
+} from "@/lib/affiliates/currency";
 import { usePrefs } from "@/lib/hooks/usePrefs";
 import { useFavorites } from "@/lib/hooks/useFavorites";
-import { Heart } from "lucide-react";
+
+/** Minimal inline Heart icon (no external deps). */
+function HeartIcon({
+  filled,
+  size = 16,
+  className,
+  "aria-hidden": ariaHidden = true,
+}: {
+  filled: boolean;
+  size?: number;
+  className?: string;
+  "aria-hidden"?: boolean;
+}) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    xmlns: "http://www.w3.org/2000/svg",
+    "aria-hidden": ariaHidden,
+    className,
+  } as const;
+
+  if (filled) {
+    return (
+      <svg {...common} fill="currentColor">
+        <path d="M12 21s-5.052-3.327-8.016-6.29C1.35 12.074 1.7 8.86 3.94 7.08a5.06 5.06 0 0 1 6.46.4l.6.6.6-.6a5.06 5.06 0 0 1 6.46-.4c2.24 1.78 2.59 4.995-.044 7.63C17.052 17.673 12 21 12 21z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
 
 type Props = { item: Product };
 
@@ -53,11 +92,7 @@ export function ProductCard({ item }: Props) {
           fav ? "bg-red-500/90 text-white" : "bg-white/70 text-gray-700 hover:bg-white"
         }`}
       >
-        <Heart
-          size={16}
-          className={fav ? "fill-current" : "stroke-current"}
-          aria-hidden="true"
-        />
+        <HeartIcon filled={fav} size={16} className={fav ? "fill-current" : "stroke-current"} />
       </button>
 
       <a
@@ -120,4 +155,3 @@ export function ProductCardSkeleton() {
     </article>
   );
 }
-
