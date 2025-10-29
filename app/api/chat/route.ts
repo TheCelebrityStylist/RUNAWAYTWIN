@@ -11,18 +11,13 @@ import { STYLIST_SYSTEM_PROMPT } from "./systemPrompt";
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
 const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
-
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* =======================================
    Types
    ======================================= */
 type Role = "system" | "user" | "assistant";
-
-type ChatMessage = {
-  role: Role;
-  content: string | unknown[];
-};
+type ChatMessage = { role: Role; content: string | unknown[] };
 
 type Prefs = {
   gender?: string;
@@ -44,6 +39,8 @@ type Cand = { title: string; url: string };
 /* =======================================
    Helpers
    ======================================= */
+const TE = new TextEncoder();
+
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) {
@@ -60,7 +57,7 @@ function contentToText(c: unknown): string {
         }
         return "";
       })
-      .filter((s) => !!s)
+      .filter(Boolean)
       .join(" ");
   }
   return "";
@@ -102,11 +99,10 @@ function sanitizeAnswer(txt: string) {
 }
 
 /* =======================================
-   Tavily web candidates (real links only)
+   Tavily search (optional)
    ======================================= */
 async function webSearchProducts(query: string): Promise<Cand[]> {
   if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
-
   const booster =
     " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR matchesfashion.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com OR levi.com)";
   const q = `${query}${booster}`;
@@ -125,7 +121,6 @@ async function webSearchProducts(query: string): Promise<Cand[]> {
   }).catch(() => null);
 
   if (!resp || !resp.ok) return [];
-
   const data = (await resp.json().catch(() => ({}))) as {
     results?: Array<{ title?: unknown; url?: unknown }>;
   };
@@ -134,15 +129,13 @@ async function webSearchProducts(query: string): Promise<Cand[]> {
     ? data.results
     : [];
 
-  const mapped: Cand[] = raw
+  return raw
     .slice(0, 8)
     .map((r) => ({
       title: typeof r?.title === "string" ? r.title : "",
       url: typeof r?.url === "string" ? r.url : "",
     }))
-    .filter((x: Cand): x is Cand => x.title.length > 0 && x.url.length > 0);
-
-  return mapped;
+    .filter((x): x is Cand => x.title.length > 0 && x.url.length > 0);
 }
 
 function candidatesBlock(cands: Cand[]) {
@@ -152,7 +145,7 @@ function candidatesBlock(cands: Cand[]) {
 }
 
 /* =======================================
-   Fallback answer (never invents links)
+   Fallback (no invented links)
    ======================================= */
 function brandFromTitle(t: string) {
   const h = t.split(/[–—\-|\u2013\u2014]/)[0]?.trim() || "";
@@ -172,7 +165,6 @@ function fallbackFromCandidates(cands: Cand[], prefs: Prefs, userText: string): 
   const budget = typeof prefs.budget === "number" ? `${prefs.budget} ${cur}` : `-`;
 
   const pick = (i: number): Cand | null => (i >= 0 && i < cands.length ? cands[i] : null);
-
   const top = pick(0);
   const bottom = pick(1);
   const outer = pick(2);
@@ -220,76 +212,61 @@ Capsule & Tips:
 }
 
 /* =======================================
-   Streaming helpers
+   Streaming builders (BYTE streams for Edge)
    ======================================= */
-function textStream(enqueue: (chunk: string) => void) {
-  return {
-    write: (s: string) => enqueue(s),
-    writeln: (s: string) => enqueue(s + "\n"),
-  };
+
+function textIterableToStream(it: AsyncIterable<string> | Iterable<string>) {
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const chunk of it as any) {
+          controller.enqueue(TE.encode(chunk));
+        }
+        controller.close();
+      } catch (e) {
+        controller.error(e);
+      }
+    },
+  });
 }
 
-function sseToTextReader(resp: Response) {
-  // Parses OpenAI SSE and yields delta.content pieces as plain text
-  const reader = resp.body?.getReader();
+// Parses OpenAI SSE into a BYTE stream of plain text tokens.
+async function* sseToTextIterator(resp: Response) {
+  const reader = resp.body!.getReader();
   const decoder = new TextDecoder();
-  return new ReadableStream<string>({
-    start(controller) {
-      if (!reader) {
-        controller.close();
-        return;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    const chunk = decoder.decode(value, { stream: true });
+    for (const line of chunk.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const payload = trimmed.slice(5).trim();
+      if (payload === "[DONE]") return;
+      try {
+        const json = JSON.parse(payload) as {
+          choices?: Array<{ delta?: { content?: string } }>;
+        };
+        const token = json?.choices?.[0]?.delta?.content ?? "";
+        if (token) yield token;
+      } catch {
+        // ignore
       }
-      const pump = (): void => {
-        reader.read().then(({ done, value }) => {
-          if (done) {
-            controller.close();
-            return;
-          }
-          const chunk = decoder.decode(value, { stream: true });
-          // Split SSE lines and parse `data: { ... }`
-          for (const line of chunk.split("\n")) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data:")) continue;
-            const payload = trimmed.slice(5).trim();
-            if (payload === "[DONE]") {
-              controller.close();
-              return;
-            }
-            try {
-              const json = JSON.parse(payload) as {
-                choices?: Array<{ delta?: { content?: string } }>;
-              };
-              const token = json?.choices?.[0]?.delta?.content ?? "";
-              if (token) controller.enqueue(token);
-            } catch {
-              // ignore malformed lines
-            }
-          }
-          pump();
-        });
-      };
-      pump();
-    },
-  });
+    }
+  }
 }
 
-/* =======================================
-   MOCK stream (when no OPENAI_API_KEY)
-   ======================================= */
-function mockStream(prefs: Prefs, userText: string, cands: Cand[]) {
-  const base = fallbackFromCandidates(cands, prefs, userText);
+// Mock byte stream when no API key.
+function mockStream(preferences: Prefs, userText: string, cands: Cand[]) {
+  const base = fallbackFromCandidates(cands, preferences, userText);
   const parts = ("Mock stylist reply (no OPENAI_API_KEY)\n\n" + base).split(/(\s+)/);
-  let i = 0;
-  return new ReadableStream<string>({
-    pull(controller) {
-      if (i >= parts.length) {
-        controller.close();
-        return;
-      }
-      // push small chunks to simulate typing
-      controller.enqueue(parts[i++]);
-    },
-  });
+  async function* iter() {
+    for (const p of parts) {
+      yield p;
+      await new Promise((r) => setTimeout(r, 8));
+    }
+  }
+  return textIterableToStream(iter());
 }
 
 /* =======================================
@@ -299,12 +276,10 @@ export async function POST(req: NextRequest) {
   const headers = new Headers({
     "Content-Type": "text/plain; charset=utf-8",
     "Cache-Control": "no-store",
-    "x-stream": "1",
   });
 
   try {
-    const ct = req.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
+    if (!(req.headers.get("content-type") || "").includes("application/json")) {
       return new Response("Expected application/json body.", { status: 415, headers });
     }
 
@@ -324,7 +299,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get product candidates (optional)
+    // Optional product candidates
     let cands: Cand[] = [];
     if (ALLOW_WEB && process.env.TAVILY_API_KEY) {
       const q = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
@@ -340,10 +315,8 @@ export async function POST(req: NextRequest) {
       { role: "system", content: STYLIST_SYSTEM_PROMPT },
       { role: "system", content: prefsToSystem(preferences) },
     ];
-
     const cblock = candidatesBlock(cands);
     if (cblock) messages.push({ role: "system", content: cblock });
-
     messages.push(...history);
     messages.push({ role: "user", content: userText });
 
@@ -352,12 +325,12 @@ export async function POST(req: NextRequest) {
       content: typeof m.content === "string" ? m.content : contentToText(m.content),
     }));
 
-    // If no key: return a mock streaming Response
+    // No key → mock streaming bytes
     if (!HAS_KEY) {
       return new Response(mockStream(preferences, userText, cands), { headers });
     }
 
-    // Real OpenAI call in streaming mode
+    // Try OpenAI SSE
     const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -372,26 +345,26 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    if (!resp.ok || !resp.body) {
-      // Fall back to non-streaming composition if streaming is not available
-      let text = "";
-      try {
-        const completion = await client.chat.completions.create({
-          model: MODEL,
-          messages: strMessages,
-          temperature: 0.6,
-          stream: false,
-        });
-        text = completion?.choices?.[0]?.message?.content || "";
-      } catch {
-        text = "";
-      }
-      if (!text.trim()) text = fallbackFromCandidates(cands, preferences, userText);
-      return new Response(sanitizeAnswer(text), { headers });
+    if (resp.ok && resp.body) {
+      const byteStream = textIterableToStream(sseToTextIterator(resp));
+      return new Response(byteStream, { headers });
     }
 
-    const textReadable = sseToTextReader(resp);
-    return new Response(textReadable, { headers });
+    // Fallback: non-streaming
+    let text = "";
+    try {
+      const completion = await client.chat.completions.create({
+        model: MODEL,
+        messages: strMessages,
+        temperature: 0.6,
+        stream: false,
+      });
+      text = completion?.choices?.[0]?.message?.content || "";
+    } catch {
+      text = "";
+    }
+    if (!text.trim()) text = fallbackFromCandidates(cands, preferences, userText);
+    return new Response(sanitizeAnswer(text), { headers });
   } catch (err: unknown) {
     const msg =
       "I hit a hiccup finishing the look. Here’s a quick starter you can use right now.\n\n(" +
@@ -400,3 +373,4 @@ export async function POST(req: NextRequest) {
     return new Response(msg, { headers });
   }
 }
+
