@@ -50,125 +50,6 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     />
   );
 }
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-[11px] font-medium uppercase tracking-wide text-gray-600">
-      {children}
-    </label>
-  );
-}
-
-/* =================== Preferences Panel =================== */
-function PreferencesPanel({
-  prefs,
-  update,
-}: {
-  prefs: Prefs;
-  update: (patch: Partial<Prefs>) => void;
-}) {
-  const sizes = prefs.sizes ?? {};
-  return (
-    <section className="grid gap-3 rounded-2xl border bg-white p-4">
-      <p className="text-sm font-semibold">Preferences</p>
-
-      <div className="grid gap-1">
-        <Label>Gender</Label>
-        <Select
-          value={prefs.gender ?? ""}
-          onChange={(e) => update({ gender: e.target.value as Gender })}
-        >
-          <option value="">—</option>
-          <option value="female">Female</option>
-          <option value="male">Male</option>
-          <option value="other">Other</option>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="grid gap-1">
-          <Label>Body type</Label>
-          <TextInput
-            placeholder="pear / hourglass / apple / rectangle"
-            value={prefs.bodyType ?? ""}
-            onChange={(e) => update({ bodyType: e.target.value || undefined })}
-          />
-        </div>
-        <div className="grid gap-1">
-          <Label>Budget band</Label>
-          <TextInput
-            placeholder="high-street / mid / luxury or a number"
-            value={prefs.budget ?? ""}
-            onChange={(e) => update({ budget: e.target.value || undefined })}
-          />
-        </div>
-        <div className="grid gap-1">
-          <Label>Country (ISO-2 or name)</Label>
-          <TextInput
-            placeholder="NL / US / UK / France…"
-            value={prefs.country ?? ""}
-            onChange={(e) => update({ country: e.target.value || undefined })}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-1">
-        <Label>Sizes (optional)</Label>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <TextInput
-            placeholder="Top"
-            value={sizes.top ?? ""}
-            onChange={(e) =>
-              update({ sizes: { ...sizes, top: e.target.value || undefined } })
-            }
-          />
-          <TextInput
-            placeholder="Bottom"
-            value={sizes.bottom ?? ""}
-            onChange={(e) =>
-              update({
-                sizes: { ...sizes, bottom: e.target.value || undefined },
-              })
-            }
-          />
-          <TextInput
-            placeholder="Dress"
-            value={sizes.dress ?? ""}
-            onChange={(e) =>
-              update({
-                sizes: { ...sizes, dress: e.target.value || undefined },
-              })
-            }
-          />
-          <TextInput
-            placeholder="Shoe"
-            value={sizes.shoe ?? ""}
-            onChange={(e) =>
-              update({
-                sizes: { ...sizes, shoe: e.target.value || undefined },
-              })
-            }
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-1">
-        <Label>Style keywords (comma-separated)</Label>
-        <TextInput
-          placeholder="minimal, monochrome, soft tailoring"
-          value={(prefs.keywords ?? []).join(", ")}
-          onChange={(e) =>
-            update({
-              keywords: e.target.value
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean),
-            })
-          }
-        />
-      </div>
-    </section>
-  );
-}
 
 /* ================== Robust JSON coercion ================== */
 function asString(x: unknown, def = ""): string {
@@ -207,7 +88,7 @@ function coerceAiJson(content: string): AiJson | null {
 
   const productsRaw = Array.isArray(raw["products"]) ? (raw["products"] as unknown[]) : [];
 
-  // Find a currency safely from products, fall back to "EUR"
+  // currency from first product with currency, else "EUR"
   const currencyFromProducts =
     productsRaw
       .map((p) => (isObj(p) && typeof p["currency"] === "string" ? (p["currency"] as string) : null))
@@ -217,7 +98,6 @@ function coerceAiJson(content: string): AiJson | null {
     .map((p) => asProduct(p, currencyFromProducts))
     .filter((p): p is UiProduct => !!p);
 
-  // total currency: prefer raw.total.currency if valid else product currency else "EUR"
   const totalObj = isObj(raw["total"]) ? (raw["total"] as Record<string, unknown>) : {};
   const totalCurrency =
     typeof totalObj["currency"] === "string"
@@ -252,6 +132,7 @@ const DEMOS = [
 ];
 
 export default function StylistPage() {
+  /* Prefs */
   const [prefs, setPrefs] = React.useState<Prefs>(() => {
     try {
       const raw = localStorage.getItem("rwt-prefs");
@@ -259,7 +140,6 @@ export default function StylistPage() {
     } catch {}
     return {};
   });
-
   const updatePrefs = React.useCallback((patch: Partial<Prefs>) => {
     setPrefs((p) => {
       const next = {
@@ -274,6 +154,7 @@ export default function StylistPage() {
     });
   }, []);
 
+  /* Chat */
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
@@ -326,9 +207,11 @@ export default function StylistPage() {
     void send(input);
   };
 
+  const sizes = prefs.sizes ?? {};
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
-      {/* Top chips */}
+      {/* Top promo chips */}
       <div className="mb-4 flex flex-wrap gap-2">
         {DEMOS.map((d) => (
           <button
@@ -341,142 +224,242 @@ export default function StylistPage() {
         ))}
       </div>
 
-      {/* Layout */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[1.6fr_1fr]">
-        {/* Chat */}
-        <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
-          <p className="text-sm text-gray-700">
-            Muse + occasion → I’ll assemble a shoppable head-to-toe look with
-            links, fit notes, and capsule tips.
-          </p>
+      {/* Preferences BAR on top (sticky, not stretched) */}
+      <section className="sticky top-14 z-10 mb-6 grid gap-3 rounded-2xl border bg-white/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/70">
+        <p className="text-sm font-semibold">Preferences</p>
 
-          <div className="grid gap-3">
-            {messages.map((m, i) => {
-              const ai = m.role === "assistant" ? coerceAiJson(m.content) : null;
-
-              return (
-                <div
-                  key={i}
-                  className={`rounded-xl border p-3 text-sm ${
-                    m.role === "user" ? "bg-gray-50" : "bg-white"
-                  }`}
-                >
-                  <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">
-                    {m.role}
-                  </p>
-
-                  {ai ? (
-                    <div className="grid gap-3">
-                      {/* brief */}
-                      <p className="text-gray-800">{ai.brief}</p>
-
-                      {/* total */}
-                      <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-xs text-gray-700">
-                        <span>Total:</span>
-                        <span className="font-semibold">
-                          {ai.total.value != null
-                            ? `${ai.total.currency} ${ai.total.value}`
-                            : "—"}
-                        </span>
-                      </div>
-
-                      {/* products grid */}
-                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                        {ai.products.map((p) => (
-                          <article
-                            key={p.id}
-                            className="flex flex-col rounded-2xl border p-3"
-                          >
-                            <div className="aspect-[4/5] w-full rounded-xl bg-gray-100" />
-                            <h3 className="mt-2 line-clamp-2 text-sm font-medium">
-                              {p.title}
-                            </h3>
-                            <p className="text-xs text-gray-500">
-                              {p.brand ?? "—"} • {p.category}
-                            </p>
-                            <div className="mt-2 text-xs text-gray-700">
-                              {p.price != null ? `${p.currency} ${p.price}` : "?"}
-                            </div>
-                            {p.url ? (
-                              <a
-                                href={p.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
-                              >
-                                View
-                              </a>
-                            ) : (
-                              <span className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs text-gray-500">
-                                No link
-                              </span>
-                            )}
-                          </article>
-                        ))}
-                      </div>
-
-                      {/* tips + why */}
-                      {(ai.why?.length || ai.tips?.length) && (
-                        <div className="grid gap-2">
-                          {ai.why?.length ? (
-                            <div>
-                              <p className="mb-1 text-[13px] font-semibold">
-                                Why it flatters
-                              </p>
-                              <ul className="list-disc pl-5 text-sm text-gray-700">
-                                {ai.why.map((w, idx) => (
-                                  <li key={idx}>{w}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                          {ai.tips?.length ? (
-                            <div>
-                              <p className="mb-1 text-[13px] font-semibold">
-                                Capsule & tips
-                              </p>
-                              <ul className="list-disc pl-5 text-sm text-gray-700">
-                                {ai.tips.map((t, idx) => (
-                                  <li key={idx}>{t}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <pre className="whitespace-pre-wrap text-gray-800">
-                      {m.content}
-                    </pre>
-                  )}
-                </div>
-              );
-            })}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+          {/* Gender */}
+          <div className="col-span-2 md:col-span-1">
+            <Select
+              aria-label="Gender"
+              value={prefs.gender ?? ""}
+              onChange={(e) => updatePrefs({ gender: e.target.value as Gender })}
+            >
+              <option value="">Gender</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+            </Select>
           </div>
 
-          <form onSubmit={onSubmit} className="mt-2 flex gap-2">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={`"Zendaya, Paris gallery opening, 18°C drizzle, smart-casual"`}
-              className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-3 text-sm outline-none focus:border-gray-600"
+          {/* Body type */}
+          <div className="col-span-2 md:col-span-2">
+            <TextInput
+              aria-label="Body type"
+              placeholder="pear / hourglass / apple / rectangle"
+              value={prefs.bodyType ?? ""}
+              onChange={(e) => updatePrefs({ bodyType: e.target.value || undefined })}
             />
-            <button
-              type="submit"
-              disabled={sending}
-              className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-black/90 disabled:opacity-50"
-            >
-              {sending ? "Sending…" : "Send"}
-            </button>
-          </form>
-        </section>
+          </div>
 
-        {/* Preferences */}
-        <PreferencesPanel prefs={prefs} update={updatePrefs} />
-      </div>
+          {/* Budget */}
+          <div className="col-span-1">
+            <TextInput
+              aria-label="Budget band"
+              placeholder="budget band or number"
+              value={prefs.budget ?? ""}
+              onChange={(e) => updatePrefs({ budget: e.target.value || undefined })}
+            />
+          </div>
+
+          {/* Country */}
+          <div className="col-span-1">
+            <TextInput
+              aria-label="Country"
+              placeholder="NL / US / UK…"
+              value={prefs.country ?? ""}
+              onChange={(e) => updatePrefs({ country: e.target.value || undefined })}
+            />
+          </div>
+
+          {/* Keywords */}
+          <div className="col-span-2 md:col-span-2">
+            <TextInput
+              aria-label="Style keywords"
+              placeholder="minimal, monochrome, soft tailoring"
+              value={(prefs.keywords ?? []).join(", ")}
+              onChange={(e) =>
+                updatePrefs({
+                  keywords: e.target.value
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+          </div>
+        </div>
+
+        {/* Sizes row */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <TextInput
+            aria-label="Top size"
+            placeholder="Top"
+            value={sizes.top ?? ""}
+            onChange={(e) =>
+              updatePrefs({ sizes: { ...sizes, top: e.target.value || undefined } })
+            }
+          />
+          <TextInput
+            aria-label="Bottom size"
+            placeholder="Bottom"
+            value={sizes.bottom ?? ""}
+            onChange={(e) =>
+              updatePrefs({ sizes: { ...sizes, bottom: e.target.value || undefined } })
+            }
+          />
+          <TextInput
+            aria-label="Dress size"
+            placeholder="Dress"
+            value={sizes.dress ?? ""}
+            onChange={(e) =>
+              updatePrefs({ sizes: { ...sizes, dress: e.target.value || undefined } })
+            }
+          />
+          <TextInput
+            aria-label="Shoe size"
+            placeholder="Shoe"
+            value={sizes.shoe ?? ""}
+            onChange={(e) =>
+              updatePrefs({ sizes: { ...sizes, shoe: e.target.value || undefined } })
+            }
+          />
+        </div>
+      </section>
+
+      {/* Chat section under the preferences bar */}
+      <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
+        <p className="text-sm text-gray-700">
+          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit
+          notes, and capsule tips.
+        </p>
+
+        <div className="grid gap-3">
+          {messages.map((m, i) => {
+            const ai = m.role === "assistant" ? coerceAiJson(m.content) : null;
+
+            return (
+              <div
+                key={i}
+                className={`rounded-xl border p-3 text-sm ${
+                  m.role === "user" ? "bg-gray-50" : "bg-white"
+                }`}
+              >
+                <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">
+                  {m.role}
+                </p>
+
+                {ai ? (
+                  <div className="grid gap-3">
+                    {/* brief */}
+                    <p className="text-gray-800">{ai.brief}</p>
+
+                    {/* total */}
+                    <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-xs text-gray-700">
+                      <span>Total:</span>
+                      <span className="font-semibold">
+                        {ai.total.value != null
+                          ? `${ai.total.currency} ${ai.total.value}`
+                          : "—"}
+                      </span>
+                    </div>
+
+                    {/* products grid */}
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                      {ai.products.map((p) => (
+                        <article
+                          key={p.id}
+                          className="flex flex-col rounded-2xl border p-3"
+                        >
+                          <div className="aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
+                            {/* image slot if available later */}
+                          </div>
+                          <h3 className="mt-2 line-clamp-2 text-sm font-medium">
+                            {p.title}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            {p.brand ?? "—"} • {p.category}
+                          </p>
+                          <div className="mt-2 text-xs text-gray-700">
+                            {p.price != null ? `${p.currency} ${p.price}` : "?"}
+                          </div>
+                          {p.url ? (
+                            <a
+                              href={p.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
+                            >
+                              View
+                            </a>
+                          ) : (
+                            <span className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs text-gray-500">
+                              No link
+                            </span>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+
+                    {/* tips + why */}
+                    {(ai.why?.length || ai.tips?.length) && (
+                      <div className="grid gap-2">
+                        {ai.why?.length ? (
+                          <div>
+                            <p className="mb-1 text-[13px] font-semibold">
+                              Why it flatters
+                            </p>
+                            <ul className="list-disc pl-5 text-sm text-gray-700">
+                              {ai.why.map((w, idx) => (
+                                <li key={idx}>{w}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {ai.ipsum?.length ? null : null}
+                        {ai.tips?.length ? (
+                          <div>
+                            <p className="mb-1 text-[13px] font-semibold">
+                              Capsule & tips
+                            </p>
+                            <ul className="list-disc pl-5 text-sm text-gray-700">
+                              {ai.tips.map((t, idx) => (
+                                <li key={idx}>{t}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap text-gray-800">{m.content}</pre>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-2 flex gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={`"Zendaya, Paris gallery opening, 18°C drizzle, smart-casual"`}
+            className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-3 text-sm outline-none focus:border-gray-600"
+          />
+          <button
+            type="submit"
+            disabled={sending}
+            className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-black/90 disabled:opacity-50"
+          >
+            {sending ? "Sending…" : "Send"}
+          </button>
+        </form>
+      </section>
     </main>
   );
 }
+
 
 
