@@ -3,11 +3,9 @@ export const runtime = "edge";
 
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
-import type { Prefs } from "@/lib/types";
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
-type SlimItem = {
+/* ========================= Types (keep in sync-ish) ========================= */
+type Product = {
   id?: string | null;
   title: string;
   brand?: string | null;
@@ -18,101 +16,196 @@ type SlimItem = {
   retailer?: string | null;
 };
 
-function prefsBlock(p?: Prefs) {
-  if (!p) return "User preferences: (not provided)";
-  const sizes = p.sizes
+type Prefs = {
+  gender?: "female" | "male";
+  bodyType?: string;
+  budget?: string; // e.g., "€150–€300"
+  country?: string; // ISO-2
+  keywords?: string[];
+  sizes?: { top?: string; bottom?: string; dress?: string; shoe?: string };
+};
+
+type BuildBody = {
+  items: Product[];
+  prefs?: Prefs;
+  note?: string;
+};
+
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/* ================================ Helpers ================================== */
+function sanitizeText(s: string): string {
+  return (s || "")
+    .replace(/\u0000/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function euroOrCur(cur?: string | null): string {
+  if (!cur) return "EUR";
+  const up = cur.toUpperCase();
+  if (["EUR", "USD", "GBP", "JPY"].includes(up)) return up;
+  return "EUR";
+}
+
+function prefsBlock(p?: Prefs): string {
+  if (!p) return "No explicit preferences provided.";
+  const size = p.sizes
     ? Object.entries(p.sizes)
-        .map(([k, v]) => `${k}=${v}`)
+        .filter(([, v]) => !!v)
+        .map(([k, v]) => `${k}:${v}`)
         .join(", ")
     : "-";
-  const kw = p.keywords?.length ? p.keywords.join(", ") : "-";
-  const budget = p.budget ?? "-";
+  const kw = (p.keywords ?? []).join(", ") || "-";
   return [
-    "User preferences:",
-    `- Gender: ${p.gender ?? "-"}`,
-    `- Body type: ${p.bodyType ?? "-"}`,
-    `- Sizes: ${sizes}`,
-    `- Budget: ${budget}`,
-    `- Country: ${p.country ?? "-"}`,
-    `- Keywords: ${kw}`,
+    `Gender: ${p.gender ?? "-"}`,
+    `Body Type: ${p.bodyType ?? "-"}`,
+    `Budget: ${p.budget ?? "-"}`,
+    `Country: ${p.country ?? "-"}`,
+    `Sizes: ${size}`,
+    `Keywords: ${kw}`,
   ].join("\n");
 }
 
-function itemsBlock(items: SlimItem[]) {
-  const lines = items.map((it, i) => {
-    const price =
-      typeof it.price === "number" && it.currency ? `${it.currency} ${it.price}` : "—";
-    const brand = it.brand ?? "";
-    const shop = it.retailer ?? "";
-    return `#${i + 1}: ${brand ? brand + " — " : ""}${it.title} | ${price} | ${shop} | ${it.url}`;
-  });
-  return `CANDIDATE PIECES (use links exactly as given):\n${lines.join("\n")}`;
+function itemsBlock(items: Product[]): string {
+  if (!items.length) return "(no items selected)";
+  return items
+    .map((it, i) => {
+      const cur = euroOrCur(it.currency);
+      const price = typeof it.price === "number" ? `${Math.round(it.price)} ${cur}` : "?";
+      const brand = it.brand ?? "";
+      const retailer = it.retailer ?? "";
+      return `${i + 1}. ${it.title}${
+        brand ? ` • ${brand}` : ""
+      } • ${price} • ${retailer} • ${it.url}`;
+    })
+    .join("\n");
 }
 
-const SYSTEM = `You are RunwayTwin, a senior fashion stylist. 
-Goal: Build a cohesive outfit using ONLY the provided candidate pieces and links. Do not invent URLs.
-Rules:
-- Respect body type, sizes, and budget.
-- Explain "Why it Flatters" with silhouette, proportion, rise, neckline, drape, hem.
-- Provide 2 alternates from the list if suitable pieces exist.
-- If something critical is missing, say so and suggest the closest options from the list (no new links).
-Output format (plain text, no Markdown headings):
-Outfit:
-- Top: <brand> — <title> | <price> | <retailer> | <url>
-- Bottom: ...
-- Outerwear: ...
-- Shoes: ...
-- Bag: ...
+function fallbackPlan(items: Product[], prefs?: Prefs, note?: string): string {
+  const cur = (prefs?.country ?? "NL") === "US" ? "USD" : "EUR";
+  const budgetLine = prefs?.budget ? `Budget focus: ${prefs.budget}.` : "Budget: align per piece.";
+  const body = prefs?.bodyType ?? "any";
+  const kws = (prefs?.keywords ?? []).join(", ") || "clean, cohesive";
+  const shoes =
+    items.find((i) => /boot|sandal|loafer|sneaker|heel|pump/i.test(i.title)) ??
+    items[3] ??
+    items[0];
 
-Why it Flatters:
-- …
+  return sanitizeText(
+    `Styled Outfit — Quick Plan (Fallback)
 
-Alternates:
-- <category>: <brand> — <title> | <price> | <retailer> | <url>
-- <category>: <brand> — <title> | <price> | <retailer> | <url>
-`;
+Brief:
+- Body type: ${body}. ${budgetLine}
+- Keywords: ${kws}.
+- Note: ${note || "-"}
 
+Core Pieces:
+- Top: pick the most refined knit/shirt from your board (slim-to-regular fit).
+- Bottom: choose the trouser/denim that balances rise and leg width for ${body}.
+- Outer: lightweight blazer or clean bomber for structure and proportion.
+- Shoes: ${shoes?.title || "clean sneaker or pointed flat"}.
+- Bag/Accent: one piece only to keep cohesion.
+
+How to Wear:
+1. Keep the palette to 2–3 tones from the board to look intentional.
+2. Hem bottoms to your shoe height; avoid break for sharpness.
+3. Front-tuck knits/shirts to define the waist and elongate the leg.
+4. Scale accessories (earrings/bracelet) to the outerwear volume.
+
+Capsule Remix:
+- Swap the top with a fine-knit turtleneck in winter.
+- Replace blazer with a cropped jacket to balance longer bottoms.
+- Weekend version: tee + clean sneakers.
+
+Shopping Order (by impact):
+1) Bottom that fits perfectly (rise/inseam before anything else)
+2) Outer layer that sets the vibe (blazer/bomber)
+3) Shoes that lock the silhouette
+4) Top that supports the palette
+
+Estimated Total: depends on chosen pieces • ${cur}
+(Use the board prices; stay under your stated band per piece.)
+`
+  );
+}
+
+/* ================================== Route ================================== */
 export async function POST(req: NextRequest) {
+  const headers = new Headers({ "Content-Type": "text/plain; charset=utf-8" });
+
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response("Missing OPENAI_API_KEY", { status: 500 });
-    }
-    const body = (await req.json()) as {
-      items?: SlimItem[];
-      prefs?: Prefs;
-      note?: string; // occasion or extra instruction
-    };
+    const body = (await req.json().catch(() => ({}))) as BuildBody;
+    const items = Array.isArray(body.items) ? body.items.slice(0, 24) : [];
+    const prefs = body.prefs;
+    const note = typeof body.note === "string" ? body.note : "";
 
-    const items = Array.isArray(body?.items) ? body.items.filter((i) => i?.url) : [];
     if (!items.length) {
-      return new Response("No items provided.", { status: 400 });
+      return new Response(
+        "Add a few items to your board first, then click “Build Outfit.”",
+        { status: 400, headers }
+      );
     }
 
-    const userNote = (body?.note || "").trim();
-    const messages = [
-      { role: "system" as const, content: SYSTEM },
-      { role: "system" as const, content: prefsBlock(body?.prefs) },
-      { role: "system" as const, content: itemsBlock(items) },
-      {
-        role: "user" as const,
-        content:
-          userNote ||
-          "Using the pieces above, assemble a complete look suitable for day-to-night smart casual.",
-      },
-    ];
+    // If no key → deterministic fallback
+    if (!process.env.OPENAI_API_KEY) {
+      return new Response(fallbackPlan(items, prefs, note), { headers });
+    }
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const res = await client.chat.completions.create({
-      model: MODEL,
-      temperature: 0.6,
-      messages,
-    });
+    const system = sanitizeText(
+      `You are RunwayTwin — a precise, editorial-grade stylist.
+- Never invent product links or prices; only comment on what's provided.
+- Respect body type, budget band, and sizes. Focus on silhouette: rise, drape, neckline, hem.
+- Output clean, helpful prose (no markdown headings), with these sections:
+Outfit, Why it flatters, Styling notes, Capsule remix, Estimated total (if possible).`
+    );
 
-    const text = res.choices?.[0]?.message?.content?.trim() || "";
-    return new Response(text || "I couldn't compose a look this time.", {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+    const userMsg = sanitizeText(
+      `USER PREFS
+${prefsBlock(prefs)}
+
+NOTE
+${note || "-"}
+
+CANDIDATE ITEMS (title • brand? • price? • retailer • url)
+${itemsBlock(items)}
+
+TASK
+Select a cohesive head-to-toe outfit from the items above (or propose the best combo if categories are missing).
+- Keep budget realistic from given prices; do not guess retailers beyond the list.
+- Explain why the silhouette flatters the stated body type, including rise/hem/neckline and proportions.
+- Provide 2–3 remix tips for a capsule wardrobe.
+Return plain text (no markdown headings).`
+    );
+
+    let text = "";
+    try {
+      const completion = await client.chat.completions.create({
+        model: MODEL,
+        temperature: 0.5,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userMsg },
+        ],
+      });
+      text = completion?.choices?.[0]?.message?.content ?? "";
+    } catch (e) {
+      text = "";
+    }
+
+    if (!text.trim()) {
+      text = fallbackPlan(items, prefs, note);
+    }
+
+    return new Response(sanitizeText(text), { headers });
   } catch (err: unknown) {
-    return new Response(String((err as Error)?.message || err), { status: 500 });
+    const msg =
+      "Couldn’t compose the look right now. Here’s a quick fallback you can use:\n\n" +
+      fallbackPlan([], undefined, undefined) +
+      "\n\n(" +
+      String((err as Error)?.message || err) +
+      ")";
+    return new Response(msg, { headers });
   }
 }
