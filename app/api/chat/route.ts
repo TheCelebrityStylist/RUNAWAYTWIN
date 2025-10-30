@@ -3,14 +3,17 @@ export const runtime = "edge";
 
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
+import { searchProductsSerpApi } from "@/lib/products/search";
 
 /**
- * Chat → JSON stylist plan with guaranteed, linkable products.
- * - Uses Tavily to fetch candidate links if key present.
- * - Strict JSON schema (response_format: json_object).
- * - If no links found, uses a curated mock catalog (real retailer URLs).
- * - Always returns application/json with:
- *   { brief, tips[], why[], products[ {id,title,url,brand,category,price,currency,image} ], total{value|null,currency} }
+ * Returns STRICT JSON for the UI:
+ * {
+ *   brief: string,
+ *   tips: string[],
+ *   why: string[],
+ *   products: UiProduct[],
+ *   total: { value: number | null, currency: string }
+ * }
  */
 
 type Role = "system" | "user" | "assistant";
@@ -31,14 +34,12 @@ type Prefs = {
   weightKg?: number;
 };
 
-type Cand = { title: string; url: string };
-
 type UiProduct = {
   id: string;
   title: string;
   url: string | null;
   brand: string | null;
-  category: string;
+  category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory";
   price: number | null;
   currency: string;
   image: string | null;
@@ -54,11 +55,9 @@ type PlanJson = {
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
-const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
-
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/* ------------------------- helpers -------------------------- */
+/* ---------------- utilities ---------------- */
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) {
@@ -94,142 +93,18 @@ function currencyFor(p: Prefs) {
   return "EUR";
 }
 
-function prefsBlock(p: Prefs) {
-  const cur = currencyFor(p);
+function prefsSummary(p: Prefs) {
   return [
-    `USER PROFILE`,
-    `- Gender: ${p.gender ?? "-"}`,
-    `- Sizes: top=${p.sizeTop ?? "-"}, bottom=${p.sizeBottom ?? "-"}, dress=${p.sizeDress ?? "-"}, shoe=${p.sizeShoe ?? "-"}`,
-    `- Body Type: ${p.bodyType ?? "-"}`,
-    `- Height/Weight: ${p.heightCm ?? "-"}cm / ${p.weightKg ?? "-"}kg`,
-    `- Budget: ${p.budget ?? "-"}`,
-    `- Country: ${p.country ?? "-"}`,
-    `- Currency: ${cur}`,
-    `- Style Keywords: ${p.styleKeywords ?? "-"}`,
-  ].join("\n");
+    `Gender=${p.gender ?? "-"}`,
+    `BodyType=${p.bodyType ?? "-"}`,
+    `Budget=${p.budget ?? "-"}`,
+    `Country=${p.country ?? "-"}`,
+    `Keywords=${p.styleKeywords ?? "-"}`,
+    `Sizes top=${p.sizeTop ?? "-"} bottom=${p.sizeBottom ?? "-"} dress=${p.sizeDress ?? "-"} shoe=${p.sizeShoe ?? "-"}`,
+    `Height/Weight=${p.heightCm ?? "-"}cm/${p.weightKg ?? "-"}kg`,
+  ].join(" | ");
 }
 
-function retailerFromUrl(u: string) {
-  try {
-    return new URL(u).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
-/* ---------------- Tavily candidates (optional) ---------------- */
-async function webSearchProducts(query: string): Promise<Cand[]> {
-  if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
-  const booster =
-    " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR matchesfashion.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com OR levi.com)";
-  const q = `${query}${booster}`;
-
-  const resp = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: process.env.TAVILY_API_KEY,
-      query: q,
-      search_depth: "basic",
-      max_results: 12,
-      include_answer: false,
-      include_raw_content: false,
-    }),
-  }).catch(() => null);
-
-  if (!resp || !resp.ok) return [];
-
-  const data = (await resp.json().catch(() => ({}))) as {
-    results?: Array<{ title?: unknown; url?: unknown }>;
-  };
-
-  const raw: Array<{ title?: unknown; url?: unknown }> = Array.isArray(data.results)
-    ? data.results
-    : [];
-
-  return raw
-    .map((r) => ({
-      title: typeof r?.title === "string" ? r.title : "",
-      url: typeof r?.url === "string" ? r.url : "",
-    }))
-    .filter((x) => x.title && x.url)
-    .slice(0, 12);
-}
-
-function candidatesBlock(cands: Cand[]) {
-  if (!cands.length) return "CANDIDATE_LINKS: []";
-  const lines = cands.map((c, i) => `{"i":${i},"title":${JSON.stringify(c.title)},"url":${JSON.stringify(c.url)}}`);
-  return `CANDIDATE_LINKS: [${lines.join(",")}]`;
-}
-
-/* ----------------- Mock catalog (real URLs) ------------------ */
-const MOCK_CATALOG: UiProduct[] = [
-  {
-    id: "zara-chino",
-    title: "Slim Fit Chino Pants",
-    url: "https://www.massimodutti.com/",
-    brand: "Massimo Dutti",
-    category: "Bottom",
-    price: 80,
-    currency: "EUR",
-    image: null,
-  },
-  {
-    id: "cos-knit",
-    title: "Lightweight Knit Sweater",
-    url: "https://www.cos.com/",
-    brand: "COS",
-    category: "Top",
-    price: 59,
-    currency: "EUR",
-    image: null,
-  },
-  {
-    id: "zara-boots",
-    title: "Leather Chelsea Boots",
-    url: "https://www.zara.com/",
-    brand: "Zara",
-    category: "Shoes",
-    price: 90,
-    currency: "EUR",
-    image: null,
-  },
-  {
-    id: "levis-denim",
-    title: "Classic Denim Jacket",
-    url: "https://www.levi.com/",
-    brand: "Levi's",
-    category: "Outerwear",
-    price: 100,
-    currency: "EUR",
-    image: null,
-  },
-  {
-    id: "arket-bag",
-    title: "Structured Crossbody Bag",
-    url: "https://www.arket.com/",
-    brand: "ARKET",
-    category: "Accessory",
-    price: 70,
-    currency: "EUR",
-    image: null,
-  },
-];
-
-function ensureMinimumProducts(
-  current: UiProduct[],
-  min: number,
-  currency: string
-): UiProduct[] {
-  const out = [...current];
-  for (const p of MOCK_CATALOG) {
-    if (out.length >= min) break;
-    out.push({ ...p, currency });
-  }
-  return out.slice(0, Math.max(min, out.length));
-}
-
-/* ---------------- JSON coercion helpers ---------------- */
 function isObj(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }
@@ -250,12 +125,24 @@ function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | nul
       ? (x["currency"] as string)
       : fallbackCurrency;
 
+  const cat = asString(x["category"], "");
+  const category: UiProduct["category"] =
+    cat === "Top" ||
+    cat === "Bottom" ||
+    cat === "Dress" ||
+    cat === "Outerwear" ||
+    cat === "Shoes" ||
+    cat === "Bag" ||
+    cat === "Accessory"
+      ? cat
+      : "Accessory";
+
   return {
     id: asString(x["id"], crypto.randomUUID()),
     title: asString(x["title"], "Item"),
     url,
     brand,
-    category: asString(x["category"], "Accessory"),
+    category,
     price: asNumberOrNull(x["price"]),
     currency,
     image: typeof x["image"] === "string" ? (x["image"] as string) : null,
@@ -299,6 +186,57 @@ function coercePlan(content: string, fallbackCurrency: string): PlanJson | null 
   };
 }
 
+function ensureMinimumProducts(current: UiProduct[], min: number, currency: string): UiProduct[] {
+  const out = [...current];
+  const seed: UiProduct[] = [
+    {
+      id: "seed-outer",
+      title: "Tailored Trench Coat",
+      url: "https://www.massimodutti.com/",
+      brand: "Massimo Dutti",
+      category: "Outerwear",
+      price: 149,
+      currency,
+      image: null,
+    },
+    {
+      id: "seed-top",
+      title: "Silk-Blend Blouse",
+      url: "https://www.zara.com/",
+      brand: "Zara",
+      category: "Top",
+      price: 49,
+      currency,
+      image: null,
+    },
+    {
+      id: "seed-bottom",
+      title: "High-Waist Trousers",
+      url: "https://www.cos.com/",
+      brand: "COS",
+      category: "Bottom",
+      price: 89,
+      currency,
+      image: null,
+    },
+    {
+      id: "seed-shoes",
+      title: "Leather Ankle Boots",
+      url: "https://www.zalando.nl/",
+      brand: "Zalando",
+      category: "Shoes",
+      price: 120,
+      currency,
+      image: null,
+    },
+  ];
+  for (const p of seed) {
+    if (out.length >= min) break;
+    out.push(p);
+  }
+  return out.slice(0, Math.max(min, out.length));
+}
+
 /* ---------------- route ---------------- */
 export async function POST(req: NextRequest) {
   const headers = new Headers({
@@ -326,112 +264,116 @@ export async function POST(req: NextRequest) {
     if (!userText) {
       return new Response(
         JSON.stringify({
-          error:
-            "Tell me your occasion, body type, budget, and any celebrity muse. I’ll style a full look.",
-        }),
-        { status: 400, headers }
+          brief:
+            "Tell me your muse, occasion, body type, and budget band — I’ll assemble a full look.",
+          tips: [],
+          why: [],
+          products: [],
+          total: { value: null, currency: currencyFor(preferences) },
+        } satisfies PlanJson),
+        { headers, status: 200 }
       );
     }
 
-    // 1) Optional candidates
-    let cands: Cand[] = [];
-    if (ALLOW_WEB && process.env.TAVILY_API_KEY) {
-      const q = [
-        userText,
-        preferences.styleKeywords,
-        preferences.bodyType,
-        preferences.country,
-      ]
-        .filter(Boolean)
-        .join(" ");
-      cands = await Promise.race([
-        webSearchProducts(q),
-        new Promise<Cand[]>((resolve) => setTimeout(() => resolve([]), 5000)),
-      ]);
-    }
+    // 1) Fetch real product candidates (SerpAPI or mock)
+    const searchQuery = [
+      userText,
+      preferences.styleKeywords,
+      preferences.bodyType,
+      preferences.gender,
+      preferences.budget,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
-    const sys = [
-      "You are an editorial-level fashion stylist.",
-      "Return ONLY a single JSON object with this exact TypeScript shape:",
-      "type Product = { id: string; title: string; url: string | null; brand: string | null; category: string; price: number | null; currency: string; image: string | null };",
-      "type Plan = { brief: string; tips: string[]; why: string[]; products: Product[]; total: { value: number | null; currency: string } };",
-      "",
-      "HARD RULES:",
-      "- Use clean, wearable styling tailored to the brief and body type.",
-      "- Choose links ONLY from CANDIDATE_LINKS (copy URL exactly). If nothing fits, set url: null.",
-      "- Include AT LEAST 4 products spanning key categories (Outerwear/Top/Bottom/Shoes/Bag).",
-      "- Do NOT invent exact prices you don't know (use null); keep currency consistent.",
-      "- Never include markdown, commentary or extra keys.",
-      "",
-      prefsBlock(preferences),
-      "",
-      cands.length ? "CANDIDATE_LINKS:" : "CANDIDATE_LINKS: []",
-      ...cands.map((c, i) => `- [${i}] ${c.title} — ${c.url}`),
-    ].join("\n");
+    const candidates = await searchProductsSerpApi({
+      query: searchQuery,
+      country: preferences.country || "NL",
+      max: 16,
+    });
 
-    const currency = currencyFor(preferences);
+    // 2) Ask the model to select 4–6 products and write the brief/why/tips
+    const sys = `
+You are a professional fashion stylist.
+Return ONLY a JSON object with this exact shape:
+{
+  "brief": string,
+  "tips": string[],
+  "why": string[],
+  "products": [{
+    "id": string, "title": string, "url": string|null, "brand": string|null,
+    "category": "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory",
+    "price": number|null, "currency": string, "image": string|null
+  }],
+  "total": { "value": number|null, "currency": string }
+}
+Rules:
+- Choose 4–6 items from CANDIDATES only (copy the id/url/price/currency as-is).
+- Style must suit: ${prefsSummary(preferences)}.
+- Keep "brief" to 1–2 sentences; "tips" and "why" concise bullets.
+- If price unknown, leave it null. Keep currency consistent.
+`;
+
+    const candidatesJson = JSON.stringify(candidates);
+
     let plan: PlanJson | null = null;
 
     if (HAS_KEY) {
       try {
         const completion = await client.chat.completions.create({
           model: MODEL,
-          temperature: 0.5,
+          temperature: 0.6,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: sys },
+            { role: "system", content: `CANDIDATES: ${candidatesJson}` },
             ...history.map((m) => ({ role: m.role, content: contentToText(m.content) })),
             {
               role: "user",
-              content:
-                "Return the Plan JSON now. Respect the schema and rules. No markdown, no prose.",
+              content: "Return ONLY the final JSON object for the look.",
             },
           ],
         });
+
         const raw = completion.choices?.[0]?.message?.content || "{}";
-        const parsed = coercePlan(raw, currency);
-        plan = parsed;
+        plan = coercePlan(raw, currencyFor(preferences));
       } catch {
         plan = null;
       }
     }
 
-    // 2) Fallback: deterministic mock filled with real URLs
+    // 3) Fallback (no key / parse issue): deterministic safe object
     if (!plan) {
-      // Basic brief based on user text
       plan = {
         brief:
-          "A chic and sophisticated look tailored to your brief, with capsule-friendly neutrals you can remix.",
+          "A chic, weather-aware look with clean lines and capsule-friendly neutrals tailored to your brief.",
         tips: [
-          "Keep hems tuned to shoe height for clean lines.",
-          "Layer fine knits under outerwear for changing weather.",
+          "Tune hems to shoe height for a long line.",
+          "Layer fine knits under structured outerwear.",
         ],
         why: [
-          "Proportions balance your frame and keep a long line.",
-          "Subtle structure sharpens the overall silhouette.",
+          "Balanced proportions flatter your frame.",
+          "Minimal palette keeps the outfit cohesive.",
         ],
-        products: [],
-        total: { value: null, currency },
+        products: candidates.slice(0, 4),
+        total: { value: null, currency: currencyFor(preferences) },
       };
     }
 
-    // Ensure minimum, linkable products
-    plan.products = ensureMinimumProducts(plan.products, 4, currency);
-
-    // Compute total if prices exist
+    // 4) Ensure at least 4 products & compute total if available
+    plan.products = ensureMinimumProducts(plan.products, 4, currencyFor(preferences));
     const sum = plan.products.reduce((acc, p) => (p.price != null ? acc + p.price : acc), 0);
     const anyPrice = plan.products.some((p) => p.price != null);
-    plan.total = { value: anyPrice ? Math.round(sum) : null, currency };
+    plan.total = { value: anyPrice ? Math.round(sum) : null, currency: currencyFor(preferences) };
 
-    return new Response(JSON.stringify(plan), { headers });
-  } catch (err: unknown) {
+    return new Response(JSON.stringify(plan), { headers, status: 200 });
+  } catch {
     const currency = "EUR";
-    // Last-resort JSON so UI never breaks
     const fallback: PlanJson = {
       brief:
-        "Quick starter outfit (safe fallback). Refresh to regenerate when connectivity recovers.",
-      tips: ["Use monochrome layers to look cohesive.", "Add structure with tailored outerwear."],
-      why: ["Clean lines lengthen the silhouette.", "Neutral palette feels intentional."],
+        "Quick starter outfit (fallback). Refresh to regenerate a tailored look when connectivity recovers.",
+      tips: ["Lean on monochrome layers.", "Add structure with a trench or blazer."],
+      why: ["Clean lines lengthen the silhouette.", "Neutral palette looks intentional."],
       products: ensureMinimumProducts([], 4, currency),
       total: { value: null, currency },
     };
