@@ -2,76 +2,89 @@
 "use client";
 
 import * as React from "react";
-import type { Product } from "@/lib/affiliates/types";
 
-const STORAGE_KEY = "rwt-favorites-v1";
+export type FavProduct = {
+  id?: string | null;
+  title: string;
+  url?: string | null;
+  image?: string | null;
+  brand?: string | null;
+  retailer?: string | null;
+  category?: string | null;
+  price?: number | null;
+  currency?: string | null;
+};
 
-function readFavorites(): Record<string, Product> {
+type MapShape = Record<string, FavProduct>;
+
+const KEY = "rwt-favorites-v1";
+
+/** Safe JSON parse */
+function readStore(): MapShape {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as Record<string, Product>;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as MapShape;
   } catch {
     return {};
   }
 }
 
-function writeFavorites(obj: Record<string, Product>) {
+function writeStore(obj: MapShape) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    localStorage.setItem(KEY, JSON.stringify(obj));
   } catch {
-    /* ignore */
+    /* ignore quota / private mode */
   }
 }
 
-export function useFavorites() {
-  const [map, setMap] = React.useState<Record<string, Product>>({});
+function stableKey(p: FavProduct): string {
+  if (p.url) return p.url;
+  if (p.id) return `id:${p.id}`;
+  return `title:${p.title}`;
+}
 
-  React.useEffect(() => {
-    setMap(readFavorites());
+export function useFavorites() {
+  const [map, setMap] = React.useState<MapShape>(() => (typeof window !== "undefined" ? readStore() : {}));
+
+  const commit = React.useCallback((next: MapShape) => {
+    setMap(next);
+    writeStore(next);
   }, []);
+
+  const add = React.useCallback((p: FavProduct) => {
+    const key = stableKey(p);
+    commit({ ...map, [key]: p });
+  }, [map, commit]);
+
+  const remove = React.useCallback((p: FavProduct | string) => {
+    const key = typeof p === "string" ? p : stableKey(p);
+    const next = { ...map };
+    delete next[key];
+    commit(next);
+  }, [map, commit]);
+
+  const toggle = React.useCallback((p: FavProduct) => {
+    const key = stableKey(p);
+    if (map[key]) {
+      const next = { ...map };
+      delete next[key];
+      commit(next);
+    } else {
+      commit({ ...map, [key]: p });
+    }
+  }, [map, commit]);
+
+  const clear = React.useCallback(() => commit({}), [commit]);
 
   const list = React.useMemo(() => Object.values(map), [map]);
 
-  const add = (p: Product) => {
-    setMap((prev) => {
-      const key = p.url || p.id || p.title;
-      const next = { ...prev, [key]: p };
-      writeFavorites(next);
-      return next;
-    });
-  };
-
-  const remove = (p: Product) => {
-    setMap((prev) => {
-      const key = p.url || p.id || p.title;
-      const next = { ...prev };
-      delete next[key];
-      writeFavorites(next);
-      return next;
-    });
-  };
-
-  const toggle = (p: Product) => {
-    const key = p.url || p.id || p.title;
-    setMap((prev) => {
-      const next = { ...prev };
-      if (next[key]) delete next[key];
-      else next[key] = p;
-      writeFavorites(next);
-      return next;
-    });
-  };
-
-  const clear = () => {
-    setMap({});
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const has = (p: Product): boolean => {
-    const key = p.url || p.id || p.title;
-    return !!map[key];
-  };
+  const has = React.useCallback((p: FavProduct) => {
+    const key = stableKey(p);
+    return Boolean(map[key]);
+  }, [map]);
 
   return { list, add, remove, toggle, has, clear };
 }
