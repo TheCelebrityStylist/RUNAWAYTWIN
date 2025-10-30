@@ -12,7 +12,10 @@ import {
 import type { Product } from "@/lib/affiliates/types";
 import type { Prefs } from "@/lib/types";
 
-/** Convert a favorite item (which may have optional fields) into a strict Product */
+/**
+ * Normalize a loose favorite item into a strict Product.
+ * Your current Product type requires string fields (no nulls) for url/brand/image/retailer.
+ */
 function toProduct(fav: Partial<Product> & { title: string }): Product {
   const id =
     (typeof fav.id === "string" && fav.id) ||
@@ -22,8 +25,8 @@ function toProduct(fav: Partial<Product> & { title: string }): Product {
   return {
     id,
     title: fav.title,
-    url: typeof fav.url === "string" ? fav.url : null,
-    brand: typeof fav.brand === "string" ? fav.brand : null,
+    url: typeof fav.url === "string" ? fav.url : "",
+    brand: typeof fav.brand === "string" ? fav.brand : "",
     category: typeof fav.category === "string" ? fav.category : "Accessory",
     price:
       typeof fav.price === "number" && Number.isFinite(fav.price)
@@ -32,12 +35,12 @@ function toProduct(fav: Partial<Product> & { title: string }): Product {
     currency:
       typeof fav.currency === "string" && fav.currency.trim()
         ? fav.currency
-        : null,
-    image: typeof fav.image === "string" ? fav.image : null,
+        : "EUR",
+    image: typeof fav.image === "string" ? fav.image : "",
     retailer:
-      typeof (fav as any).retailer === "string" && (fav as any).retailer.trim()
+      typeof (fav as any).retailer === "string"
         ? ((fav as any).retailer as string)
-        : null,
+        : "",
   };
 }
 
@@ -48,7 +51,7 @@ export default function LooksPage() {
   const [building, setBuilding] = React.useState(false);
   const [plan, setPlan] = React.useState<string>("");
 
-  // Read prefs from localStorage if present
+  // Optional: hydrate prefs from localStorage
   const [prefs, setPrefs] = React.useState<Prefs | undefined>(undefined);
   React.useEffect(() => {
     try {
@@ -59,7 +62,7 @@ export default function LooksPage() {
     }
   }, []);
 
-  // Convert favorites to strict Products once for all downstream usage
+  // Strict, normalized products
   const products: Product[] = React.useMemo(() => list.map(toProduct), [list]);
 
   const shareLink = React.useMemo(() => {
@@ -242,7 +245,7 @@ export default function LooksPage() {
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((p) => (
-            <ProductCard key={`${p.id}`} item={p} />
+            <ProductCard key={p.id} item={p} />
           ))}
         </div>
       )}
