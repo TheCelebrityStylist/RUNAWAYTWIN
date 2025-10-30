@@ -417,7 +417,6 @@ export default function StylistPage() {
                             </ul>
                           </div>
                         ) : null}
-                        {ai.ipsum?.length ? null : null}
                         {ai.tips?.length ? (
                           <div>
                             <p className="mb-1 text-[13px] font-semibold">
@@ -460,6 +459,3 @@ export default function StylistPage() {
     </main>
   );
 }
-
-
-
