@@ -4,208 +4,239 @@ export const runtime = "edge";
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
 
-/* ========================= Types (keep in sync-ish) ========================= */
+/**
+ * Build a cohesive outfit plan from a user's Lookboard selection.
+ *
+ * INPUT (application/json):
+ * {
+ *   items: Array<{
+ *     id: string;
+ *     title: string;
+ *     url: string;
+ *     brand: string;
+ *     price?: number;
+ *     currency: string;
+ *     image: string;
+ *     retailer: string;
+ *   }>;
+ *   prefs?: {
+ *     gender?: "female" | "male" | "other";
+ *     bodyType?: string;
+ *     budget?: string;
+ *     country?: string;
+ *     keywords?: string[];
+ *     sizes?: { top?: string; bottom?: string; dress?: string; shoe?: string };
+ *   };
+ *   note?: string; // optional occasion / vibe
+ * }
+ *
+ * OUTPUT:
+ * - text/markdown; clean sections, bullet points, and links.
+ */
+
 type Product = {
-  id?: string | null;
+  id: string;
   title: string;
-  brand?: string | null;
-  price?: number | null;
-  currency?: string | null;
-  image?: string | null;
   url: string;
-  retailer?: string | null;
+  brand: string;
+  price?: number;
+  currency: string;
+  image: string;
+  retailer: string;
 };
 
 type Prefs = {
-  gender?: "female" | "male";
+  gender?: "female" | "male" | "other";
   bodyType?: string;
-  budget?: string; // e.g., "€150–€300"
-  country?: string; // ISO-2
+  budget?: string;
+  country?: string;
   keywords?: string[];
   sizes?: { top?: string; bottom?: string; dress?: string; shoe?: string };
 };
 
-type BuildBody = {
-  items: Product[];
-  prefs?: Prefs;
-  note?: string;
-};
-
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
+const client = HAS_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
-/* ================================ Helpers ================================== */
-function sanitizeText(s: string): string {
-  return (s || "")
-    .replace(/\u0000/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+/* ------------------------- helpers -------------------------- */
+function isObj(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
 }
-
-function euroOrCur(cur?: string | null): string {
-  if (!cur) return "EUR";
-  const up = cur.toUpperCase();
-  if (["EUR", "USD", "GBP", "JPY"].includes(up)) return up;
-  return "EUR";
+function asString(x: unknown, def = ""): string {
+  return typeof x === "string" ? x : def;
 }
-
-function prefsBlock(p?: Prefs): string {
-  if (!p) return "No explicit preferences provided.";
-  const size = p.sizes
-    ? Object.entries(p.sizes)
-        .filter(([, v]) => !!v)
-        .map(([k, v]) => `${k}:${v}`)
-        .join(", ")
-    : "-";
-  const kw = (p.keywords ?? []).join(", ") || "-";
+function asNumber(x: unknown): number | undefined {
+  return typeof x === "number" && Number.isFinite(x) ? x : undefined;
+}
+function coerceProduct(x: unknown): Product | null {
+  if (!isObj(x)) return null;
+  const title = asString(x["title"], "Item");
+  const id = asString(x["id"]) || asString(x["url"]) || `${title}-${crypto.randomUUID()}`;
+  const url = asString(x["url"], "");
+  const brand = asString(x["brand"], "");
+  const price = asNumber(x["price"]);
+  const currency = asString(x["currency"], "EUR");
+  const image = asString(x["image"], "");
+  const retailer = asString(x["retailer"], "");
+  return { id, title, url, brand, price, currency, image, retailer };
+}
+function sanitizeList(items: unknown[]): Product[] {
+  const out: Product[] = [];
+  for (const it of items) {
+    const p = coerceProduct(it);
+    if (p) out.push(p);
+  }
+  return out.slice(0, 24); // cap to keep prompt lean
+}
+function sumPrices(items: Product[]) {
+  let total = 0;
+  let has = false;
+  for (const p of items) {
+    if (typeof p.price === "number") {
+      total += p.price;
+      has = true;
+    }
+  }
+  return { has, total: Math.round(total) };
+}
+function prefsBlock(p?: Prefs) {
+  if (!p) return "No explicit preferences.";
+  const sizes = p.sizes || {};
+  const kws = (p.keywords || []).join(", ");
   return [
     `Gender: ${p.gender ?? "-"}`,
-    `Body Type: ${p.bodyType ?? "-"}`,
+    `Body type: ${p.bodyType ?? "-"}`,
     `Budget: ${p.budget ?? "-"}`,
     `Country: ${p.country ?? "-"}`,
-    `Sizes: ${size}`,
-    `Keywords: ${kw}`,
+    `Keywords: ${kws || "-"}`,
+    `Sizes: top=${sizes.top ?? "-"}, bottom=${sizes.bottom ?? "-"}, dress=${sizes.dress ?? "-"}, shoe=${sizes.shoe ?? "-"}`,
   ].join("\n");
 }
-
-function itemsBlock(items: Product[]): string {
-  if (!items.length) return "(no items selected)";
+function itemsBlock(items: Product[]) {
   return items
-    .map((it, i) => {
-      const cur = euroOrCur(it.currency);
-      const price = typeof it.price === "number" ? `${Math.round(it.price)} ${cur}` : "?";
-      const brand = it.brand ?? "";
-      const retailer = it.retailer ?? "";
-      return `${i + 1}. ${it.title}${
-        brand ? ` • ${brand}` : ""
-      } • ${price} • ${retailer} • ${it.url}`;
-    })
+    .map(
+      (p, i) =>
+        `- [${i + 1}] ${p.title} — ${p.brand || "—"} | ${
+          typeof p.price === "number" ? `${p.currency} ${p.price}` : "?"
+        } | ${p.retailer || "retailer"} | ${p.url || "(no link)"}`
+    )
     .join("\n");
 }
-
-function fallbackPlan(items: Product[], prefs?: Prefs, note?: string): string {
-  const cur = (prefs?.country ?? "NL") === "US" ? "USD" : "EUR";
-  const budgetLine = prefs?.budget ? `Budget focus: ${prefs.budget}.` : "Budget: align per piece.";
-  const body = prefs?.bodyType ?? "any";
-  const kws = (prefs?.keywords ?? []).join(", ") || "clean, cohesive";
-  const shoes =
-    items.find((i) => /boot|sandal|loafer|sneaker|heel|pump/i.test(i.title)) ??
-    items[3] ??
-    items[0];
-
-  return sanitizeText(
-    `Styled Outfit — Quick Plan (Fallback)
-
-Brief:
-- Body type: ${body}. ${budgetLine}
-- Keywords: ${kws}.
-- Note: ${note || "-"}
-
-Core Pieces:
-- Top: pick the most refined knit/shirt from your board (slim-to-regular fit).
-- Bottom: choose the trouser/denim that balances rise and leg width for ${body}.
-- Outer: lightweight blazer or clean bomber for structure and proportion.
-- Shoes: ${shoes?.title || "clean sneaker or pointed flat"}.
-- Bag/Accent: one piece only to keep cohesion.
-
-How to Wear:
-1. Keep the palette to 2–3 tones from the board to look intentional.
-2. Hem bottoms to your shoe height; avoid break for sharpness.
-3. Front-tuck knits/shirts to define the waist and elongate the leg.
-4. Scale accessories (earrings/bracelet) to the outerwear volume.
-
-Capsule Remix:
-- Swap the top with a fine-knit turtleneck in winter.
-- Replace blazer with a cropped jacket to balance longer bottoms.
-- Weekend version: tee + clean sneakers.
-
-Shopping Order (by impact):
-1) Bottom that fits perfectly (rise/inseam before anything else)
-2) Outer layer that sets the vibe (blazer/bomber)
-3) Shoes that lock the silhouette
-4) Top that supports the palette
-
-Estimated Total: depends on chosen pieces • ${cur}
-(Use the board prices; stay under your stated band per piece.)
-`
-  );
+function fallbackMarkdown(items: Product[], prefs?: Prefs, note?: string) {
+  const { has, total } = sumPrices(items);
+  const lines: string[] = [];
+  lines.push(`**Outfit plan from your Lookboard**`);
+  if (note) lines.push(`_Brief_: ${note}`);
+  lines.push("");
+  lines.push("### Why this works");
+  lines.push("- Cohesive palette and proportion keep the silhouette clean.");
+  lines.push("- Mix of structure (tailoring) and ease (knit/denim) suits many occasions.");
+  lines.push("");
+  lines.push("### Your items");
+  for (const p of items) {
+    lines.push(
+      `- **${p.title}** (${p.brand || "—"}) — ${
+        typeof p.price === "number" ? `${p.currency} ${p.price}` : "?"
+      } ${p.url ? `→ [link](${p.url})` : "(no link)"}`
+    );
+  }
+  if (has) {
+    lines.push("");
+    lines.push(`**Estimated total:** ~${items[0]?.currency || "EUR"} ${total}`);
+  }
+  lines.push("");
+  lines.push("### Fit & styling tips");
+  lines.push("- Keep hems tuned to shoe height to lengthen the line.");
+  lines.push("- Add a fine belt or tuck to define the waist if desired.");
+  lines.push("- Layer a light knit under outerwear for swing weather.");
+  lines.push("");
+  lines.push("### Preferences summary");
+  lines.push(prefsBlock(prefs));
+  return lines.join("\n");
 }
 
-/* ================================== Route ================================== */
+/* --------------------------- route --------------------------- */
 export async function POST(req: NextRequest) {
-  const headers = new Headers({ "Content-Type": "text/plain; charset=utf-8" });
+  const headers = new Headers({
+    "Content-Type": "text/markdown; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
 
   try {
-    const body = (await req.json().catch(() => ({}))) as BuildBody;
-    const items = Array.isArray(body.items) ? body.items.slice(0, 24) : [];
+    if (!(req.headers.get("content-type") || "").includes("application/json")) {
+      return new Response("_Bad request_: expected JSON body.", { status: 415, headers });
+    }
+
+    const body = (await req.json().catch(() => ({}))) as {
+      items?: unknown[];
+      prefs?: Prefs;
+      note?: string;
+    };
+
+    const items = sanitizeList(Array.isArray(body.items) ? body.items : []);
     const prefs = body.prefs;
-    const note = typeof body.note === "string" ? body.note : "";
+    const note = asString(body.note);
 
     if (!items.length) {
       return new Response(
-        "Add a few items to your board first, then click “Build Outfit.”",
+        "Add a few items to your board first, then try building the outfit again.",
         { status: 400, headers }
       );
     }
 
-    // If no key → deterministic fallback
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response(fallbackPlan(items, prefs, note), { headers });
+    if (!HAS_KEY || !client) {
+      return new Response(fallbackMarkdown(items, prefs, note), { headers });
     }
 
-    const system = sanitizeText(
-      `You are RunwayTwin — a precise, editorial-grade stylist.
-- Never invent product links or prices; only comment on what's provided.
-- Respect body type, budget band, and sizes. Focus on silhouette: rise, drape, neckline, hem.
-- Output clean, helpful prose (no markdown headings), with these sections:
-Outfit, Why it flatters, Styling notes, Capsule remix, Estimated total (if possible).`
+    const sys = [
+      "You are an elite fashion stylist.",
+      "Compose a concise, **shoppable** outfit plan using ONLY the provided items.",
+      "Write clean Markdown with these sections (if content exists):",
+      "1) A one-sentence **headline** describing the look.",
+      "2) **Why it works** — 2–4 bullets tied to proportion, palette, and occasion.",
+      "3) **Shopping list** — bullet each item as: Title (Brand) — Price [link]. If no link, write (no link).",
+      "4) **Fit & styling tips** — 3–6 bullets tailored to the preferences/body type.",
+      "5) **Total** — if multiple items include prices, show an estimated total.",
+      "",
+      "Keep it capsule-friendly, modern, and wearable.",
+      "Never invent items. Never add retailers or links not in the list.",
+      "",
+      "USER PREFERENCES:",
+      prefsBlock(prefs),
+      "",
+      note ? `OCCASION NOTE: ${note}` : "OCCASION NOTE: (none)",
+      "",
+      "ITEMS:",
+      itemsBlock(items),
+    ].join("\n");
+
+    const completion = await client.chat.completions.create({
+      model: MODEL,
+      temperature: 0.6,
+      messages: [
+        { role: "system", content: sys },
+        {
+          role: "user",
+          content:
+            "Return the outfit plan now as Markdown only. Keep it tight, premium, and practical.",
+        },
+      ],
+    });
+
+    const md =
+      completion.choices?.[0]?.message?.content?.trim() ||
+      fallbackMarkdown(items, prefs, note);
+
+    return new Response(md, { headers });
+  } catch (err) {
+    return new Response(
+      `${fallbackMarkdown(
+        [],
+        undefined,
+        "Quick fallback — regenerate after a moment."
+      )}\n\n<!-- ${String((err as Error)?.message || err)} -->`,
+      { headers, status: 200 }
     );
-
-    const userMsg = sanitizeText(
-      `USER PREFS
-${prefsBlock(prefs)}
-
-NOTE
-${note || "-"}
-
-CANDIDATE ITEMS (title • brand? • price? • retailer • url)
-${itemsBlock(items)}
-
-TASK
-Select a cohesive head-to-toe outfit from the items above (or propose the best combo if categories are missing).
-- Keep budget realistic from given prices; do not guess retailers beyond the list.
-- Explain why the silhouette flatters the stated body type, including rise/hem/neckline and proportions.
-- Provide 2–3 remix tips for a capsule wardrobe.
-Return plain text (no markdown headings).`
-    );
-
-    let text = "";
-    try {
-      const completion = await client.chat.completions.create({
-        model: MODEL,
-        temperature: 0.5,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: userMsg },
-        ],
-      });
-      text = completion?.choices?.[0]?.message?.content ?? "";
-    } catch (e) {
-      text = "";
-    }
-
-    if (!text.trim()) {
-      text = fallbackPlan(items, prefs, note);
-    }
-
-    return new Response(sanitizeText(text), { headers });
-  } catch (err: unknown) {
-    const msg =
-      "Couldn’t compose the look right now. Here’s a quick fallback you can use:\n\n" +
-      fallbackPlan([], undefined, undefined) +
-      "\n\n(" +
-      String((err as Error)?.message || err) +
-      ")";
-    return new Response(msg, { headers });
   }
 }
+
