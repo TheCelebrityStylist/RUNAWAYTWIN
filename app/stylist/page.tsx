@@ -50,6 +50,16 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     />
   );
 }
+function currencySymbol(c?: string) {
+  const u = (c || "").toUpperCase();
+  if (u === "EUR") return "€";
+  if (u === "USD") return "$";
+  if (u === "GBP") return "£";
+  return "";
+}
+function cls(...xs: Array<string | false | undefined | null>) {
+  return xs.filter(Boolean).join(" ");
+}
 
 /* ================== Robust JSON coercion ================== */
 function asString(x: unknown, def = ""): string {
@@ -77,13 +87,7 @@ function asProduct(x: unknown, fallbackCurrency: string): UiProduct | null {
 }
 
 /** Coerces unknown JSON into AiJson; returns null if nothing usable */
-function coerceAiJson(content: string): AiJson | null {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(content);
-  } catch {
-    return null;
-  }
+function coerceAiJsonUnknown(raw: unknown): AiJson | null {
   if (!isObj(raw)) return null;
 
   const productsRaw = Array.isArray(raw["products"]) ? (raw["products"] as unknown[]) : [];
@@ -123,6 +127,19 @@ function coerceAiJson(content: string): AiJson | null {
   };
 }
 
+/* ========================= Skeletons ========================= */
+function CardSkeleton() {
+  return (
+    <div className="rounded-2xl border bg-white p-3">
+      <div className="aspect-[4/5] w-full animate-pulse rounded-xl bg-gray-100" />
+      <div className="mt-3 h-4 w-3/4 animate-pulse rounded bg-gray-100" />
+      <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+      <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-gray-100" />
+      <div className="mt-3 h-9 w-full animate-pulse rounded bg-gray-100" />
+    </div>
+  );
+}
+
 /* ========================= Page ========================= */
 const DEMOS = [
   `Zendaya for a gala in Paris`,
@@ -154,10 +171,12 @@ export default function StylistPage() {
     });
   }, []);
 
-  /* Chat */
+  /* Chat + Plan */
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
+  const [plan, setPlan] = React.useState<AiJson | null>(null);
+  const dots = useDots(sending);
 
   const send = React.useCallback(
     async (text: string) => {
@@ -167,6 +186,7 @@ export default function StylistPage() {
       setMessages(nextMsgs);
       setInput("");
       setSending(true);
+      setPlan(null); // clear previous plan while composing
 
       try {
         const res = await fetch("/api/chat", {
@@ -176,23 +196,47 @@ export default function StylistPage() {
         });
 
         const contentType = res.headers.get("content-type") || "";
-        let reply: string;
-
-        if (contentType.includes("application/json")) {
-          const data = await res.json();
-          reply = JSON.stringify(data);
-        } else {
-          reply = await res.text();
+        if (!res.ok) {
+          const txt = await res.text();
+          setMessages((m) => [
+            ...m,
+            { role: "assistant", content: txt || "I hit a hiccup." },
+          ]);
+          return;
         }
 
-        setMessages((m) => [...m, { role: "assistant", content: reply }]);
+        // Prefer JSON
+        if (contentType.includes("application/json")) {
+          const data = (await res.json().catch(() => null)) as unknown;
+          const coerced = coerceAiJsonUnknown(data);
+          if (coerced) {
+            setPlan(coerced);
+            setMessages((m) => [
+              ...m,
+              { role: "assistant", content: coerced.brief || "Here’s your look." },
+            ]);
+          } else {
+            setMessages((m) => [
+              ...m,
+              {
+                role: "assistant",
+                content:
+                  "I couldn’t parse the plan. Try rephrasing your prompt or adding budget/body type.",
+              },
+            ]);
+          }
+        } else {
+          // Fallback to text
+          const txt = await res.text();
+          setMessages((m) => [...m, { role: "assistant", content: txt }]);
+        }
       } catch {
         setMessages((m) => [
           ...m,
           {
             role: "assistant",
             content:
-              "I hit a hiccup finishing the look. Please try again, or tweak your prompt.",
+              "Network hiccup finishing the look. Please try again, or tweak your prompt.",
           },
         ]);
       } finally {
@@ -208,22 +252,13 @@ export default function StylistPage() {
   };
 
   const sizes = prefs.sizes ?? {};
+  const totalLabel =
+    plan?.total?.value != null
+      ? `${currencySymbol(plan.total.currency)}${plan.total.value}`
+      : "—";
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      {/* Top promo chips */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {DEMOS.map((d) => (
-          <button
-            key={d}
-            onClick={() => setInput(d)}
-            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium hover:bg-gray-50"
-          >
-            {d}
-          </button>
-        ))}
-      </div>
-
+    <main className="mx-auto max-w-7xl px-4 py-6">
       {/* Preferences BAR on top (sticky, not stretched) */}
       <section className="sticky top-14 z-10 mb-6 grid gap-3 rounded-2xl border bg-white/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/70">
         <p className="text-sm font-semibold">Preferences</p>
@@ -328,116 +363,46 @@ export default function StylistPage() {
         </div>
       </section>
 
-      {/* Chat section under the preferences bar */}
-      <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
+      {/* Demo chips */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {DEMOS.map((d) => (
+          <button
+            key={d}
+            onClick={() => setInput(d)}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium hover:bg-gray-50"
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+
+      {/* Chat + input */}
+      <section className="mb-4 grid gap-2 rounded-2xl border bg-white p-4">
         <p className="text-sm text-gray-700">
-          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit
-          notes, and capsule tips.
+          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
         </p>
 
         <div className="grid gap-3">
-          {messages.map((m, i) => {
-            const ai = m.role === "assistant" ? coerceAiJson(m.content) : null;
-
-            return (
-              <div
-                key={i}
-                className={`rounded-xl border p-3 text-sm ${
-                  m.role === "user" ? "bg-gray-50" : "bg-white"
-                }`}
-              >
-                <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">
-                  {m.role}
-                </p>
-
-                {ai ? (
-                  <div className="grid gap-3">
-                    {/* brief */}
-                    <p className="text-gray-800">{ai.brief}</p>
-
-                    {/* total */}
-                    <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-xs text-gray-700">
-                      <span>Total:</span>
-                      <span className="font-semibold">
-                        {ai.total.value != null
-                          ? `${ai.total.currency} ${ai.total.value}`
-                          : "—"}
-                      </span>
-                    </div>
-
-                    {/* products grid */}
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                      {ai.products.map((p) => (
-                        <article
-                          key={p.id}
-                          className="flex flex-col rounded-2xl border p-3"
-                        >
-                          <div className="aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
-                            {/* image slot if available later */}
-                          </div>
-                          <h3 className="mt-2 line-clamp-2 text-sm font-medium">
-                            {p.title}
-                          </h3>
-                          <p className="text-xs text-gray-500">
-                            {p.brand ?? "—"} • {p.category}
-                          </p>
-                          <div className="mt-2 text-xs text-gray-700">
-                            {p.price != null ? `${p.currency} ${p.price}` : "?"}
-                          </div>
-                          {p.url ? (
-                            <a
-                              href={p.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
-                            >
-                              View
-                            </a>
-                          ) : (
-                            <span className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs text-gray-500">
-                              No link
-                            </span>
-                          )}
-                        </article>
-                      ))}
-                    </div>
-
-                    {/* tips + why */}
-                    {(ai.why?.length || ai.tips?.length) && (
-                      <div className="grid gap-2">
-                        {ai.why?.length ? (
-                          <div>
-                            <p className="mb-1 text-[13px] font-semibold">
-                              Why it flatters
-                            </p>
-                            <ul className="list-disc pl-5 text-sm text-gray-700">
-                              {ai.why.map((w, idx) => (
-                                <li key={idx}>{w}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                        {ai.tips?.length ? (
-                          <div>
-                            <p className="mb-1 text-[13px] font-semibold">
-                              Capsule & tips
-                            </p>
-                            <ul className="list-disc pl-5 text-sm text-gray-700">
-                              {ai.tips.map((t, idx) => (
-                                <li key={idx}>{t}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <pre className="whitespace-pre-wrap text-gray-800">{m.content}</pre>
-                )}
-              </div>
-            );
-          })}
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={cls(
+                "rounded-xl border p-3 text-sm",
+                m.role === "user" ? "bg-gray-50" : "bg-white"
+              )}
+            >
+              <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                {m.role}
+              </p>
+              <div className="whitespace-pre-wrap">{m.content}</div>
+            </div>
+          ))}
+          {sending ? (
+            <div className="rounded-xl border bg-white p-3 text-sm">
+              <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">assistant</p>
+              <div>Styling{dots}</div>
+            </div>
+          ) : null}
         </div>
 
         <form onSubmit={onSubmit} className="mt-2 flex gap-2">
@@ -456,6 +421,112 @@ export default function StylistPage() {
           </button>
         </form>
       </section>
+
+      {/* Plan / Products */}
+      <section className="grid gap-3 rounded-2xl border bg-white p-4">
+        <div className="text-sm text-gray-800">
+          {plan?.brief
+            ? plan.brief
+            : "Ask for a look above — I’ll return a clean, shoppable plan here."}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border px-2 py-1 text-xs font-medium text-gray-700">
+            Total: {totalLabel}
+          </span>
+        </div>
+
+        {/* Cards */}
+        {sending ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        ) : plan?.products?.length ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {plan.products.map((p) => (
+              <article key={p.id} className="flex flex-col rounded-2xl border p-3">
+                <div className="aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
+                  {p.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.image}
+                      alt={p.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+                      No image
+                    </div>
+                  )}
+                </div>
+                <h3 className="mt-2 line-clamp-2 text-sm font-medium">{p.title}</h3>
+                <p className="text-xs text-gray-500">
+                  {p.brand ?? "—"} • {p.category}
+                </p>
+                <div className="mt-2 text-xs text-gray-700">
+                  {p.price != null ? `${currencySymbol(p.currency)}${p.price}` : "?"}
+                </div>
+                {p.url ? (
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
+                  >
+                    View
+                  </a>
+                ) : (
+                  <span className="mt-2 inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs text-gray-500">
+                    No link
+                  </span>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Why & Tips */}
+        {plan?.why?.length ? (
+          <div className="mt-2">
+            <p className="mb-1 text-sm font-semibold">Why it flatters</p>
+            <ul className="list-disc pl-5 text-sm text-gray-800">
+              {plan.why.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {plan?.tips?.length ? (
+          <div className="mt-2">
+            <p className="mb-1 text-sm font-semibold">Capsule & styling tips</p>
+            <ul className="list-disc pl-5 text-sm text-gray-800">
+              {plan.tips.map((t, i) => (
+                <li key={i}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
     </main>
   );
+}
+
+/* ========================= Hooks ========================= */
+function useDots(active: boolean) {
+  const [dots, setDots] = React.useState(".");
+  React.useEffect(() => {
+    if (!active) {
+      setDots(".");
+      return;
+    }
+    const id = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? "." : d + "."));
+    }, 450);
+    return () => clearInterval(id);
+  }, [active]);
+  return dots;
 }
