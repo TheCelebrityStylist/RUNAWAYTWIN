@@ -12,36 +12,37 @@ import {
 import type { Product } from "@/lib/affiliates/types";
 import type { Prefs } from "@/lib/types";
 
-/**
- * Normalize a loose favorite item into a strict Product.
- * Your current Product type requires string fields (no nulls) for url/brand/image/retailer.
- */
-function toProduct(fav: Partial<Product> & { title: string }): Product {
-  const id =
-    (typeof fav.id === "string" && fav.id) ||
-    (typeof fav.url === "string" && fav.url) ||
-    crypto.randomUUID();
+/* ---------- safe readers so we never rely on typed keys on unknown ---------- */
+function isObj(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+function getStr(o: unknown, k: string, def = ""): string {
+  return isObj(o) && typeof o[k] === "string" ? (o[k] as string) : def;
+}
+function getNumOrNull(o: unknown, k: string): number | null {
+  return isObj(o) && typeof o[k] === "number" && Number.isFinite(o[k] as number)
+    ? (o[k] as number)
+    : null;
+}
 
-  return {
-    id,
-    title: fav.title,
-    url: typeof fav.url === "string" ? fav.url : "",
-    brand: typeof fav.brand === "string" ? fav.brand : "",
-    category: typeof fav.category === "string" ? fav.category : "Accessory",
-    price:
-      typeof fav.price === "number" && Number.isFinite(fav.price)
-        ? fav.price
-        : null,
-    currency:
-      typeof fav.currency === "string" && fav.currency.trim()
-        ? fav.currency
-        : "EUR",
-    image: typeof fav.image === "string" ? fav.image : "",
-    retailer:
-      typeof (fav as any).retailer === "string"
-        ? ((fav as any).retailer as string)
-        : "",
-  };
+/**
+ * Normalize any favorite-like object into a strict `Product`.
+ * We DO NOT assume any property exists on the input; everything is read via index access.
+ */
+function toProduct(fav: unknown): Product {
+  const title = getStr(fav, "title", "Item");
+  const id =
+    getStr(fav, "id") || getStr(fav, "url") || `${title}-${crypto.randomUUID()}`;
+
+  const url = getStr(fav, "url", "");
+  const brand = getStr(fav, "brand", "");
+  const category = getStr(fav, "category", "Accessory");
+  const price = getNumOrNull(fav, "price");
+  const currency = getStr(fav, "currency", "EUR");
+  const image = getStr(fav, "image", "");
+  const retailer = getStr(fav, "retailer", "");
+
+  return { id, title, url, brand, category, price, currency, image, retailer };
 }
 
 export default function LooksPage() {
@@ -62,8 +63,8 @@ export default function LooksPage() {
     }
   }, []);
 
-  // Strict, normalized products
-  const products: Product[] = React.useMemo(() => list.map(toProduct), [list]);
+  // Strict, normalized products (never null strings)
+  const products: Product[] = React.useMemo(() => list.map((x) => toProduct(x)), [list]);
 
   const shareLink = React.useMemo(() => {
     if (!products.length) return "";
@@ -148,8 +149,8 @@ export default function LooksPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Lookboard</h1>
           <p className="text-sm text-gray-600">
-            Save items you love. Share, export/import, and build an AI-styled outfit
-            from this board.
+            Save items you love. Share, export/import, and build an AI-styled outfit from this
+            board.
           </p>
         </div>
 
@@ -213,10 +214,7 @@ export default function LooksPage() {
 
       {/* Import */}
       <section className="mb-10">
-        <label
-          htmlFor="import"
-          className="mb-1 block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor="import" className="mb-1 block text-sm font-medium text-gray-700">
           Import from share code
         </label>
         <div className="flex gap-2">
@@ -239,8 +237,7 @@ export default function LooksPage() {
       {/* Grid */}
       {products.length === 0 ? (
         <p className="text-sm text-gray-600">
-          You haven’t saved anything yet. Click the ❤️ icon on any product to add it
-          here.
+          You haven’t saved anything yet. Click the ❤️ icon on any product to add it here.
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -252,4 +249,3 @@ export default function LooksPage() {
     </main>
   );
 }
-
