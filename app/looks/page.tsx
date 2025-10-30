@@ -12,7 +12,7 @@ import {
 import type { Product } from "@/lib/affiliates/types";
 import type { Prefs } from "@/lib/types";
 
-/* ---------- safe readers so we never rely on typed keys on unknown ---------- */
+/* ---------- tiny safe readers (no reliance on typed keys on unknown) ---------- */
 function isObj(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }
@@ -25,11 +25,7 @@ function getNumOrNull(o: unknown, k: string): number | null {
     : null;
 }
 
-/**
- * Normalize any favorite-like object into a strict `Product`.
- * We DO NOT assume any property exists on the input; everything is read via index access.
- * Note: Product.price is `number | undefined`, so we coerce `null` → `undefined`.
- */
+/** Normalize any favorite-like object into a strict `Product` */
 function toProduct(fav: unknown): Product {
   const title = getStr(fav, "title", "Item");
   const id =
@@ -37,14 +33,16 @@ function toProduct(fav: unknown): Product {
 
   const url = getStr(fav, "url", "");
   const brand = getStr(fav, "brand", "");
-  const category = getStr(fav, "category", "Accessory");
+  // category may exist in some sources, but it's NOT part of Product → do not include in return
+  // const category = getStr(fav, "category", "Accessory");
   const priceRaw = getNumOrNull(fav, "price");
-  const price = priceRaw ?? undefined; // <-- fix: satisfy Product.price type
+  const price = priceRaw ?? undefined; // Product.price is number | undefined
   const currency = getStr(fav, "currency", "EUR");
   const image = getStr(fav, "image", "");
   const retailer = getStr(fav, "retailer", "");
 
-  return { id, title, url, brand, category, price, currency, image, retailer };
+  // IMPORTANT: only fields that exist on Product
+  return { id, title, url, brand, price, currency, image, retailer };
 }
 
 export default function LooksPage() {
@@ -65,7 +63,7 @@ export default function LooksPage() {
     }
   }, []);
 
-  // Strict, normalized products (never null strings)
+  // Strict, normalized products
   const products: Product[] = React.useMemo(() => list.map((x) => toProduct(x)), [list]);
 
   const shareLink = React.useMemo(() => {
@@ -251,3 +249,4 @@ export default function LooksPage() {
     </main>
   );
 }
+
