@@ -86,13 +86,10 @@ function asProduct(x: unknown, fallbackCurrency: string): UiProduct | null {
   };
 }
 
-/** Coerces unknown JSON into AiJson; returns null if nothing usable */
 function coerceAiJsonUnknown(raw: unknown): AiJson | null {
   if (!isObj(raw)) return null;
 
   const productsRaw = Array.isArray(raw["products"]) ? (raw["products"] as unknown[]) : [];
-
-  // currency from first product with currency, else "EUR"
   const currencyFromProducts =
     productsRaw
       .map((p) => (isObj(p) && typeof p["currency"] === "string" ? (p["currency"] as string) : null))
@@ -107,16 +104,13 @@ function coerceAiJsonUnknown(raw: unknown): AiJson | null {
     typeof totalObj["currency"] === "string"
       ? (totalObj["currency"] as string)
       : currencyFromProducts;
-
   const totalValue = asNumberOrNull(totalObj["value"]);
 
   const brief = asString(raw["brief"], "");
   const tips = Array.isArray(raw["tips"]) ? (raw["tips"] as unknown[]).filter((s) => typeof s === "string") as string[] : [];
   const why = Array.isArray(raw["why"]) ? (raw["why"] as unknown[]).filter((s) => typeof s === "string") as string[] : [];
 
-  if (!brief && products.length === 0 && tips.length === 0 && why.length === 0) {
-    return null;
-  }
+  if (!brief && products.length === 0 && tips.length === 0 && why.length === 0) return null;
 
   return {
     brief,
@@ -127,7 +121,7 @@ function coerceAiJsonUnknown(raw: unknown): AiJson | null {
   };
 }
 
-/* ========================= Skeletons ========================= */
+/* ========================= Skeletons & Hooks ========================= */
 function CardSkeleton() {
   return (
     <div className="rounded-2xl border bg-white p-3">
@@ -138,6 +132,27 @@ function CardSkeleton() {
       <div className="mt-3 h-9 w-full animate-pulse rounded bg-gray-100" />
     </div>
   );
+}
+function useDots(active: boolean) {
+  const [dots, setDots] = React.useState(".");
+  React.useEffect(() => {
+    if (!active) {
+      setDots(".");
+      return;
+    }
+    const id = setInterval(() => setDots((d) => (d.length >= 3 ? "." : d + ".")), 450);
+    return () => clearInterval(id);
+  }, [active]);
+  return dots;
+}
+
+/* ========================= Intent detection ========================= */
+function looksLikeStyleBrief(s: string) {
+  const q = s.toLowerCase();
+  const keywords =
+    /(look|outfit|wear|style|dress|suit|gala|wedding|date|interview|party|gallery|opening|smart|casual|rain|snow|summer|winter|capsule|inspired|like|red carpet)/i;
+  const temp = /\b\d+\s?°\s?[cf]\b/i;
+  return keywords.test(q) || temp.test(q);
 }
 
 /* ========================= Page ========================= */
@@ -159,11 +174,7 @@ export default function StylistPage() {
   });
   const updatePrefs = React.useCallback((patch: Partial<Prefs>) => {
     setPrefs((p) => {
-      const next = {
-        ...p,
-        ...patch,
-        sizes: { ...(p.sizes ?? {}), ...(patch.sizes ?? {}) },
-      };
+      const next = { ...p, ...patch, sizes: { ...(p.sizes ?? {}), ...(patch.sizes ?? {}) } };
       try {
         localStorage.setItem("rwt-prefs", JSON.stringify(next));
       } catch {}
@@ -182,12 +193,36 @@ export default function StylistPage() {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+
       const nextMsgs: Msg[] = [...messages, { role: "user", content: trimmed }];
       setMessages(nextMsgs);
       setInput("");
       setSending(true);
-      setPlan(null); // clear previous plan while composing
 
+      const endpoint = looksLikeStyleBrief(trimmed) ? "/api/chat" : "/api/say";
+      if (endpoint === "/api/say") {
+        // Small talk path: don’t touch the current plan
+        try {
+          const res = await fetch("/api/say", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: nextMsgs }),
+          });
+          const txt = await res.text();
+          setMessages((m) => [...m, { role: "assistant", content: txt }]);
+        } catch {
+          setMessages((m) => [
+            ...m,
+            { role: "assistant", content: "Hi! What are we styling next?" },
+          ]);
+        } finally {
+          setSending(false);
+        }
+        return;
+      }
+
+      // Styling path: clear old plan and expect JSON
+      setPlan(null);
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -195,18 +230,14 @@ export default function StylistPage() {
           body: JSON.stringify({ messages: nextMsgs, preferences: prefs }),
         });
 
-        const contentType = res.headers.get("content-type") || "";
+        const ct = res.headers.get("content-type") || "";
         if (!res.ok) {
           const txt = await res.text();
-          setMessages((m) => [
-            ...m,
-            { role: "assistant", content: txt || "I hit a hiccup." },
-          ]);
+          setMessages((m) => [...m, { role: "assistant", content: txt || "I hit a hiccup." }]);
           return;
         }
 
-        // Prefer JSON
-        if (contentType.includes("application/json")) {
+        if (ct.includes("application/json")) {
           const data = (await res.json().catch(() => null)) as unknown;
           const coerced = coerceAiJsonUnknown(data);
           if (coerced) {
@@ -221,14 +252,28 @@ export default function StylistPage() {
               {
                 role: "assistant",
                 content:
-                  "I couldn’t parse the plan. Try rephrasing your prompt or adding budget/body type.",
+                  "I couldn’t parse the look. Could you add the occasion, vibe, and budget?",
               },
             ]);
           }
         } else {
-          // Fallback to text
+          // Fallback text; try best-effort parse if it looks like JSON
           const txt = await res.text();
-          setMessages((m) => [...m, { role: "assistant", content: txt }]);
+          try {
+            const maybe = JSON.parse(txt);
+            const coerced = coerceAiJsonUnknown(maybe);
+            if (coerced) {
+              setPlan(coerced);
+              setMessages((m) => [
+                ...m,
+                { role: "assistant", content: coerced.brief || "Here’s your look." },
+              ]);
+            } else {
+              setMessages((m) => [...m, { role: "assistant", content: txt }]);
+            }
+          } catch {
+            setMessages((m) => [...m, { role: "assistant", content: txt }]);
+          }
         }
       } catch {
         setMessages((m) => [
@@ -236,7 +281,7 @@ export default function StylistPage() {
           {
             role: "assistant",
             content:
-              "Network hiccup finishing the look. Please try again, or tweak your prompt.",
+              "Network hiccup while styling. Please try again, or add a bit more detail (occasion, weather, budget).",
           },
         ]);
       } finally {
@@ -264,7 +309,6 @@ export default function StylistPage() {
         <p className="text-sm font-semibold">Preferences</p>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-          {/* Gender */}
           <div className="col-span-2 md:col-span-1">
             <Select
               aria-label="Gender"
@@ -277,8 +321,6 @@ export default function StylistPage() {
               <option value="other">Other</option>
             </Select>
           </div>
-
-          {/* Body type */}
           <div className="col-span-2 md:col-span-2">
             <TextInput
               aria-label="Body type"
@@ -287,8 +329,6 @@ export default function StylistPage() {
               onChange={(e) => updatePrefs({ bodyType: e.target.value || undefined })}
             />
           </div>
-
-          {/* Budget */}
           <div className="col-span-1">
             <TextInput
               aria-label="Budget band"
@@ -297,8 +337,6 @@ export default function StylistPage() {
               onChange={(e) => updatePrefs({ budget: e.target.value || undefined })}
             />
           </div>
-
-          {/* Country */}
           <div className="col-span-1">
             <TextInput
               aria-label="Country"
@@ -307,8 +345,6 @@ export default function StylistPage() {
               onChange={(e) => updatePrefs({ country: e.target.value || undefined })}
             />
           </div>
-
-          {/* Keywords */}
           <div className="col-span-2 md:col-span-2">
             <TextInput
               aria-label="Style keywords"
@@ -332,9 +368,7 @@ export default function StylistPage() {
             aria-label="Top size"
             placeholder="Top"
             value={sizes.top ?? ""}
-            onChange={(e) =>
-              updatePrefs({ sizes: { ...sizes, top: e.target.value || undefined } })
-            }
+            onChange={(e) => updatePrefs({ sizes: { ...sizes, top: e.target.value || undefined } })}
           />
           <TextInput
             aria-label="Bottom size"
@@ -386,14 +420,9 @@ export default function StylistPage() {
           {messages.map((m, i) => (
             <div
               key={i}
-              className={cls(
-                "rounded-xl border p-3 text-sm",
-                m.role === "user" ? "bg-gray-50" : "bg-white"
-              )}
+              className={cls("rounded-xl border p-3 text-sm", m.role === "user" ? "bg-gray-50" : "bg-white")}
             >
-              <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
-                {m.role}
-              </p>
+              <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">{m.role}</p>
               <div className="whitespace-pre-wrap">{m.content}</div>
             </div>
           ))}
@@ -425,9 +454,7 @@ export default function StylistPage() {
       {/* Plan / Products */}
       <section className="grid gap-3 rounded-2xl border bg-white p-4">
         <div className="text-sm text-gray-800">
-          {plan?.brief
-            ? plan.brief
-            : "Ask for a look above — I’ll return a clean, shoppable plan here."}
+          {plan?.brief ? plan.brief : "Ask for a look above — I’ll return a clean, shoppable plan here."}
         </div>
 
         <div className="flex items-center gap-2">
@@ -436,7 +463,6 @@ export default function StylistPage() {
           </span>
         </div>
 
-        {/* Cards */}
         {sending ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -450,12 +476,7 @@ export default function StylistPage() {
                 <div className="aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
                   {p.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.image}
-                      alt={p.title}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+                    <img src={p.image} alt={p.title} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
                       No image
@@ -488,7 +509,6 @@ export default function StylistPage() {
           </div>
         ) : null}
 
-        {/* Why & Tips */}
         {plan?.why?.length ? (
           <div className="mt-2">
             <p className="mb-1 text-sm font-semibold">Why it flatters</p>
@@ -515,18 +535,3 @@ export default function StylistPage() {
   );
 }
 
-/* ========================= Hooks ========================= */
-function useDots(active: boolean) {
-  const [dots, setDots] = React.useState(".");
-  React.useEffect(() => {
-    if (!active) {
-      setDots(".");
-      return;
-    }
-    const id = setInterval(() => {
-      setDots((d) => (d.length >= 3 ? "." : d + "."));
-    }, 450);
-    return () => clearInterval(id);
-  }, [active]);
-  return dots;
-}
