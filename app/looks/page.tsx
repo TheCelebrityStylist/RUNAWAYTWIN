@@ -4,9 +4,42 @@
 import * as React from "react";
 import { useFavorites } from "@/lib/hooks/useFavorites";
 import { ProductCard } from "@/components/ProductCard";
-import { encodeProductsToCode, decodeProductsFromCode, downloadJson } from "@/lib/share";
+import {
+  encodeProductsToCode,
+  decodeProductsFromCode,
+  downloadJson,
+} from "@/lib/share";
 import type { Product } from "@/lib/affiliates/types";
 import type { Prefs } from "@/lib/types";
+
+/** Convert a favorite item (which may have optional fields) into a strict Product */
+function toProduct(fav: Partial<Product> & { title: string }): Product {
+  const id =
+    (typeof fav.id === "string" && fav.id) ||
+    (typeof fav.url === "string" && fav.url) ||
+    crypto.randomUUID();
+
+  return {
+    id,
+    title: fav.title,
+    url: typeof fav.url === "string" ? fav.url : null,
+    brand: typeof fav.brand === "string" ? fav.brand : null,
+    category: typeof fav.category === "string" ? fav.category : "Accessory",
+    price:
+      typeof fav.price === "number" && Number.isFinite(fav.price)
+        ? fav.price
+        : null,
+    currency:
+      typeof fav.currency === "string" && fav.currency.trim()
+        ? fav.currency
+        : null,
+    image: typeof fav.image === "string" ? fav.image : null,
+    retailer:
+      typeof (fav as any).retailer === "string" && (fav as any).retailer.trim()
+        ? ((fav as any).retailer as string)
+        : null,
+  };
+}
 
 export default function LooksPage() {
   const { list, clear } = useFavorites();
@@ -15,7 +48,7 @@ export default function LooksPage() {
   const [building, setBuilding] = React.useState(false);
   const [plan, setPlan] = React.useState<string>("");
 
-  // Optional: read prefs from localStorage if you store them there; else stays undefined
+  // Read prefs from localStorage if present
   const [prefs, setPrefs] = React.useState<Prefs | undefined>(undefined);
   React.useEffect(() => {
     try {
@@ -26,11 +59,14 @@ export default function LooksPage() {
     }
   }, []);
 
+  // Convert favorites to strict Products once for all downstream usage
+  const products: Product[] = React.useMemo(() => list.map(toProduct), [list]);
+
   const shareLink = React.useMemo(() => {
-    if (!list.length) return "";
-    const code = encodeProductsToCode(list);
+    if (!products.length) return "";
+    const code = encodeProductsToCode(products);
     return `${location.origin}/lookshare/${code}`;
-  }, [list]);
+  }, [products]);
 
   const onCopy = async () => {
     if (!shareLink) return;
@@ -43,13 +79,13 @@ export default function LooksPage() {
   };
 
   const onExportJson = () => {
-    downloadJson("runwaytwin-look.json", list);
+    downloadJson("runwaytwin-look.json", products);
   };
 
   const onImport = () => {
     const trimmed = importText.trim();
     if (!trimmed) return;
-    const items = decodeProductsFromCode(trimmed);
+    const items = decodeProductsFromCode(trimmed); // Product[]
     if (!items.length) {
       alert("Import failed. Check the code and try again.");
       return;
@@ -69,7 +105,7 @@ export default function LooksPage() {
   };
 
   const onBuild = async () => {
-    if (!list.length) {
+    if (!products.length) {
       alert("Add a few items to your board first.");
       return;
     }
@@ -80,15 +116,15 @@ export default function LooksPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: list.map((p) => ({
-            id: p.id ?? null,
+          items: products.map((p) => ({
+            id: p.id,
             title: p.title,
-            brand: p.brand ?? null,
-            price: p.price ?? null,
-            currency: p.currency ?? null,
-            image: p.image ?? null,
+            brand: p.brand,
+            price: p.price,
+            currency: p.currency,
+            image: p.image,
             url: p.url,
-            retailer: p.retailer ?? null,
+            retailer: p.retailer,
           })),
           prefs,
           note,
@@ -109,27 +145,27 @@ export default function LooksPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">My Lookboard</h1>
           <p className="text-sm text-gray-600">
-            Save items you love. Share, export/import, and build an AI-styled outfit from this
-            board.
+            Save items you love. Share, export/import, and build an AI-styled outfit
+            from this board.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
             onClick={onCopy}
-            disabled={!list.length}
+            disabled={!products.length}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
           >
             Copy share link
           </button>
           <button
             onClick={onExportJson}
-            disabled={!list.length}
+            disabled={!products.length}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
           >
             Export JSON
           </button>
-          {list.length > 0 && (
+          {products.length > 0 && (
             <button
               onClick={clear}
               className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
@@ -156,23 +192,28 @@ export default function LooksPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={onBuild}
-            disabled={building || !list.length}
+            disabled={building || !products.length}
             className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
           >
             {building ? "Styling…" : "Build Outfit"}
           </button>
-          {building && <span className="text-sm text-gray-600">Composing look…</span>}
+          {building && (
+            <span className="text-sm text-gray-600">Composing look…</span>
+          )}
         </div>
         {plan && (
           <pre className="whitespace-pre-wrap rounded-xl border bg-gray-50 p-3 text-sm">
-{plan}
+            {plan}
           </pre>
         )}
       </section>
 
       {/* Import */}
       <section className="mb-10">
-        <label htmlFor="import" className="mb-1 block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="import"
+          className="mb-1 block text-sm font-medium text-gray-700"
+        >
           Import from share code
         </label>
         <div className="flex gap-2">
@@ -193,17 +234,19 @@ export default function LooksPage() {
       </section>
 
       {/* Grid */}
-      {list.length === 0 ? (
+      {products.length === 0 ? (
         <p className="text-sm text-gray-600">
-          You haven’t saved anything yet. Click the ❤️ icon on any product to add it here.
+          You haven’t saved anything yet. Click the ❤️ icon on any product to add it
+          here.
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {list.map((p) => (
-            <ProductCard key={`${p.id}-${p.url}`} item={p} />
+          {products.map((p) => (
+            <ProductCard key={`${p.id}`} item={p} />
           ))}
         </div>
       )}
     </main>
   );
 }
+
