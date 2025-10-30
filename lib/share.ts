@@ -1,74 +1,105 @@
 // FILE: lib/share.ts
-"use client";
+// Encode/Decode selected products to a compact share code (URL-safe base64)
+// Uses your Product type. We only store the minimal fields needed for sharing.
 
 import type { Product } from "@/lib/affiliates/types";
 
-/** Compact, URL-safe base64 from UTF-8 string */
-function toBase64Url(s: string): string {
-  const b64 =
-    typeof window !== "undefined"
-      ? btoa(encodeURIComponent(s).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))))
-      : Buffer.from(s, "utf8").toString("base64");
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+/** URL-safe base64 helpers */
+function toB64(json: string) {
+  return Buffer.from(json, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+function fromB64(b64: string) {
+  const pad = b64.length % 4 ? "====".slice(b64.length % 4) : "";
+  const s = b64.replace(/-/g, "+").replace(/_/g, "/") + pad;
+  return Buffer.from(s, "base64").toString("utf-8");
 }
 
-function fromBase64Url(s: string): string {
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4);
-  const raw =
-    typeof window !== "undefined"
-      ? atob(b64)
-      : Buffer.from(b64, "base64").toString("utf8");
-  // convert raw binary -> utf8
-  const utf8 = Array.prototype.map
-    .call(raw, (c: string) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-    .join("");
-  return decodeURIComponent(utf8);
+/** Minimal shape kept in share payload (keeps URLs short) */
+type Tiny = {
+  id: string;
+  title: string;
+  url: string;
+  brand?: string;
+  retailer?: string;
+  image?: string;
+  price?: number;
+  currency?: string;
+  fit?: { category?: string };
+};
+
+function sanitize(p: Product): Tiny | null {
+  if (!p || typeof p !== "object") return null;
+  const title = typeof p.title === "string" ? p.title : "";
+  const url = typeof p.url === "string" ? p.url : "";
+  const id =
+    (typeof p.id === "string" && p.id) ||
+    (url ? url : title);
+
+  if (!id || !title) return null;
+
+  const tiny: Tiny = {
+    id,
+    title,
+    url,
+  };
+  if (typeof p.brand === "string") tiny.brand = p.brand;
+  if (typeof p.retailer === "string") tiny.retailer = p.retailer;
+  if (typeof p.image === "string") tiny.image = p.image;
+  if (typeof p.price === "number" && Number.isFinite(p.price)) tiny.price = p.price;
+  if (typeof p.currency === "string") tiny.currency = p.currency;
+  if (p.fit?.category) tiny.fit = { category: p.fit.category };
+
+  return tiny;
 }
 
-/** Encode a list of products into a compact share code (URL-safe) */
-export function encodeProductsToCode(items: Product[]): string {
-  // Store only the fields we actually render/share
-  const slim = items.map((p) => ({
-    id: p.id ?? null,
-    title: p.title,
-    brand: p.brand ?? null,
-    price: p.price ?? null,
-    currency: p.currency ?? null,
-    image: p.image ?? null,
-    url: p.url,
-    retailer: p.retailer ?? null,
-  }));
-  return toBase64Url(JSON.stringify({ v: 1, items: slim }));
+export function encodeProductsToCode(list: Product[]): string {
+  const items: Tiny[] = [];
+  for (const p of list) {
+    const t = sanitize(p);
+    if (t) items.push(t);
+  }
+  return toB64(JSON.stringify({ v: 1, items }));
 }
 
-/** Decode a share code back to products; returns [] on failure */
 export function decodeProductsFromCode(code: string): Product[] {
   try {
-    const json = fromBase64Url(code);
-    const data = JSON.parse(json) as { v: number; items: any[] };
-    if (!data || !Array.isArray(data.items)) return [];
-    return data.items.map((p) => ({
-      id: p.id ?? undefined,
-      title: String(p.title ?? ""),
-      brand: p.brand ?? undefined,
-      price: typeof p.price === "number" ? p.price : undefined,
-      currency: typeof p.currency === "string" ? p.currency : undefined,
-      image: typeof p.image === "string" ? p.image : undefined,
-      url: String(p.url ?? ""),
-      retailer: typeof p.retailer === "string" ? p.retailer : undefined,
-    })) as Product[];
+    const json = fromB64(code.trim());
+    const data = JSON.parse(json) as { v?: number; items?: Tiny[] };
+    const items = Array.isArray(data.items) ? data.items : [];
+    const out: Product[] = [];
+    for (const t of items) {
+      if (!t || typeof t !== "object") continue;
+      if (!t.id || !t.title || !t.url) continue;
+      out.push({
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        brand: t.brand,
+        retailer: t.retailer,
+        image: t.image,
+        price: t.price,
+        currency: t.currency,
+        fit: t.fit ? { category: t.fit.category } : undefined,
+      });
+    }
+    return out;
   } catch {
     return [];
   }
 }
 
-/** Simple file helpers for JSON export/import */
 export function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   URL.revokeObjectURL(url);
 }
