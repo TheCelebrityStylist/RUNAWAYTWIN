@@ -28,6 +28,7 @@ function getNumOrNull(o: unknown, k: string): number | null {
 /**
  * Normalize any favorite-like object into a strict `Product`.
  * We DO NOT assume any property exists on the input; everything is read via index access.
+ * Note: Product.price is `number | undefined`, so we coerce `null` → `undefined`.
  */
 function toProduct(fav: unknown): Product {
   const title = getStr(fav, "title", "Item");
@@ -37,7 +38,8 @@ function toProduct(fav: unknown): Product {
   const url = getStr(fav, "url", "");
   const brand = getStr(fav, "brand", "");
   const category = getStr(fav, "category", "Accessory");
-  const price = getNumOrNull(fav, "price");
+  const priceRaw = getNumOrNull(fav, "price");
+  const price = priceRaw ?? undefined; // <-- fix: satisfy Product.price type
   const currency = getStr(fav, "currency", "EUR");
   const image = getStr(fav, "image", "");
   const retailer = getStr(fav, "retailer", "");
