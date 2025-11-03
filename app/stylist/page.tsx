@@ -114,7 +114,7 @@ function coerceAiJson(content: string): AiJson | null {
   const totalObj = isObj(raw["total"]) ? (raw["total"] as Record<string, unknown>) : {};
   const totalCurrency =
     typeof totalObj["currency"] === "string"
-      ? (totalObj["currency"] as string)
+      ? (raw["total"] as Record<string, unknown>)["currency"] as string
       : currencyFromProducts;
 
   const totalValue = asNumberOrNull(totalObj["value"]);
@@ -195,8 +195,7 @@ export default function StylistPage() {
           body: JSON.stringify({ messages: nextMsgs, preferences: prefs }),
         });
 
-        const reply = await res.text();
-        // API returns JSON string; store raw text to keep coercion deterministic below.
+        const reply = await res.text(); // API returns JSON string; store raw to coerce deterministically
         setMessages((m) => [...m, { role: "assistant", content: reply }]);
       } catch {
         setMessages((m) => [
@@ -234,7 +233,10 @@ export default function StylistPage() {
         {DEMOS.map((d) => (
           <button
             key={d}
-            onClick={() => setInput(d)}
+            onClick={() => {
+              setInput(d);
+              void send(d); // submit immediately
+            }}
             className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium hover:bg-gray-50"
           >
             {d}
@@ -355,24 +357,20 @@ export default function StylistPage() {
       {/* Chat section under the preferences bar */}
       <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
         <p className="text-sm text-gray-700">
-          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit
-          notes, and capsule tips.
+          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
         </p>
 
         <div className="grid gap-3">
           {messages.map((m, i) => {
             const ai = m.role === "assistant" ? coerceAiJson(m.content) : null;
+            const isUser = m.role === "user";
 
             return (
               <div
                 key={i}
-                className={`rounded-2xl border p-3 text-sm ${
-                  m.role === "user" ? "bg-gray-50" : "bg-white"
-                }`}
+                className={`rounded-2xl border p-3 text-sm ${isUser ? "bg-gray-50" : "bg-white"}`}
               >
-                <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">
-                  {m.role}
-                </p>
+                <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">{m.role}</p>
 
                 {ai ? (
                   <div className="grid gap-3">
@@ -383,9 +381,7 @@ export default function StylistPage() {
                     <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-xs text-gray-700">
                       <span>Total:</span>
                       <span className="font-semibold">
-                        {ai.total.value != null
-                          ? `${ai.total.currency} ${ai.total.value}`
-                          : "—"}
+                        {ai.total.value != null ? `${ai.total.currency} ${ai.total.value}` : "—"}
                       </span>
                     </div>
 
@@ -398,10 +394,7 @@ export default function StylistPage() {
                           url: p.url ?? undefined,
                         });
                         return (
-                          <article
-                            key={p.id}
-                            className="group flex flex-col rounded-2xl border p-3"
-                          >
+                          <article key={p.id} className="group flex flex-col rounded-2xl border p-3">
                             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
                               {p.image ? (
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -436,48 +429,26 @@ export default function StylistPage() {
                                 {saved ? "Saved" : "Save"}
                               </button>
                             </div>
-                            <h3 className="mt-2 line-clamp-2 text-sm font-medium">
-                              {p.title}
-                            </h3>
-                            <p className="text-xs text-gray-500">
-                              {p.brand ?? "—"} • {p.category}
-                            </p>
+                            <h3 className="mt-2 line-clamp-2 text-sm font-medium">{p.title}</h3>
+                            <p className="text-xs text-gray-500">{p.brand ?? "—"} • {p.category}</p>
                             <div className="mt-2 text-xs text-gray-700">
                               {p.price != null ? `${p.currency} ${p.price}` : "?"}
                             </div>
-                            <div className="mt-2 flex gap-2">
+                            <div className="mt-2 grid grid-cols-1">
                               {p.url ? (
                                 <a
                                   href={p.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex flex-1 items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
+                                  className="inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
                                 >
                                   View
                                 </a>
                               ) : (
-                                <span className="inline-flex flex-1 items-center justify-center rounded-lg border px-3 py-1 text-xs text-gray-500">
+                                <span className="inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs text-gray-500">
                                   No link
                                 </span>
                               )}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  fav.toggle({
-                                    id: p.id,
-                                    title: p.title,
-                                    url: p.url ?? undefined,
-                                    image: p.image ?? undefined,
-                                    brand: p.brand ?? undefined,
-                                    category: p.category,
-                                    price: p.price ?? undefined,
-                                    currency: p.currency ?? undefined,
-                                  })
-                                }
-                                className="inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
-                              >
-                                {saved ? "Unsave" : "Save"}
-                              </button>
                             </div>
                           </article>
                         );
@@ -489,9 +460,7 @@ export default function StylistPage() {
                       <div className="grid gap-2">
                         {ai.why?.length ? (
                           <div>
-                            <p className="mb-1 text-[13px] font-semibold">
-                              Why it flatters
-                            </p>
+                            <p className="mb-1 text-[13px] font-semibold">Why it flatters</p>
                             <ul className="list-disc pl-5 text-sm text-gray-700">
                               {ai.why.map((w, idx) => (
                                 <li key={idx}>{w}</li>
@@ -501,9 +470,7 @@ export default function StylistPage() {
                         ) : null}
                         {ai.tips?.length ? (
                           <div>
-                            <p className="mb-1 text-[13px] font-semibold">
-                              Capsule & tips
-                            </p>
+                            <p className="mb-1 text-[13px] font-semibold">Capsule & tips</p>
                             <ul className="list-disc pl-5 text-sm text-gray-700">
                               {ai.tips.map((t, idx) => (
                                 <li key={idx}>{t}</li>
@@ -520,6 +487,21 @@ export default function StylistPage() {
               </div>
             );
           })}
+
+          {sending && (
+            <div className="rounded-2xl border p-3 text-sm">
+              <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">assistant</p>
+              <div className="grid gap-2">
+                <div className="h-3 w-2/3 animate-pulse rounded bg-gray-100" />
+                <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="aspect-[4/5] w-full animate-pulse rounded-xl bg-gray-100" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <form onSubmit={onSubmit} className="mt-2 flex gap-2">
@@ -541,3 +523,4 @@ export default function StylistPage() {
     </main>
   );
 }
+
