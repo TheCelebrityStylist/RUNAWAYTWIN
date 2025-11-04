@@ -1,160 +1,191 @@
 // FILE: lib/affiliates/providers/awin.ts
-// AWIN provider with mock-safe fallback. If AWIN_API_TOKEN not set, returns curated mocks.
-
 import type { Provider, ProviderResult, Product, Currency } from "@/lib/affiliates/types";
 
-const AWIN_API_TOKEN = process.env.AWIN_API_TOKEN || "";
+/**
+ * AWIN Product Search provider
+ * - Uses AWIN Product API (v2)
+ * - Requires: AWIN_ACCESS_TOKEN
+ * - Optional: AWIN_ADVERTISER_IDS (comma-separated), AWIN_PRODUCT_API_BASE
+ *
+ * Notes:
+ * - We pass a conservative set of fields and normalize to our Product shape.
+ * - We keep merchant URL as `url`; link wrapping to affiliate happens in linkWrapper.
+ * - We tag retailer as `awin:<advertiserId>` so wrapProducts can build the deeplink.
+ */
 
-/** Try to infer brand from URL host if API doesn't provide it. */
-function inferBrand(u?: string | null): string | undefined {
-  if (!u) return undefined;
-  try {
-    const h = new URL(u).hostname.replace(/^www\./, "");
-    if (h.includes("cos.com")) return "COS";
-    if (h.includes("arket.com")) return "ARKET";
-    if (h.includes("zara.com")) return "Zara";
-    if (h.includes("hm.com")) return "H&M";
-    if (h.includes("massimodutti.com")) return "Massimo Dutti";
-    if (h.includes("levi.com")) return "Levi's";
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}
+const AWIN_TOKEN = process.env.AWIN_ACCESS_TOKEN || "";
+const API_BASE =
+  process.env.AWIN_PRODUCT_API_BASE?.trim() || "https://product-api.awin.com/v2/products";
 
-const MOCK: Product[] = [
-  {
-    id: "cos-knit",
-    title: "Lightweight Knit Sweater",
-    brand: "COS",
-    retailer: "awin:cos",
-    url: "https://www.cos.com/",
-    image: "",
-    price: 59,
-    currency: "EUR",
-    fit: { category: "Top", gender: "female", color: "black" },
-  },
-  {
-    id: "arket-bag",
-    title: "Structured Crossbody Bag",
-    brand: "ARKET",
-    retailer: "awin:arket",
-    url: "https://www.arket.com/",
-    image: "",
-    price: 70,
-    currency: "EUR",
-    fit: { category: "Bag", gender: "female", color: "tan" },
-  },
-  {
-    id: "zara-boots",
-    title: "Leather Chelsea Boots",
-    brand: "Zara",
-    retailer: "awin:zara",
-    url: "https://www.zara.com/",
-    image: "",
-    price: 99,
-    currency: "EUR",
-    fit: { category: "Shoes", gender: "female", color: "black" },
-  },
-  {
-    id: "md-trench",
-    title: "Tailored Trench Coat",
-    brand: "Massimo Dutti",
-    retailer: "awin:md",
-    url: "https://www.massimodutti.com/",
-    image: "",
-    price: 189,
-    currency: "EUR",
-    fit: { category: "Outerwear", gender: "female", color: "beige" },
-  },
+// If you didn’t set AWIN_ADVERTISER_IDS in Vercel, this fallback keeps you unblocked.
+// Replace / augment with your own joined advertisers at any time.
+const FALLBACK_ADVERTISERS: number[] = [
+  112428, 111224, 93261, 50879, 96701, 95435, 54839, 114734, 90759, 114046,
 ];
 
-async function awinApiSearch(q: string, limit: number): Promise<Product[]> {
-  if (!AWIN_API_TOKEN) return [];
+function advertiserIds(): number[] {
+  const env = (process.env.AWIN_ADVERTISER_IDS || "").trim();
+  if (!env) return FALLBACK_ADVERTISERS;
+  return env
+    .split(",")
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+}
 
-  // Adjust endpoint/params according to your AWIN Product API contract.
-  const url = new URL("https://api.awin.com/products");
-  url.searchParams.set("q", q);
+type AwinApiProduct = {
+  productId?: string | number;
+  advertiser?: { id?: number; name?: string };
+  merchantId?: number;
+  merchantName?: string;
+  name?: string;
+  brandName?: string;
+  currency?: string;
+  displayPrice?: number | string;
+  price?: number | string;
+  rrpPrice?: number | string;
+  deepLink?: string; // some responses include this
+  awinUrl?: string; // sometimes returned
+  productUrl?: string; // raw merchant URL
+  largeImage?: string;
+  imageUrl?: string;
+  categoryName?: string;
+  primaryCategory?: string;
+  gender?: string;
+  sizes?: Array<string | number>;
+  stockStatus?: string;
+};
+
+function num(x: unknown): number | undefined {
+  if (typeof x === "number" && Number.isFinite(x)) return x;
+  if (typeof x === "string") {
+    const n = Number(x.replace(",", "."));
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
+function str(x: unknown): string | undefined {
+  return typeof x === "string" && x.trim().length ? x : undefined;
+}
+
+function pickUrl(p: AwinApiProduct): string | undefined {
+  return str(p.productUrl) || str(p.deepLink) || str(p.awinUrl);
+}
+
+function pickImage(p: AwinApiProduct): string | undefined {
+  return str(p.largeImage) || str(p.imageUrl);
+}
+
+function pickCategory(p: AwinApiProduct): string | undefined {
+  return str(p.categoryName) || str(p.primaryCategory);
+}
+
+function mapOne(raw: AwinApiProduct): Product | null {
+  const title = str(raw.name);
+  const url = pickUrl(raw);
+  const idRaw = str(raw.productId) ?? String(raw.productId ?? "");
+  const id = idRaw || (title && url ? `${title}::${url}` : "");
+  if (!title || !id) return null;
+
+  const brand = str(raw.brandName);
+  const image = pickImage(raw);
+  const price = num(raw.displayPrice) ?? num(raw.price) ?? num(raw.rrpPrice);
+  const currency = (str(raw.currency) as Currency | undefined) ?? undefined;
+
+  const advId = raw.advertiser?.id ?? raw.merchantId ?? undefined;
+  const retailerName = str(raw.advertiser?.name) || str(raw.merchantName) || undefined;
+
+  const genderStr = (str(raw.gender) || "").toLowerCase();
+  let fitGender: "female" | "male" | "unisex" | undefined;
+  if (genderStr.includes("female") || genderStr === "f") fitGender = "female";
+  else if (genderStr.includes("male") || genderStr === "m") fitGender = "male";
+  else if (genderStr) fitGender = "unisex";
+
+  const sizes =
+    Array.isArray(raw.sizes) && raw.sizes.length
+      ? raw.sizes.map((s) => String(s))
+      : undefined;
+
+  let availability: Product["availability"];
+  const stock = (str(raw.stockStatus) || "").toLowerCase();
+  if (stock.includes("in")) availability = "in_stock";
+  else if (stock.includes("out")) availability = "out_of_stock";
+  else if (stock.includes("pre")) availability = "preorder";
+  else availability = "unknown";
+
+  return {
+    id,
+    title,
+    brand,
+    retailer: advId ? `awin:${advId}` : "awin",
+    url: url || "",
+    image,
+    price,
+    currency,
+    availability,
+    fit: {
+      gender: fitGender,
+      category: pickCategory(raw),
+      sizes,
+    },
+    attrs: {
+      advertiserId: advId ?? null,
+      advertiserName: retailerName ?? null,
+    },
+  };
+}
+
+async function callAwin(query: string, opts?: { limit?: number; ids?: number[] }) {
+  if (!AWIN_TOKEN) {
+    return { ok: false as const, data: [] as AwinApiProduct[], error: "Missing AWIN_ACCESS_TOKEN" };
+  }
+
+  const pageSize = Math.min(Math.max(opts?.limit ?? 6, 1), 50);
+  const ids = (opts?.ids ?? advertiserIds()).join(",");
+
+  const url = new URL(API_BASE);
+  // AWIN v2 accepts `query`, `page`, `pageSize`, `advertiserIds`
+  url.searchParams.set("query", query);
   url.searchParams.set("page", "1");
-  url.searchParams.set("pageSize", String(Math.min(Math.max(limit, 1), 50)));
+  url.searchParams.set("pageSize", String(pageSize));
+  if (ids) url.searchParams.set("advertiserIds", ids);
 
   const resp = await fetch(url.toString(), {
     headers: {
-      Authorization: `Bearer ${AWIN_API_TOKEN}`,
+      Authorization: `Bearer ${AWIN_TOKEN}`,
       Accept: "application/json",
     },
+    // Edge-runtime friendly
     cache: "no-store",
   }).catch(() => null);
 
-  if (!resp || !resp.ok) return [];
-
-  type AwinRow = {
-    productId?: string;
-    productName?: string;
-    awDeepLink?: string;
-    merchantUrl?: string;
-    merchantName?: string;
-    imageUrl?: string;
-    price?: number | string;
-    currency?: string;
-    category?: string;
-    gender?: string;
-  };
-
-  const data = (await resp.json().catch(() => ({}))) as { products?: AwinRow[] };
-  const rows: AwinRow[] = Array.isArray(data.products) ? data.products : [];
-
-  return rows.map((r, i) => {
-    const rawUrl = (r.awDeepLink || r.merchantUrl || "").trim();
-    const priceNum =
-      typeof r.price === "number"
-        ? r.price
-        : typeof r.price === "string"
-        ? Number(r.price.replace(/[^\d.]/g, ""))
-        : undefined;
-
-    const brand =
-      (r.merchantName && r.merchantName.trim()) ||
-      inferBrand(rawUrl) ||
-      undefined;
-
+  if (!resp || !resp.ok) {
     return {
-      id: (r.productId || `awin-${i}`) as string,
-      title: (r.productName || "Product").trim(),
-      brand,
-      retailer: "awin",
-      url: rawUrl,
-      image: (r.imageUrl || "").trim() || undefined,
-      price: Number.isFinite(priceNum!) ? (priceNum as number) : undefined,
-      currency: ((r.currency as Currency) || "EUR") as Currency,
-      fit: {
-        gender:
-          r.gender === "female" || r.gender === "male"
-            ? (r.gender as "female" | "male")
-            : "unisex",
-        category: r.category || undefined,
-      },
-      attrs: {},
-    } as Product;
-  });
+      ok: false as const,
+      data: [] as AwinApiProduct[],
+      error: `AWIN ${resp ? resp.status : "network"} error`,
+    };
+  }
+
+  const data = (await resp.json().catch(() => [])) as unknown;
+  const array = Array.isArray(data) ? (data as AwinApiProduct[]) : [];
+  return { ok: true as const, data: array, error: null as null };
 }
 
 export const awinProvider: Provider = {
   async search(q: string, opts?: { limit?: number; currency?: Currency }): Promise<ProviderResult> {
-    const limit = Math.min(Math.max(opts?.limit ?? 12, 1), 50);
-    const currency = (opts?.currency || "EUR") as Currency;
+    const limit = Math.min(Math.max(opts?.limit ?? 6, 1), 50);
+    const ids = advertiserIds();
 
-    let items = await awinApiSearch(q, limit);
+    const { ok, data } = await callAwin(q, { limit, ids });
 
-    if (!items.length) {
-      items = MOCK.slice(0, limit).map((p, idx) => ({
-        ...p,
-        id: `${p.id}-${idx}`,
-        currency,
-      }));
-    }
+    const items: Product[] = (ok ? data : [])
+      .map(mapOne)
+      .filter((p): p is Product => !!p)
+      .slice(0, limit);
 
     return { provider: "awin", items };
   },
 };
+
 
