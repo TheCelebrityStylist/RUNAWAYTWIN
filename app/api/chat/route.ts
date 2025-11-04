@@ -6,11 +6,31 @@ import { NextRequest } from "next/server";
 
 /**
  * Chat → JSON stylist plan with guaranteed, linkable products.
- * - Uses Tavily to fetch candidate links if key present.
- * - Strict JSON schema (response_format: json_object).
- * - If no links found, uses a curated mock catalog of concrete product URLs.
- * - Always returns application/json with:
- *   { brief, tips[], why[], products[ {id,title,url,brand,category,price,currency,image} ], total{value|null,currency} }
+ *
+ * What’s new in this version:
+ * - Pulls real product candidates from YOUR providers endpoint (/api/products/search)
+ *   which merges AWIN, Rakuten, and Amazon results and ranks them with Prefs.
+ * - Still supports Tavily as an optional secondary source (behind ALLOW_WEB + key).
+ * - Preserves strict JSON schema (response_format: json_object) and robust coercion.
+ * - Keeps concrete mock catalog as a deterministic UI-safe fallback.
+ *
+ * Always returns application/json with:
+ *   {
+ *     brief: string,
+ *     tips: string[],
+ *     why: string[],
+ *     products: Array<{
+ *       id: string,
+ *       title: string,
+ *       url: string | null,
+ *       brand: string | null,
+ *       category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory",
+ *       price: number | null,
+ *       currency: string,
+ *       image: string | null
+ *     }>,
+ *     total: { value: number | null, currency: string }
+ *   }
  */
 
 type Role = "system" | "user" | "assistant";
@@ -120,7 +140,57 @@ function asNumberOrNull(x: unknown): number | null {
   return typeof x === "number" && Number.isFinite(x) ? x : null;
 }
 
-/* ---------------- Tavily candidates (optional) ---------------- */
+/* ---------------- Provider-backed candidates (primary) ---------------- */
+/**
+ * Hits our internal /api/products/search to retrieve ranked products
+ * from AWIN/Rakuten/Amazon, already wrapped and filtered.
+ * We only need title+url to seed the model with safe, real links.
+ */
+async function providerCandidates(query: string, prefs: Prefs): Promise<Cand[]> {
+  try {
+    const resp = await fetch("/api/products/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Use generous limit; /api/products/search will rank & cap per provider.
+      body: JSON.stringify({
+        query,
+        limit: 24,
+        perProvider: 8,
+        country: prefs.country,
+        prefs,
+        providers: ["awin", "rakuten", "amazon"],
+      }),
+    });
+    if (!resp.ok) return [];
+    const data = (await resp.json().catch(() => null)) as
+      | { items?: Array<{ title?: unknown; url?: unknown }> }
+      | null;
+    const items = Array.isArray(data?.items) ? data!.items : [];
+    // Deduplicate by hostname+path
+    const seen = new Set<string>();
+    const out: Cand[] = [];
+    for (const it of items) {
+      const title = typeof it.title === "string" ? it.title : "";
+      const url = typeof it.url === "string" ? it.url : "";
+      if (!title || !url) continue;
+      try {
+        const u = new URL(url);
+        const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ title, url });
+      } catch {
+        // ignore malformed urls
+      }
+      if (out.length >= 20) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/* ---------------- Tavily candidates (secondary/optional) ---------------- */
 async function webSearchProducts(query: string): Promise<Cand[]> {
   if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
   const booster =
@@ -356,19 +426,62 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1) Optional candidates
-    let cands: Cand[] = [];
-    if (ALLOW_WEB && process.env.TAVILY_API_KEY) {
-      const q = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
+    // 1) Build candidate links: Provider-backed first, Tavily (optional) as secondary.
+    const providerCandPromise = providerCandidates(
+      [
+        userText,
+        preferences.styleKeywords,
+        preferences.bodyType,
+        preferences.country,
+      ]
         .filter(Boolean)
-        .join(" ");
-      cands = await Promise.race([
-        webSearchProducts(q),
-        new Promise<Cand[]>((resolve) => setTimeout(() => resolve([]), 5000)),
-      ]);
+        .join(" "),
+      preferences
+    );
+
+    const tavilyCandPromise =
+      ALLOW_WEB && process.env.TAVILY_API_KEY
+        ? webSearchProducts(
+            [
+              userText,
+              preferences.styleKeywords,
+              preferences.bodyType,
+              preferences.country,
+            ]
+              .filter(Boolean)
+              .join(" ")
+          )
+        : Promise.resolve([] as Cand[]);
+
+    // Race each with a timeout so edge never stalls.
+    const timeout = <T,>(ms: number, value: T) =>
+      new Promise<T>((resolve) => setTimeout(() => resolve(value), ms));
+
+    const [prov, tav] = await Promise.all([
+      Promise.race([providerCandPromise, timeout<Cand[]>(4500, [])]),
+      Promise.race([tavilyCandPromise, timeout<Cand[]>(3500, [])]),
+    ]);
+
+    // Merge + de-dup (provider links first)
+    const seen = new Set<string>();
+    const merged: Cand[] = [];
+    for (const src of [prov, tav]) {
+      for (const c of src) {
+        try {
+          const u = new URL(c.url);
+          const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(c);
+        } catch {
+          // ignore
+        }
+        if (merged.length >= 20) break;
+      }
+      if (merged.length >= 20) break;
     }
 
-    // 2) Compose strict instruction
+    // 2) Compose strict instruction for the model
     const sys = [
       "You are an editorial-level fashion stylist.",
       "Return ONLY a single JSON object with this exact TypeScript shape:",
@@ -384,8 +497,7 @@ export async function POST(req: NextRequest) {
       "",
       prefsBlock(preferences),
       "",
-      cands.length ? "CANDIDATE_LINKS:" : "CANDIDATE_LINKS: []",
-      ...cands.map((c, i) => `- [${i}] ${c.title} — ${c.url}`),
+      candidatesBlock(merged),
     ].join("\n");
 
     const currency = currencyFor(preferences);
@@ -451,5 +563,4 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify(fallback), { headers, status: 200 });
   }
 }
-
 
