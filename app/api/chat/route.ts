@@ -145,10 +145,12 @@ function asNumberOrNull(x: unknown): number | null {
  * Hits our internal /api/products/search to retrieve ranked products
  * from AWIN/Rakuten/Amazon, already wrapped and filtered.
  * We only need title+url to seed the model with safe, real links.
+ *
+ * IMPORTANT: Use an ABSOLUTE URL (Edge runtime); we derive it from req.url.
  */
-async function providerCandidates(query: string, prefs: Prefs): Promise<Cand[]> {
+async function providerCandidates(baseUrl: string, query: string, prefs: Prefs): Promise<Cand[]> {
   try {
-    const resp = await fetch("/api/products/search", {
+    const resp = await fetch(new URL("/api/products/search", baseUrl), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // Use generous limit; /api/products/search will rank & cap per provider.
@@ -379,7 +381,7 @@ function coercePlan(content: string, fallbackCurrency: string): PlanJson | null 
   const totalObj = isObj(raw["total"]) ? (raw["total"] as Record<string, unknown>) : {};
   const totalCurrency =
     typeof totalObj["currency"] === "string"
-      ? (totalObj["currency"] as string)
+      ? (raw["total"] as Record<string, unknown>)["currency"]
       : fallbackCurrency;
   const totalValue = asNumberOrNull(totalObj["value"]);
 
@@ -388,7 +390,7 @@ function coercePlan(content: string, fallbackCurrency: string): PlanJson | null 
     tips,
     why,
     products,
-    total: { value: totalValue, currency: totalCurrency },
+    total: { value: totalValue, currency: totalCurrency as string },
   };
 }
 
@@ -427,30 +429,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 1) Build candidate links: Provider-backed first, Tavily (optional) as secondary.
-    const providerCandPromise = providerCandidates(
-      [
-        userText,
-        preferences.styleKeywords,
-        preferences.bodyType,
-        preferences.country,
-      ]
-        .filter(Boolean)
-        .join(" "),
-      preferences
-    );
+    const queryString = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
+      .filter(Boolean)
+      .join(" ");
+
+    const providerCandPromise = providerCandidates(req.url, queryString, preferences);
 
     const tavilyCandPromise =
       ALLOW_WEB && process.env.TAVILY_API_KEY
-        ? webSearchProducts(
-            [
-              userText,
-              preferences.styleKeywords,
-              preferences.bodyType,
-              preferences.country,
-            ]
-              .filter(Boolean)
-              .join(" ")
-          )
+        ? webSearchProducts(queryString)
         : Promise.resolve([] as Cand[]);
 
     // Race each with a timeout so edge never stalls.
