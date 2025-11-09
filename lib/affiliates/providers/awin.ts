@@ -2,25 +2,23 @@
 import type { Provider, ProviderResult, Product, Currency } from "@/lib/affiliates/types";
 
 /**
- * AWIN Product Search provider
+ * AWIN Product Search provider (STRICT + CORRECT)
  *
- * Requirements (all set in Vercel env):
- * - AWIN_ACCESS_TOKEN: Personal access token for the Product API
- * - AWIN_ADVERTISER_IDS: Comma-separated advertiser IDs you are APPROVED for and that have feeds
+ * Required environment (Vercel):
+ * - AWIN_ACCESS_TOKEN
+ *     Your AWIN ProductServe / Product API access token.
  *
- * Behavior:
- * - If AWIN_ACCESS_TOKEN is missing → returns zero items.
- * - If AWIN_ADVERTISER_IDS is missing/empty → returns zero items.
- * - Only queries advertisers you actually configured.
- * - Normalizes into internal Product shape.
+ * - AWIN_ADVERTISER_IDS
+ *     Comma-separated numeric advertiser IDs that meet BOTH:
+ *       1) You are JOINED/APPROVED for the program.
+ *       2) They have an active product feed in AWIN.
+ *     Example:
+ *       AWIN_ADVERTISER_IDS=12345,67890,13579
  *
- * IMPORTANT:
- * - Do NOT put COS/ZARA/ARKET/etc here unless:
- *   1) You see them in AWIN “Joined programmes”
- *   2) They show “Product feed: Yes”
- *   3) You add their numeric IDs to AWIN_ADVERTISER_IDS
- * - Until then, this provider will simply return [] and your app
- *   will fall back to the mock catalog in /api/chat.
+ * Notes:
+ * - This file does NOT guess COS/Zara/etc.
+ * - If a brand is not in your joined-programs CSV with a feed, do NOT include it.
+ * - If misconfigured (no token or no IDs), this provider returns [] so callers can fall back.
  */
 
 const AWIN_TOKEN = (process.env.AWIN_ACCESS_TOKEN || "").trim();
@@ -28,9 +26,9 @@ const API_BASE =
   process.env.AWIN_PRODUCT_API_BASE?.trim() || "https://product-api.awin.com/v2/products";
 
 function advertiserIdsFromEnv(): number[] {
-  const env = (process.env.AWIN_ADVERTISER_IDS || "").trim();
-  if (!env) return [];
-  return env
+  const raw = (process.env.AWIN_ADVERTISER_IDS || "").trim();
+  if (!raw) return [];
+  return raw
     .split(",")
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => Number.isFinite(n) && n > 0);
@@ -69,7 +67,7 @@ function num(x: unknown): number | undefined {
 }
 
 function str(x: unknown): string | undefined {
-  return typeof x === "string" && x.trim().length ? x : undefined;
+  return typeof x === "string" && x.trim().length ? x.trim() : undefined;
 }
 
 function pickUrl(p: AwinApiProduct): string | undefined {
@@ -87,8 +85,9 @@ function pickCategory(p: AwinApiProduct): string | undefined {
 function mapOne(raw: AwinApiProduct): Product | null {
   const title = str(raw.name);
   const url = pickUrl(raw);
-  const productIdStr = str(raw.productId) ?? (raw.productId != null ? String(raw.productId) : "");
-  const id = productIdStr || (title && url ? `${title}::${url}` : "");
+
+  const idRaw = str(raw.productId) ?? (raw.productId != null ? String(raw.productId) : "");
+  const id = idRaw || (title && url ? `${title}::${url}` : "");
   if (!title || !id) return null;
 
   const brand = str(raw.brandName);
@@ -143,12 +142,9 @@ async function callAwin(
   query: string,
   opts: { limit: number; advertiserIds: number[] }
 ): Promise<{ ok: boolean; data: AwinApiProduct[] }> {
-  if (!AWIN_TOKEN) {
-    return { ok: false, data: [] };
-  }
-  if (!opts.advertiserIds.length) {
-    return { ok: false, data: [] };
-  }
+  if (!AWIN_TOKEN) return { ok: false, data: [] };
+  if (!opts.advertiserIds.length) return { ok: false, data: [] };
+  if (!query.trim()) return { ok: false, data: [] };
 
   const pageSize = Math.min(Math.max(opts.limit, 1), 50);
   const ids = opts.advertiserIds.join(",");
@@ -167,9 +163,7 @@ async function callAwin(
     cache: "no-store",
   }).catch(() => null);
 
-  if (!resp || !resp.ok) {
-    return { ok: false, data: [] };
-  }
+  if (!resp || !resp.ok) return { ok: false, data: [] };
 
   const data = (await resp.json().catch(() => [])) as unknown;
   const array = Array.isArray(data) ? (data as AwinApiProduct[]) : [];
@@ -181,8 +175,8 @@ export const awinProvider: Provider = {
     const limit = Math.min(Math.max(opts?.limit ?? 6, 1), 50);
     const advertiserIds = advertiserIdsFromEnv();
 
-    // Hard fail-safe: if not configured, return empty so callers can fall back.
-    if (!AWIN_TOKEN || advertiserIds.length === 0 || !q.trim()) {
+    // If not configured correctly, return empty so upstream can fall back.
+    if (!AWIN_TOKEN || advertiserIds.length === 0) {
       return { provider: "awin", items: [] };
     }
 
@@ -198,4 +192,3 @@ export const awinProvider: Provider = {
     return { provider: "awin", items };
   },
 };
-
