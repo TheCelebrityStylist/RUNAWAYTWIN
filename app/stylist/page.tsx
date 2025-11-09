@@ -2,10 +2,12 @@
 "use client";
 
 import * as React from "react";
-import { useFavorites } from "@/lib/hooks/useFavorites";
+import { useFavorites, type FavProduct } from "@/lib/hooks/useFavorites";
 
 /* ========================= Types ========================= */
+
 type Gender = "female" | "male" | "other";
+
 type Prefs = {
   gender?: Gender;
   bodyType?: string;
@@ -14,18 +16,29 @@ type Prefs = {
   keywords?: string[];
   sizes?: { top?: string; bottom?: string; dress?: string; shoe?: string };
 };
+
 type Msg = { role: "user" | "assistant"; content: string };
+
+type UiCategory =
+  | "Top"
+  | "Bottom"
+  | "Dress"
+  | "Outerwear"
+  | "Shoes"
+  | "Bag"
+  | "Accessory";
 
 type UiProduct = {
   id: string;
   title: string;
   url: string | null;
   brand: string | null;
-  category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory";
+  category: UiCategory;
   price: number | null;
   currency: string;
   image: string | null;
 };
+
 type AiJson = {
   brief: string;
   tips: string[];
@@ -35,6 +48,7 @@ type AiJson = {
 };
 
 /* ===================== UI atoms/helpers ===================== */
+
 function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
@@ -43,6 +57,7 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
     />
   );
 }
+
 function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
@@ -52,40 +67,74 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   );
 }
 
-/* ================== Robust JSON coercion ================== */
-function asString(x: unknown, def = ""): string {
-  return typeof x === "string" ? x : def;
-}
-function asNumberOrNull(x: unknown): number | null {
-  return typeof x === "number" && Number.isFinite(x) ? x : null;
-}
+/* ================== JSON coercion (matches /api/chat) ================== */
+
 function isObj(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }
+
+function asString(x: unknown, def = ""): string {
+  return typeof x === "string" ? x : def;
+}
+
+function asNumberOrNull(x: unknown): number | null {
+  return typeof x === "number" && Number.isFinite(x) ? x : null;
+}
+
+function normalizeCategory(raw: unknown): UiCategory {
+  const v = typeof raw === "string" ? raw.toLowerCase() : "";
+  if (v.includes("dress")) return "Dress";
+  if (v.includes("coat") || v.includes("jacket") || v.includes("trench"))
+    return "Outerwear";
+  if (v.includes("shoe") || v.includes("boot") || v.includes("sneaker") || v.includes("heel"))
+    return "Shoes";
+  if (v.includes("bag")) return "Bag";
+  if (v.includes("top") || v.includes("shirt") || v.includes("tee") || v.includes("blouse"))
+    return "Top";
+  if (v.includes("trouser") || v.includes("pant") || v.includes("jean") || v.includes("skirt"))
+    return "Bottom";
+  return "Accessory";
+}
+
 function asProduct(x: unknown, fallbackCurrency: string): UiProduct | null {
   if (!isObj(x)) return null;
-  const cat = asString(x["category"], "Accessory");
-  const category: UiProduct["category"] =
-    cat === "Top" ||
-    cat === "Bottom" ||
-    cat === "Dress" ||
-    cat === "Outerwear" ||
-    cat === "Shoes" ||
-    cat === "Bag" ||
-    cat === "Accessory"
-      ? cat
-      : "Accessory";
+
+  const id = asString(x["id"], "");
+  const title = asString(x["title"], "");
+  if (!title) return null;
+
+  const url =
+    typeof x["url"] === "string" && x["url"].trim().length
+      ? (x["url"] as string)
+      : null;
+
+  const brand =
+    typeof x["brand"] === "string" && x["brand"].trim().length
+      ? (x["brand"] as string)
+      : null;
+
+  const cat = normalizeCategory(x["category"]);
+  const price = asNumberOrNull(x["price"]);
+
+  const currency =
+    typeof x["currency"] === "string" && x["currency"].trim().length
+      ? (x["currency"] as string)
+      : fallbackCurrency;
+
+  const image =
+    typeof x["image"] === "string" && x["image"].trim().length
+      ? (x["image"] as string)
+      : null;
 
   return {
-    id: asString(x["id"], crypto.randomUUID()),
-    title: asString(x["title"], "Item"),
-    url: typeof x["url"] === "string" ? x["url"] : null,
-    brand: typeof x["brand"] === "string" ? x["brand"] : null,
-    category,
-    price: asNumberOrNull(x["price"]),
-    currency:
-      typeof x["currency"] === "string" ? (x["currency"] as string) : fallbackCurrency,
-    image: typeof x["image"] === "string" ? x["image"] : null,
+    id: id || (url ?? title),
+    title,
+    url,
+    brand,
+    category: cat,
+    price,
+    currency,
+    image,
   };
 }
 
@@ -99,37 +148,37 @@ function coerceAiJson(content: string): AiJson | null {
   }
   if (!isObj(raw)) return null;
 
-  const productsRaw = Array.isArray(raw["products"]) ? (raw["products"] as unknown[]) : [];
-
-  // currency from first product with currency, else "EUR"
-  const currencyFromProducts =
-    productsRaw
-      .map((p) => (isObj(p) && typeof p["currency"] === "string" ? (p["currency"] as string) : null))
-      .find((c): c is string => !!c) ?? "EUR";
-
-  const products: UiProduct[] = productsRaw
-    .map((p) => asProduct(p, currencyFromProducts))
-    .filter((p): p is UiProduct => !!p);
-
-  const totalObj = isObj(raw["total"]) ? (raw["total"] as Record<string, unknown>) : {};
-  const totalCurrency =
-    typeof totalObj["currency"] === "string"
-      ? (raw["total"] as Record<string, unknown>)["currency"] as string
-      : currencyFromProducts;
-
-  const totalValue = asNumberOrNull(totalObj["value"]);
-
   const brief = asString(raw["brief"], "");
   const tips = Array.isArray(raw["tips"])
-    ? ((raw["tips"] as unknown[]).filter((s) => typeof s === "string") as string[])
+    ? (raw["tips"] as unknown[]).filter((s) => typeof s === "string") as string[]
     : [];
   const why = Array.isArray(raw["why"])
-    ? ((raw["why"] as unknown[]).filter((s) => typeof s === "string") as string[])
+    ? (raw["why"] as unknown[]).filter((s) => typeof s === "string") as string[]
     : [];
 
-  if (!brief && products.length === 0 && tips.length === 0 && why.length === 0) {
-    return null;
-  }
+  const productsRaw = Array.isArray(raw["products"])
+    ? (raw["products"] as unknown[])
+    : [];
+  const fallbackCurrency =
+    (isObj(raw["total"]) &&
+      typeof raw["total"]["currency"] === "string" &&
+      raw["total"]["currency"]) ||
+    "EUR";
+
+  const products: UiProduct[] = productsRaw
+    .map((p) => asProduct(p, fallbackCurrency))
+    .filter((p): p is UiProduct => !!p);
+
+  const totalObj = isObj(raw["total"])
+    ? (raw["total"] as Record<string, unknown>)
+    : {};
+  const totalCurrency =
+    typeof totalObj["currency"] === "string"
+      ? (totalObj["currency"] as string)
+      : fallbackCurrency;
+  const totalValue = asNumberOrNull(totalObj["value"]);
+
+  if (!brief && !tips.length && !why.length && !products.length) return null;
 
   return {
     brief,
@@ -141,40 +190,47 @@ function coerceAiJson(content: string): AiJson | null {
 }
 
 /* ========================= Page ========================= */
+
 const DEMOS = [
-  `Zendaya for a gala in Paris`,
-  `Taylor Russell — gallery opening, rainy 16°C`,
-  `Timothée Chalamet — smart casual date`,
-  `Hailey Bieber — street style, under €300`,
+  `Zendaya at a Paris gala, sleek modern couture under €800`,
+  `Taylor Russell at a gallery opening, rainy 16°C, sculptural tailoring`,
+  `Timothée Chalamet smart-casual date, soft tailoring + boots`,
+  `Hailey Bieber off-duty street, under €300, neutrals + leather`,
 ];
 
 export default function StylistPage() {
-  /* Prefs */
+  /* Prefs (stored locally, drive all calls) */
   const [prefs, setPrefs] = React.useState<Prefs>(() => {
+    if (typeof window === "undefined") return {};
     try {
       const raw = localStorage.getItem("rwt-prefs");
       if (raw) return JSON.parse(raw) as Prefs;
     } catch {}
     return {};
   });
+
   const updatePrefs = React.useCallback((patch: Partial<Prefs>) => {
-    setPrefs((p) => {
-      const next = {
-        ...p,
+    setPrefs((prev) => {
+      const next: Prefs = {
+        ...prev,
         ...patch,
-        sizes: { ...(p.sizes ?? {}), ...(patch.sizes ?? {}) },
+        sizes: { ...(prev.sizes ?? {}), ...(patch.sizes ?? {}) },
       };
       try {
-        localStorage.setItem("rwt-prefs", JSON.stringify(next));
+        if (typeof window !== "undefined") {
+          localStorage.setItem("rwt-prefs", JSON.stringify(next));
+        }
       } catch {}
       return next;
     });
   }, []);
 
-  /* Favorites (Lookboard) */
+  const sizes = prefs.sizes ?? {};
+
+  /* Favorites (Lookboard count and Save buttons) */
   const fav = useFavorites();
 
-  /* Chat */
+  /* Chat state */
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
@@ -182,7 +238,8 @@ export default function StylistPage() {
   const send = React.useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed || sending) return;
+
       const nextMsgs: Msg[] = [...messages, { role: "user", content: trimmed }];
       setMessages(nextMsgs);
       setInput("");
@@ -192,31 +249,51 @@ export default function StylistPage() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: nextMsgs, preferences: prefs }),
+          body: JSON.stringify({
+            messages: nextMsgs,
+            preferences: {
+              gender: prefs.gender,
+              bodyType: prefs.bodyType,
+              budget: prefs.budget,
+              country: prefs.country,
+              styleKeywords: (prefs.keywords || []).join(", "),
+              sizeTop: sizes.top,
+              sizeBottom: sizes.bottom,
+              sizeDress: sizes.dress,
+              sizeShoe: sizes.shoe,
+            },
+          }),
         });
 
-        const reply = await res.text(); // API returns JSON string; store raw to coerce deterministically
-        setMessages((m) => [...m, { role: "assistant", content: reply }]);
+        const replyText = await res.text();
+        setMessages((curr) => [
+          ...curr,
+          { role: "assistant", content: replyText },
+        ]);
       } catch {
-        setMessages((m) => [
-          ...m,
-          {
-            role: "assistant",
-            content: JSON.stringify({
-              brief:
-                "I hit a hiccup finishing the look. This is a safe fallback with a few capsule-friendly picks.",
-              tips: ["Monochrome layers keep it cohesive."],
-              why: ["Clean lines lengthen the silhouette."],
-              products: [],
-              total: { value: null, currency: "EUR" },
-            } satisfies AiJson),
-          },
+        const fallback: AiJson = {
+          brief:
+            "I hit a hiccup talking to the product APIs. Here is a safe capsule-style suggestion you can refine.",
+          tips: [
+            "Stay in one palette for higher mix-and-match value.",
+            "Anchor each look with one sharp tailored piece.",
+          ],
+          why: [
+            "These shapes are forgiving and elongating on most frames.",
+            "Each item can rotate across multiple outfits.",
+          ],
+          products: [],
+          total: { value: null, currency: "EUR" },
+        };
+        setMessages((curr) => [
+          ...curr,
+          { role: "assistant", content: JSON.stringify(fallback) },
         ]);
       } finally {
         setSending(false);
       }
     },
-    [messages, prefs]
+    [messages, prefs, sizes, sending]
   );
 
   const onSubmit = (e: React.FormEvent) => {
@@ -224,43 +301,47 @@ export default function StylistPage() {
     void send(input);
   };
 
-  const sizes = prefs.sizes ?? {};
+  /* =============== RENDER =============== */
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
-      {/* Top promo chips */}
+      {/* Demo prompts + Lookboard link */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {DEMOS.map((d) => (
           <button
             key={d}
-            onClick={() => {
-              setInput(d);
-              void send(d); // submit immediately
-            }}
-            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-medium hover:bg-gray-50"
+            type="button"
+            onClick={() => setInput(d)}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-[11px] font-medium hover:bg-gray-50"
           >
             {d}
           </button>
         ))}
         <a
           href="/looks"
-          className="ml-auto inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-semibold hover:bg-gray-50"
+          className="ml-auto inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-[11px] font-semibold hover:bg-gray-50"
         >
           View Lookboard ({fav.list.length})
         </a>
       </div>
 
-      {/* Preferences BAR on top (sticky, not stretched) */}
+      {/* Preferences bar */}
       <section className="sticky top-14 z-10 mb-6 grid gap-3 rounded-2xl border bg-white/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-        <p className="text-sm font-semibold">Preferences</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">
+          Your fit & context
+        </p>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
           {/* Gender */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-1">
             <Select
               aria-label="Gender"
               value={prefs.gender ?? ""}
-              onChange={(e) => updatePrefs({ gender: e.target.value as Gender })}
+              onChange={(e) =>
+                updatePrefs({
+                  gender: (e.target.value || undefined) as Gender | undefined,
+                })
+              }
             >
               <option value="">Gender</option>
               <option value="female">Female</option>
@@ -275,7 +356,11 @@ export default function StylistPage() {
               aria-label="Body type"
               placeholder="pear / hourglass / apple / rectangle"
               value={prefs.bodyType ?? ""}
-              onChange={(e) => updatePrefs({ bodyType: e.target.value || undefined })}
+              onChange={(e) =>
+                updatePrefs({
+                  bodyType: e.target.value || undefined,
+                })
+              }
             />
           </div>
 
@@ -283,9 +368,13 @@ export default function StylistPage() {
           <div className="col-span-1">
             <TextInput
               aria-label="Budget band"
-              placeholder="budget band or number"
+              placeholder="e.g. 150-300 per look"
               value={prefs.budget ?? ""}
-              onChange={(e) => updatePrefs({ budget: e.target.value || undefined })}
+              onChange={(e) =>
+                updatePrefs({
+                  budget: e.target.value || undefined,
+                })
+              }
             />
           </div>
 
@@ -295,7 +384,11 @@ export default function StylistPage() {
               aria-label="Country"
               placeholder="NL / US / UK…"
               value={prefs.country ?? ""}
-              onChange={(e) => updatePrefs({ country: e.target.value || undefined })}
+              onChange={(e) =>
+                updatePrefs({
+                  country: e.target.value || undefined,
+                })
+              }
             />
           </div>
 
@@ -317,14 +410,19 @@ export default function StylistPage() {
           </div>
         </div>
 
-        {/* Sizes row */}
+        {/* Sizes */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <TextInput
             aria-label="Top size"
             placeholder="Top"
             value={sizes.top ?? ""}
             onChange={(e) =>
-              updatePrefs({ sizes: { ...sizes, top: e.target.value || undefined } })
+              updatePrefs({
+                sizes: {
+                  ...sizes,
+                  top: e.target.value || undefined,
+                },
+              })
             }
           />
           <TextInput
@@ -332,7 +430,12 @@ export default function StylistPage() {
             placeholder="Bottom"
             value={sizes.bottom ?? ""}
             onChange={(e) =>
-              updatePrefs({ sizes: { ...sizes, bottom: e.target.value || undefined } })
+              updatePrefs({
+                sizes: {
+                  ...sizes,
+                  bottom: e.target.value || undefined,
+                },
+              })
             }
           />
           <TextInput
@@ -340,7 +443,12 @@ export default function StylistPage() {
             placeholder="Dress"
             value={sizes.dress ?? ""}
             onChange={(e) =>
-              updatePrefs({ sizes: { ...sizes, dress: e.target.value || undefined } })
+              updatePrefs({
+                sizes: {
+                  ...sizes,
+                  dress: e.target.value || undefined,
+                },
+              })
             }
           />
           <TextInput
@@ -348,53 +456,73 @@ export default function StylistPage() {
             placeholder="Shoe"
             value={sizes.shoe ?? ""}
             onChange={(e) =>
-              updatePrefs({ sizes: { ...sizes, shoe: e.target.value || undefined } })
+              updatePrefs({
+                sizes: {
+                  ...sizes,
+                  shoe: e.target.value || undefined,
+                },
+              })
             }
           />
         </div>
       </section>
 
-      {/* Chat section under the preferences bar */}
+      {/* Chat + Look output */}
       <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
-        <p className="text-sm text-gray-700">
-          Muse + occasion → I’ll assemble a shoppable head-to-toe look with links, fit notes, and capsule tips.
+        <p className="text-xs text-gray-700">
+          Describe your muse, occasion, weather, and constraints. The stylist uses your
+          profile bar plus live products to build a shoppable look.
         </p>
 
         <div className="grid gap-3">
           {messages.map((m, i) => {
             const ai = m.role === "assistant" ? coerceAiJson(m.content) : null;
-            const isUser = m.role === "user";
 
             return (
               <div
                 key={i}
-                className={`rounded-2xl border p-3 text-sm ${isUser ? "bg-gray-50" : "bg-white"}`}
+                className={`rounded-2xl border p-3 text-sm ${
+                  m.role === "user" ? "bg-gray-50" : "bg-white"
+                }`}
               >
-                <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">{m.role}</p>
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-gray-500">
+                  {m.role === "user" ? "You" : "RunwayTwin Stylist"}
+                </p>
 
                 {ai ? (
                   <div className="grid gap-3">
-                    {/* brief */}
-                    <p className="text-gray-800">{ai.brief}</p>
+                    {/* Brief (should reference muse + prefs) */}
+                    <p className="text-gray-900">{ai.brief}</p>
 
-                    {/* total */}
-                    <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-xs text-gray-700">
-                      <span>Total:</span>
+                    {/* Total */}
+                    <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-[10px] text-gray-700">
+                      <span>Est. total (if priced):</span>
                       <span className="font-semibold">
-                        {ai.total.value != null ? `${ai.total.currency} ${ai.total.value}` : "—"}
+                        {ai.total.value != null
+                          ? `${ai.total.currency} ${ai.total.value}`
+                          : "—"}
                       </span>
                     </div>
 
-                    {/* products grid */}
+                    {/* Products */}
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                       {ai.products.map((p) => {
-                        const saved = fav.has({
+                        const favKey: FavProduct = {
                           id: p.id,
                           title: p.title,
                           url: p.url ?? undefined,
-                        });
+                          image: p.image ?? undefined,
+                          brand: p.brand ?? undefined,
+                          category: p.category,
+                          price: p.price ?? undefined,
+                          currency: p.currency ?? undefined,
+                        };
+                        const saved = fav.has(favKey);
                         return (
-                          <article key={p.id} className="group flex flex-col rounded-2xl border p-3">
+                          <article
+                            key={p.id}
+                            className="group flex flex-col rounded-2xl border p-3"
+                          >
                             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
                               {p.image ? (
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -407,20 +535,8 @@ export default function StylistPage() {
                               ) : null}
                               <button
                                 type="button"
-                                aria-label={saved ? "Remove from Lookboard" : "Save to Lookboard"}
-                                onClick={() =>
-                                  fav.toggle({
-                                    id: p.id,
-                                    title: p.title,
-                                    url: p.url ?? undefined,
-                                    image: p.image ?? undefined,
-                                    brand: p.brand ?? undefined,
-                                    category: p.category,
-                                    price: p.price ?? undefined,
-                                    currency: p.currency ?? undefined,
-                                  })
-                                }
-                                className={`absolute right-2 top-2 rounded-full px-2 py-1 text-[11px] font-semibold shadow-sm ${
+                                onClick={() => fav.toggle(favKey)}
+                                className={`absolute right-2 top-2 rounded-full px-2 py-1 text-[9px] font-semibold shadow-sm ${
                                   saved
                                     ? "bg-black text-white"
                                     : "bg-white/90 text-black border border-gray-200"
@@ -429,23 +545,29 @@ export default function StylistPage() {
                                 {saved ? "Saved" : "Save"}
                               </button>
                             </div>
-                            <h3 className="mt-2 line-clamp-2 text-sm font-medium">{p.title}</h3>
-                            <p className="text-xs text-gray-500">{p.brand ?? "—"} • {p.category}</p>
-                            <div className="mt-2 text-xs text-gray-700">
-                              {p.price != null ? `${p.currency} ${p.price}` : "?"}
+                            <h3 className="mt-2 line-clamp-2 text-xs font-semibold text-gray-900">
+                              {p.title}
+                            </h3>
+                            <p className="text-[10px] text-gray-500">
+                              {p.brand ?? "—"} • {p.category}
+                            </p>
+                            <div className="mt-1 text-[10px] text-gray-800">
+                              {p.price != null
+                                ? `${p.currency} ${p.price}`
+                                : "Price at retailer"}
                             </div>
-                            <div className="mt-2 grid grid-cols-1">
+                            <div className="mt-2 flex gap-2">
                               {p.url ? (
                                 <a
                                   href={p.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs font-medium hover:bg-gray-50"
+                                  className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[10px] font-medium hover:bg-gray-50"
                                 >
                                   View
                                 </a>
                               ) : (
-                                <span className="inline-flex items-center justify-center rounded-lg border px-3 py-1 text-xs text-gray-500">
+                                <span className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[9px] text-gray-500">
                                   No link
                                 </span>
                               )}
@@ -455,60 +577,52 @@ export default function StylistPage() {
                       })}
                     </div>
 
-                    {/* tips + why */}
-                    {(ai.why?.length || ai.tips?.length) && (
+                    {/* Why + Tips */}
+                    {(ai.why.length > 0 || ai.tips.length > 0) && (
                       <div className="grid gap-2">
-                        {ai.why?.length ? (
+                        {ai.why.length > 0 && (
                           <div>
-                            <p className="mb-1 text-[13px] font-semibold">Why it flatters</p>
-                            <ul className="list-disc pl-5 text-sm text-gray-700">
+                            <p className="mb-1 text-[11px] font-semibold">
+                              Why this fits you
+                            </p>
+                            <ul className="list-disc pl-4 text-[11px] text-gray-800">
                               {ai.why.map((w, idx) => (
                                 <li key={idx}>{w}</li>
                               ))}
                             </ul>
                           </div>
-                        ) : null}
-                        {ai.tips?.length ? (
+                        )}
+                        {ai.tips.length > 0 && (
                           <div>
-                            <p className="mb-1 text-[13px] font-semibold">Capsule & tips</p>
-                            <ul className="list-disc pl-5 text-sm text-gray-700">
+                            <p className="mb-1 text-[11px] font-semibold">
+                              Capsule & styling notes
+                            </p>
+                            <ul className="list-disc pl-4 text-[11px] text-gray-800">
                               {ai.tips.map((t, idx) => (
                                 <li key={idx}>{t}</li>
                               ))}
                             </ul>
                           </div>
-                        ) : null}
+                        )}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <pre className="whitespace-pre-wrap text-gray-800">{m.content}</pre>
+                  <p className="whitespace-pre-wrap text-gray-900">
+                    {m.content}
+                  </p>
                 )}
               </div>
             );
           })}
-
-          {sending && (
-            <div className="rounded-2xl border p-3 text-sm">
-              <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">assistant</p>
-              <div className="grid gap-2">
-                <div className="h-3 w-2/3 animate-pulse rounded bg-gray-100" />
-                <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="aspect-[4/5] w-full animate-pulse rounded-xl bg-gray-100" />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        <form onSubmit={onSubmit} className="mt-2 flex gap-2">
+        {/* Input */}
+        <form onSubmit={onSubmit} className="mt-1 flex gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`"Zendaya, Paris gallery opening, 18°C drizzle, smart-casual"`}
+            placeholder={`"Zendaya in Paris, black-tie gala, 18°C, soft drama, budget €400 total"`}
             className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-3 text-sm outline-none focus:border-gray-600"
           />
           <button
@@ -516,11 +630,12 @@ export default function StylistPage() {
             disabled={sending}
             className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-black/90 disabled:opacity-50"
           >
-            {sending ? "Sending…" : "Send"}
+            {sending ? "Styling" : "Send"}
           </button>
         </form>
       </section>
     </main>
   );
 }
+
 
