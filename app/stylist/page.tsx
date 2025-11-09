@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useFavorites, type FavProduct } from "@/lib/hooks/useFavorites";
+import { useFavorites } from "@/lib/hooks/useFavorites";
 
 /* ========================= Types ========================= */
 
@@ -150,10 +150,10 @@ function coerceAiJson(content: string): AiJson | null {
 
   const brief = asString(raw["brief"], "");
   const tips = Array.isArray(raw["tips"])
-    ? (raw["tips"] as unknown[]).filter((s) => typeof s === "string") as string[]
+    ? ((raw["tips"] as unknown[]).filter((s) => typeof s === "string") as string[])
     : [];
   const why = Array.isArray(raw["why"])
-    ? (raw["why"] as unknown[]).filter((s) => typeof s === "string") as string[]
+    ? ((raw["why"] as unknown[]).filter((s) => typeof s === "string") as string[])
     : [];
 
   const productsRaw = Array.isArray(raw["products"])
@@ -199,7 +199,7 @@ const DEMOS = [
 ];
 
 export default function StylistPage() {
-  /* Prefs (stored locally, drive all calls) */
+  /* Prefs (persisted locally) */
   const [prefs, setPrefs] = React.useState<Prefs>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -227,7 +227,7 @@ export default function StylistPage() {
 
   const sizes = prefs.sizes ?? {};
 
-  /* Favorites (Lookboard count and Save buttons) */
+  /* Favorites */
   const fav = useFavorites();
 
   /* Chat state */
@@ -273,13 +273,13 @@ export default function StylistPage() {
       } catch {
         const fallback: AiJson = {
           brief:
-            "I hit a hiccup talking to the product APIs. Here is a safe capsule-style suggestion you can refine.",
+            "I hit a connectivity issue with product APIs. Here is a neutral, capsule-based fallback look you can refine.",
           tips: [
-            "Stay in one palette for higher mix-and-match value.",
-            "Anchor each look with one sharp tailored piece.",
+            "Keep to one or two base colors for high remix value.",
+            "Use one structured piece to sharpen the silhouette.",
           ],
           why: [
-            "These shapes are forgiving and elongating on most frames.",
+            "These cuts flatter varied body types.",
             "Each item can rotate across multiple outfits.",
           ],
           products: [],
@@ -325,14 +325,13 @@ export default function StylistPage() {
         </a>
       </div>
 
-      {/* Preferences bar */}
+      {/* Preferences */}
       <section className="sticky top-14 z-10 mb-6 grid gap-3 rounded-2xl border bg-white/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/70">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">
           Your fit & context
         </p>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-          {/* Gender */}
           <div className="col-span-1">
             <Select
               aria-label="Gender"
@@ -350,7 +349,6 @@ export default function StylistPage() {
             </Select>
           </div>
 
-          {/* Body type */}
           <div className="col-span-2 md:col-span-2">
             <TextInput
               aria-label="Body type"
@@ -364,7 +362,6 @@ export default function StylistPage() {
             />
           </div>
 
-          {/* Budget */}
           <div className="col-span-1">
             <TextInput
               aria-label="Budget band"
@@ -378,7 +375,6 @@ export default function StylistPage() {
             />
           </div>
 
-          {/* Country */}
           <div className="col-span-1">
             <TextInput
               aria-label="Country"
@@ -392,7 +388,6 @@ export default function StylistPage() {
             />
           </div>
 
-          {/* Keywords */}
           <div className="col-span-2 md:col-span-2">
             <TextInput
               aria-label="Style keywords"
@@ -410,7 +405,6 @@ export default function StylistPage() {
           </div>
         </div>
 
-        {/* Sizes */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <TextInput
             aria-label="Top size"
@@ -418,10 +412,7 @@ export default function StylistPage() {
             value={sizes.top ?? ""}
             onChange={(e) =>
               updatePrefs({
-                sizes: {
-                  ...sizes,
-                  top: e.target.value || undefined,
-                },
+                sizes: { ...sizes, top: e.target.value || undefined },
               })
             }
           />
@@ -431,10 +422,7 @@ export default function StylistPage() {
             value={sizes.bottom ?? ""}
             onChange={(e) =>
               updatePrefs({
-                sizes: {
-                  ...sizes,
-                  bottom: e.target.value || undefined,
-                },
+                sizes: { ...sizes, bottom: e.target.value || undefined },
               })
             }
           />
@@ -444,10 +432,7 @@ export default function StylistPage() {
             value={sizes.dress ?? ""}
             onChange={(e) =>
               updatePrefs({
-                sizes: {
-                  ...sizes,
-                  dress: e.target.value || undefined,
-                },
+                sizes: { ...sizes, dress: e.target.value || undefined },
               })
             }
           />
@@ -457,21 +442,18 @@ export default function StylistPage() {
             value={sizes.shoe ?? ""}
             onChange={(e) =>
               updatePrefs({
-                sizes: {
-                  ...sizes,
-                  shoe: e.target.value || undefined,
-                },
+                sizes: { ...sizes, shoe: e.target.value || undefined },
               })
             }
           />
         </div>
       </section>
 
-      {/* Chat + Look output */}
+      {/* Chat + look output */}
       <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
         <p className="text-xs text-gray-700">
-          Describe your muse, occasion, weather, and constraints. The stylist uses your
-          profile bar plus live products to build a shoppable look.
+          Describe muse, occasion, weather, and constraints. The stylist uses your
+          profile plus live products to build a shoppable look.
         </p>
 
         <div className="grid gap-3">
@@ -491,10 +473,8 @@ export default function StylistPage() {
 
                 {ai ? (
                   <div className="grid gap-3">
-                    {/* Brief (should reference muse + prefs) */}
                     <p className="text-gray-900">{ai.brief}</p>
 
-                    {/* Total */}
                     <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-[10px] text-gray-700">
                       <span>Est. total (if priced):</span>
                       <span className="font-semibold">
@@ -504,10 +484,9 @@ export default function StylistPage() {
                       </span>
                     </div>
 
-                    {/* Products */}
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                       {ai.products.map((p) => {
-                        const favKey: FavProduct = {
+                        const favPayload = {
                           id: p.id,
                           title: p.title,
                           url: p.url ?? undefined,
@@ -517,7 +496,8 @@ export default function StylistPage() {
                           price: p.price ?? undefined,
                           currency: p.currency ?? undefined,
                         };
-                        const saved = fav.has(favKey);
+                        const saved = fav.has(favPayload);
+
                         return (
                           <article
                             key={p.id}
@@ -535,7 +515,7 @@ export default function StylistPage() {
                               ) : null}
                               <button
                                 type="button"
-                                onClick={() => fav.toggle(favKey)}
+                                onClick={() => fav.toggle(favPayload)}
                                 className={`absolute right-2 top-2 rounded-full px-2 py-1 text-[9px] font-semibold shadow-sm ${
                                   saved
                                     ? "bg-black text-white"
@@ -577,7 +557,6 @@ export default function StylistPage() {
                       })}
                     </div>
 
-                    {/* Why + Tips */}
                     {(ai.why.length > 0 || ai.tips.length > 0) && (
                       <div className="grid gap-2">
                         {ai.why.length > 0 && (
@@ -617,7 +596,6 @@ export default function StylistPage() {
           })}
         </div>
 
-        {/* Input */}
         <form onSubmit={onSubmit} className="mt-1 flex gap-2">
           <input
             value={input}
