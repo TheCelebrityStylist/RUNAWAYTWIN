@@ -3,29 +3,33 @@ import type { Provider, ProviderResult, Product, Currency } from "@/lib/affiliat
 
 /**
  * AWIN Product Search provider
- * - Uses AWIN Product API (v2)
- * - Requires: AWIN_ACCESS_TOKEN
- * - Optional: AWIN_ADVERTISER_IDS (comma-separated), AWIN_PRODUCT_API_BASE
  *
- * Notes:
- * - We pass a conservative set of fields and normalize to our Product shape.
- * - We keep merchant URL as `url`; link wrapping to affiliate happens in linkWrapper.
- * - We tag retailer as `awin:<advertiserId>` so wrapProducts can build the deeplink.
+ * Requirements (all set in Vercel env):
+ * - AWIN_ACCESS_TOKEN: Personal access token for the Product API
+ * - AWIN_ADVERTISER_IDS: Comma-separated advertiser IDs you are APPROVED for and that have feeds
+ *
+ * Behavior:
+ * - If AWIN_ACCESS_TOKEN is missing → returns zero items.
+ * - If AWIN_ADVERTISER_IDS is missing/empty → returns zero items.
+ * - Only queries advertisers you actually configured.
+ * - Normalizes into internal Product shape.
+ *
+ * IMPORTANT:
+ * - Do NOT put COS/ZARA/ARKET/etc here unless:
+ *   1) You see them in AWIN “Joined programmes”
+ *   2) They show “Product feed: Yes”
+ *   3) You add their numeric IDs to AWIN_ADVERTISER_IDS
+ * - Until then, this provider will simply return [] and your app
+ *   will fall back to the mock catalog in /api/chat.
  */
 
-const AWIN_TOKEN = process.env.AWIN_ACCESS_TOKEN || "";
+const AWIN_TOKEN = (process.env.AWIN_ACCESS_TOKEN || "").trim();
 const API_BASE =
   process.env.AWIN_PRODUCT_API_BASE?.trim() || "https://product-api.awin.com/v2/products";
 
-// If you didn’t set AWIN_ADVERTISER_IDS in Vercel, this fallback keeps you unblocked.
-// Replace / augment with your own joined advertisers at any time.
-const FALLBACK_ADVERTISERS: number[] = [
-  112428, 111224, 93261, 50879, 96701, 95435, 54839, 114734, 90759, 114046,
-];
-
-function advertiserIds(): number[] {
+function advertiserIdsFromEnv(): number[] {
   const env = (process.env.AWIN_ADVERTISER_IDS || "").trim();
-  if (!env) return FALLBACK_ADVERTISERS;
+  if (!env) return [];
   return env
     .split(",")
     .map((s) => parseInt(s.trim(), 10))
@@ -43,9 +47,9 @@ type AwinApiProduct = {
   displayPrice?: number | string;
   price?: number | string;
   rrpPrice?: number | string;
-  deepLink?: string; // some responses include this
-  awinUrl?: string; // sometimes returned
-  productUrl?: string; // raw merchant URL
+  deepLink?: string;
+  awinUrl?: string;
+  productUrl?: string;
   largeImage?: string;
   imageUrl?: string;
   categoryName?: string;
@@ -83,8 +87,8 @@ function pickCategory(p: AwinApiProduct): string | undefined {
 function mapOne(raw: AwinApiProduct): Product | null {
   const title = str(raw.name);
   const url = pickUrl(raw);
-  const idRaw = str(raw.productId) ?? String(raw.productId ?? "");
-  const id = idRaw || (title && url ? `${title}::${url}` : "");
+  const productIdStr = str(raw.productId) ?? (raw.productId != null ? String(raw.productId) : "");
+  const id = productIdStr || (title && url ? `${title}::${url}` : "");
   if (!title || !id) return null;
 
   const brand = str(raw.brandName);
@@ -135,57 +139,63 @@ function mapOne(raw: AwinApiProduct): Product | null {
   };
 }
 
-async function callAwin(query: string, opts?: { limit?: number; ids?: number[] }) {
+async function callAwin(
+  query: string,
+  opts: { limit: number; advertiserIds: number[] }
+): Promise<{ ok: boolean; data: AwinApiProduct[] }> {
   if (!AWIN_TOKEN) {
-    return { ok: false as const, data: [] as AwinApiProduct[], error: "Missing AWIN_ACCESS_TOKEN" };
+    return { ok: false, data: [] };
+  }
+  if (!opts.advertiserIds.length) {
+    return { ok: false, data: [] };
   }
 
-  const pageSize = Math.min(Math.max(opts?.limit ?? 6, 1), 50);
-  const ids = (opts?.ids ?? advertiserIds()).join(",");
+  const pageSize = Math.min(Math.max(opts.limit, 1), 50);
+  const ids = opts.advertiserIds.join(",");
 
   const url = new URL(API_BASE);
-  // AWIN v2 accepts `query`, `page`, `pageSize`, `advertiserIds`
   url.searchParams.set("query", query);
   url.searchParams.set("page", "1");
   url.searchParams.set("pageSize", String(pageSize));
-  if (ids) url.searchParams.set("advertiserIds", ids);
+  url.searchParams.set("advertiserIds", ids);
 
   const resp = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${AWIN_TOKEN}`,
       Accept: "application/json",
     },
-    // Edge-runtime friendly
     cache: "no-store",
   }).catch(() => null);
 
   if (!resp || !resp.ok) {
-    return {
-      ok: false as const,
-      data: [] as AwinApiProduct[],
-      error: `AWIN ${resp ? resp.status : "network"} error`,
-    };
+    return { ok: false, data: [] };
   }
 
   const data = (await resp.json().catch(() => [])) as unknown;
   const array = Array.isArray(data) ? (data as AwinApiProduct[]) : [];
-  return { ok: true as const, data: array, error: null as null };
+  return { ok: true, data: array };
 }
 
 export const awinProvider: Provider = {
   async search(q: string, opts?: { limit?: number; currency?: Currency }): Promise<ProviderResult> {
     const limit = Math.min(Math.max(opts?.limit ?? 6, 1), 50);
-    const ids = advertiserIds();
+    const advertiserIds = advertiserIdsFromEnv();
 
-    const { ok, data } = await callAwin(q, { limit, ids });
+    // Hard fail-safe: if not configured, return empty so callers can fall back.
+    if (!AWIN_TOKEN || advertiserIds.length === 0 || !q.trim()) {
+      return { provider: "awin", items: [] };
+    }
 
-    const items: Product[] = (ok ? data : [])
-      .map(mapOne)
-      .filter((p): p is Product => !!p)
-      .slice(0, limit);
+    const { ok, data } = await callAwin(q, { limit, advertiserIds });
+
+    const items: Product[] = ok
+      ? data
+          .map(mapOne)
+          .filter((p): p is Product => !!p)
+          .slice(0, limit)
+      : [];
 
     return { provider: "awin", items };
   },
 };
-
 
