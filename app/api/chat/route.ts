@@ -5,32 +5,29 @@ import OpenAI from "openai";
 import { NextRequest } from "next/server";
 
 /**
- * Chat → JSON stylist plan with affiliate-ready products.
+ * Chat → JSON stylist plan with provider-backed links.
  *
- * Key decisions:
- * - Only uses your own /api/products/search endpoint for candidates.
- *   That endpoint is backed by AWIN (and later others) + your link wrapper.
- * - NO generic web search, NO Instagram, NO random blogs.
- * - Strict JSON schema via response_format: json_object.
- * - Graceful fallback with mock products so UI never breaks.
+ * Inputs:
+ *   - messages[]: chat history
+ *   - preferences: styling + budget context
  *
- * Response shape:
- * {
- *   brief: string;
- *   tips: string[];
- *   why: string[];
- *   products: {
- *     id: string;
- *     title: string;
- *     url: string | null;
- *     brand: string | null;
- *     category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory";
- *     price: number | null;
- *     currency: string;
- *     image: string | null;
- *   }[];
- *   total: { value: number | null; currency: string };
- * }
+ * Output (strict JSON):
+ *   {
+ *     brief: string,
+ *     tips: string[],
+ *     why: string[],
+ *     products: Array<{
+ *       id: string,
+ *       title: string,
+ *       url: string | null,
+ *       brand: string | null,
+ *       category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory",
+ *       price: number | null,
+ *       currency: string,
+ *       image: string | null
+ *     }>,
+ *     total: { value: number | null, currency: string }
+ *   }
  */
 
 type Role = "system" | "user" | "assistant";
@@ -77,7 +74,7 @@ const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/* ================= helpers ================= */
+/* ------------------------- basic helpers -------------------------- */
 
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
@@ -117,7 +114,7 @@ function currencyFor(p: Prefs) {
 function prefsBlock(p: Prefs) {
   const cur = currencyFor(p);
   return [
-    "USER PROFILE (use this to tailor the plan strictly):",
+    "USER PROFILE (obey strictly in your choices)",
     `- Gender: ${p.gender ?? "-"}`,
     `- Sizes: top=${p.sizeTop ?? "-"}, bottom=${p.sizeBottom ?? "-"}, dress=${p.sizeDress ?? "-"}, shoe=${p.sizeShoe ?? "-"}`,
     `- Body Type: ${p.bodyType ?? "-"}`,
@@ -126,26 +123,33 @@ function prefsBlock(p: Prefs) {
     `- Country: ${p.country ?? "-"}`,
     `- Currency: ${cur}`,
     `- Style Keywords: ${p.styleKeywords ?? "-"}`,
-    "HARD REQUIREMENT: Brief MUST reference the user's last message and these preferences.",
+    "HARD: Your brief MUST reference the user's last message and these preferences.",
   ].join("\n");
 }
 
 function isObj(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }
+
 function asString(x: unknown, def = ""): string {
   return typeof x === "string" ? x : def;
 }
+
 function asNumberOrNull(x: unknown): number | null {
   return typeof x === "number" && Number.isFinite(x) ? x : null;
 }
 
-/* ============ Provider-backed candidates only ============ */
+/* ---------------- Provider-backed candidates ONLY ---------------- */
+
 /**
- * Calls internal /api/products/search using an absolute URL.
- * That route already talks to AWIN and wraps links.
+ * Call our own /api/products/search (AWIN/Rakuten/Amazon) to get ranked products.
+ * Edge runtime requires ABSOLUTE URL.
  */
-async function providerCandidates(baseUrl: string, query: string, prefs: Prefs): Promise<Cand[]> {
+async function providerCandidates(
+  baseUrl: string,
+  query: string,
+  prefs: Prefs
+): Promise<Cand[]> {
   try {
     const url = new URL("/api/products/search", baseUrl);
     const resp = await fetch(url.toString(), {
@@ -157,10 +161,14 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
         perProvider: 8,
         country: prefs.country,
         prefs,
-        providers: ["awin"], // focus on AWIN for now
+        providers: ["awin", "rakuten", "amazon"],
       }),
     });
-    if (!resp.ok) return [];
+
+    if (!resp.ok) {
+      console.error("[chat] /api/products/search status", resp.status);
+      return [];
+    }
 
     const data = (await resp.json().catch(() => null)) as
       | { items?: Array<{ title?: unknown; url?: unknown }> }
@@ -172,34 +180,27 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
 
     for (const it of items) {
       const title = typeof it.title === "string" ? it.title : "";
-      const url = typeof it.url === "string" ? it.url : "";
-      if (!title || !url) continue;
+      const urlStr = typeof it.url === "string" ? it.url : "";
+      if (!title || !urlStr) continue;
       try {
-        const u = new URL(url);
-        const host = u.hostname.replace(/^www\./, "");
-        // Hard filter: only keep real merchant / affiliate domains, skip socials
-        if (
-          host.includes("instagram.com") ||
-          host.includes("facebook.com") ||
-          host.includes("tiktok.com") ||
-          host.includes("youtube.com") ||
-          host.includes("x.com") ||
-          host.includes("twitter.com")
-        ) {
-          continue;
-        }
-        const key = `${host}${u.pathname}`;
+        const u = new URL(urlStr);
+        const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        out.push({ title, url });
+        out.push({ title, url: urlStr });
       } catch {
-        // ignore bad URL
+        // ignore bad url
       }
-      if (out.length >= 24) break;
+      if (out.length >= 20) break;
+    }
+
+    if (!out.length) {
+      console.warn("[chat] providerCandidates: no items from /api/products/search");
     }
 
     return out;
-  } catch {
+  } catch (err) {
+    console.error("[chat] providerCandidates error", err);
     return [];
   }
 }
@@ -207,15 +208,19 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
 function candidatesBlock(cands: Cand[]) {
   if (!cands.length) return "CANDIDATE_LINKS: []";
   const lines = cands.map(
-    (c, i) => `{"i":${i},"title":${JSON.stringify(c.title)},"url":${JSON.stringify(c.url)}}`
+    (c, i) =>
+      `{"i":${i},"title":${JSON.stringify(c.title)},"url":${JSON.stringify(
+        c.url
+      )}}`
   );
   return `CANDIDATE_LINKS: [${lines.join(",")}]`;
 }
 
-/* ----------------- Mock catalog (safe fallback) ------------------ */
+/* ----------------- Example fallback catalog ------------------ */
+
 const MOCK_CATALOG: UiProduct[] = [
   {
-    id: "mock-blazer",
+    id: "example-blazer",
     title: "Tailored Black Blazer",
     url: null,
     brand: "Example",
@@ -225,7 +230,7 @@ const MOCK_CATALOG: UiProduct[] = [
     image: null,
   },
   {
-    id: "mock-trouser",
+    id: "example-trouser",
     title: "High-Waisted Trousers",
     url: null,
     brand: "Example",
@@ -235,7 +240,7 @@ const MOCK_CATALOG: UiProduct[] = [
     image: null,
   },
   {
-    id: "mock-shirt",
+    id: "example-shirt",
     title: "Crisp White Shirt",
     url: null,
     brand: "Example",
@@ -245,7 +250,7 @@ const MOCK_CATALOG: UiProduct[] = [
     image: null,
   },
   {
-    id: "mock-shoes",
+    id: "example-loafer",
     title: "Minimal Leather Loafers",
     url: null,
     brand: "Example",
@@ -256,7 +261,11 @@ const MOCK_CATALOG: UiProduct[] = [
   },
 ];
 
-function ensureMinimumProducts(current: UiProduct[], min: number, currency: string): UiProduct[] {
+function ensureMinimumProducts(
+  current: UiProduct[],
+  min: number,
+  currency: string
+): UiProduct[] {
   const out = [...current];
   for (const p of MOCK_CATALOG) {
     if (out.length >= min) break;
@@ -266,7 +275,11 @@ function ensureMinimumProducts(current: UiProduct[], min: number, currency: stri
 }
 
 /* ---------------- JSON coercion helpers ---------------- */
-function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | null {
+
+function productFromModel(
+  x: unknown,
+  fallbackCurrency: string
+): UiProduct | null {
   if (!isObj(x)) return null;
 
   const rawCat = asString(x["category"], "Accessory");
@@ -279,14 +292,21 @@ function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | nul
     "Bag",
     "Accessory",
   ]);
-  const category = allowed.has(rawCat) ? (rawCat as UiProduct["category"]) : "Accessory";
+  const category = allowed.has(rawCat)
+    ? (rawCat as UiProduct["category"])
+    : "Accessory";
 
-  const url = typeof x["url"] === "string" ? (x["url"] as string) : null;
+  const url =
+    typeof x["url"] === "string" && x["url"].trim().length
+      ? (x["url"] as string)
+      : null;
   const brand =
-    typeof x["brand"] === "string" && x["brand"].trim() ? (x["brand"] as string) : null;
+    typeof x["brand"] === "string" && x["brand"].trim().length
+      ? (x["brand"] as string)
+      : null;
 
   const currency =
-    typeof x["currency"] === "string" && (x["currency"] as string).trim()
+    typeof x["currency"] === "string" && x["currency"].trim().length
       ? (x["currency"] as string)
       : fallbackCurrency;
 
@@ -298,33 +318,48 @@ function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | nul
     category,
     price: asNumberOrNull(x["price"]),
     currency,
-    image: typeof x["image"] === "string" ? (x["image"] as string) : null,
+    image:
+      typeof x["image"] === "string" && x["image"].trim().length
+        ? (x["image"] as string)
+        : null,
   };
 }
 
-function coercePlan(content: string, fallbackCurrency: string): PlanJson | null {
+function coercePlan(
+  content: string,
+  fallbackCurrency: string
+): PlanJson | null {
   let raw: unknown;
   try {
     raw = JSON.parse(content);
   } catch {
+    console.error("[chat] model did not return JSON");
     return null;
   }
   if (!isObj(raw)) return null;
 
   const brief = asString(raw["brief"], "");
   const tips = Array.isArray(raw["tips"])
-    ? ((raw["tips"] as unknown[]).filter((s) => typeof s === "string") as string[])
+    ? ((raw["tips"] as unknown[]).filter(
+        (s) => typeof s === "string"
+      ) as string[])
     : [];
   const why = Array.isArray(raw["why"])
-    ? ((raw["why"] as unknown[]).filter((s) => typeof s === "string") as string[])
+    ? ((raw["why"] as unknown[]).filter(
+        (s) => typeof s === "string"
+      ) as string[])
     : [];
 
-  const productsRaw = Array.isArray(raw["products"]) ? (raw["products"] as unknown[]) : [];
+  const productsRaw = Array.isArray(raw["products"])
+    ? (raw["products"] as unknown[])
+    : [];
   const products = productsRaw
     .map((p) => productFromModel(p, fallbackCurrency))
     .filter((p): p is UiProduct => !!p);
 
-  const totalObj = isObj(raw["total"]) ? (raw["total"] as Record<string, unknown>) : {};
+  const totalObj = isObj(raw["total"])
+    ? (raw["total"] as Record<string, unknown>)
+    : {};
   const totalCurrency =
     typeof totalObj["currency"] === "string"
       ? (totalObj["currency"] as string)
@@ -340,7 +375,8 @@ function coercePlan(content: string, fallbackCurrency: string): PlanJson | null 
   };
 }
 
-/* ================= route ================= */
+/* ---------------- route ---------------- */
+
 export async function POST(req: NextRequest) {
   const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
@@ -348,11 +384,13 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    if (!(req.headers.get("content-type") || "").includes("application/json")) {
-      return new Response(JSON.stringify({ error: "Expected application/json body." }), {
-        status: 415,
-        headers,
-      });
+    if (
+      !(req.headers.get("content-type") || "").includes("application/json")
+    ) {
+      return new Response(
+        JSON.stringify({ error: "Expected application/json body." }),
+        { status: 415, headers }
+      );
     }
 
     const body = (await req.json().catch(() => ({}))) as {
@@ -360,7 +398,9 @@ export async function POST(req: NextRequest) {
       preferences?: Prefs;
     };
 
-    const history: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : [];
+    const history: ChatMessage[] = Array.isArray(body?.messages)
+      ? body.messages
+      : [];
     const preferences: Prefs = (body?.preferences || {}) as Prefs;
 
     const userText = lastUserText(history);
@@ -368,11 +408,15 @@ export async function POST(req: NextRequest) {
       return new Response(
         JSON.stringify({
           error:
-            "Tell me your occasion, body type, budget, and any celebrity muse. I’ll style a full look.",
+            "Tell me your occasion, body type, budget, and any muse. I’ll style a full look.",
         }),
         { status: 400, headers }
       );
     }
+
+    const baseUrl =
+      (req.nextUrl && req.nextUrl.origin) ||
+      new URL(req.url).origin;
 
     const queryString = [
       userText,
@@ -383,32 +427,25 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join(" ");
 
-    // Provider candidates only (AWIN etc.)
-    const providerCandPromise = providerCandidates(req.url, queryString, preferences);
-
-    const timeout = <T,>(ms: number, value: T) =>
-      new Promise<T>((resolve) => setTimeout(() => resolve(value), ms));
-
-    const prov = await Promise.race([providerCandPromise, timeout<Cand[]>(5000, [])]);
-
-    const merged = prov; // already filtered + de-duped
+    // Provider-backed candidates only
+    const cand = await providerCandidates(baseUrl, queryString, preferences);
 
     const sys = [
-      "You are an editorial-level fashion stylist.",
+      "You are an editorial-level fashion stylist and merchandiser.",
       "Return ONLY a single JSON object with this exact TypeScript shape:",
-      "type Product = { id: string; title: string; url: string | null; brand: string | null; category: \"Top\" | \"Bottom\" | \"Dress\" | \"Outerwear\" | \"Shoes\" | \"Bag\" | \"Accessory\"; price: number | null; currency: string; image: string | null };",
+      'type Product = { id: string; title: string; url: string | null; brand: string | null; category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory"; price: number | null; currency: string; image: string | null };',
       "type Plan = { brief: string; tips: string[]; why: string[]; products: Product[]; total: { value: number | null; currency: string } };",
       "",
-      "HARD RULES:",
-      "- Your `brief` MUST explicitly mention the user's last message and key preferences (body type, budget, country/weather if provided).",
-      "- Choose product URLs ONLY from CANDIDATE_LINKS. If none fit, set url: null rather than inventing.",
-      "- Include AT LEAST 4 products covering a coherent full look (Outerwear/Top/Bottom/Shoes/Bag or similar).",
-      "- If price is unknown from the candidate, use null; never fabricate.",
-      "- Never output markdown, text outside JSON, or extra keys.",
+      "RULES:",
+      "- Your brief MUST explicitly reference the user's last message and the profile.",
+      "- You may ONLY use URLs from CANDIDATE_LINKS. If no suitable URL, set url: null.",
+      "- Include AT LEAST 4 products spanning key categories (Outerwear/Top/Bottom/Shoes/Bag).",
+      "- If candidate list is empty, you may output products with url: null as styled examples.",
+      "- Never output markdown or extra keys.",
       "",
       prefsBlock(preferences),
       "",
-      candidatesBlock(merged),
+      candidatesBlock(cand),
     ].join("\n");
 
     const currency = currencyFor(preferences);
@@ -418,62 +455,82 @@ export async function POST(req: NextRequest) {
       try {
         const completion = await client.chat.completions.create({
           model: MODEL,
-          temperature: 0.45,
+          temperature: 0.5,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: sys },
-            ...history.map((m) => ({ role: m.role, content: contentToText(m.content) })),
-            { role: "user", content: "Return the Plan JSON now. No markdown." },
+            ...history.map((m) => ({
+              role: m.role,
+              content: contentToText(m.content),
+            })),
+            {
+              role: "user",
+              content:
+                "Return the Plan JSON now. No commentary. No markdown.",
+            },
           ],
         });
         const raw = completion.choices?.[0]?.message?.content || "{}";
         plan = coercePlan(raw, currency);
-      } catch {
+      } catch (err) {
+        console.error("[chat] OpenAI error", err);
         plan = null;
       }
     }
 
+    // Fallback: deterministic example so UI never breaks
     if (!plan) {
       plan = {
         brief:
-          `Tailored to “${userText}”. Clean, capsule-leaning look that respects your stated preferences and uses reliable retailers.`,
+          `Styled to “${userText}” using example products only. Connect more retailers via AWIN/Rakuten/Amazon to see live links.`,
         tips: [
-          "Keep your color story tight (2–3 tones) so each piece recombines.",
-          "Anchor trend pieces with classic tailoring so looks age well.",
+          "Balance proportion with sharp tailoring and defined waist.",
+          "Keep a coherent palette so pieces remix across looks.",
         ],
         why: [
-          "Proportions chosen to lengthen the line and balance your frame.",
-          "Texture mix keeps it elevated without feeling over-styled.",
+          "Structure plus softness reads elevated and intentional.",
+          "Clean lines photograph well and suit varied occasions.",
         ],
         products: [],
         total: { value: null, currency },
       };
     }
 
+    // Ensure minimum cards; if providers worked, they already include urls.
     plan.products = ensureMinimumProducts(plan.products, 4, currency);
 
-    const sum = plan.products.reduce((acc, p) => (p.price != null ? acc + p.price : acc), 0);
+    // Compute total from priced items
+    const sum = plan.products.reduce(
+      (acc, p) => (p.price != null ? acc + p.price : acc),
+      0
+    );
     const anyPrice = plan.products.some((p) => p.price != null);
     plan.total = { value: anyPrice ? Math.round(sum) : null, currency };
 
     return new Response(JSON.stringify(plan), { headers });
-  } catch {
+  } catch (err) {
+    console.error("[chat] Fatal error", err);
+
     const currency = "EUR";
     const fallback: PlanJson = {
       brief:
-        "Quick starter outfit (safe fallback). Try again when connectivity stabilizes.",
+        "Safe fallback look. Connect retailers correctly to enable live product pulls.",
       tips: [
-        "Use monochrome layers to look cohesive.",
-        "Lean on one strong outerwear piece to tie looks together.",
+        "Use monochrome layers for coherence.",
+        "Anchor outfits with one strong tailored piece.",
       ],
       why: [
-        "Simple lines and a tight palette make outfits remixable.",
-        "Balanced proportions avoid cutting the body at awkward points.",
+        "Simple architecture keeps the look elevated.",
+        "Neutral base maximizes re-wear.",
       ],
       products: ensureMinimumProducts([], 4, currency),
       total: { value: null, currency },
     };
-    return new Response(JSON.stringify(fallback), { headers, status: 200 });
+
+    return new Response(JSON.stringify(fallback), {
+      headers,
+      status: 200,
+    });
   }
 }
 
