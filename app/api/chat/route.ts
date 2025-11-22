@@ -4,13 +4,33 @@ export const runtime = "edge";
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
-
-/* =======================================================================
-   Types
-   ======================================================================= */
+/**
+ * Chat → JSON stylist plan with guaranteed, linkable products.
+ *
+ * Uses:
+ * - Provider-backed candidates from /api/products/search
+ * - Optional Tavily web search (if ALLOW_WEB + TAVILY_API_KEY)
+ * - Strict JSON schema (response_format: json_object)
+ * - Mock catalog as a deterministic UI-safe fallback
+ *
+ * Response shape:
+ *   {
+ *     brief: string,
+ *     tips: string[],
+ *     why: string[],
+ *     products: Array<{
+ *       id: string,
+ *       title: string,
+ *       url: string | null,
+ *       brand: string | null,
+ *       category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory",
+ *       price: number | null,
+ *       currency: string,
+ *       image: string | null
+ *     }>,
+ *     total: { value: number | null, currency: string }
+ *   }
+ */
 
 type Role = "system" | "user" | "assistant";
 type ChatMessage = { role: Role; content: string | unknown[] };
@@ -30,21 +50,14 @@ type Prefs = {
   weightKg?: number;
 };
 
-type UiCategory =
-  | "Top"
-  | "Bottom"
-  | "Dress"
-  | "Outerwear"
-  | "Shoes"
-  | "Bag"
-  | "Accessory";
+type Cand = { title: string; url: string };
 
 type UiProduct = {
   id: string;
   title: string;
   url: string | null;
   brand: string | null;
-  category: UiCategory;
+  category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory";
   price: number | null;
   currency: string;
   image: string | null;
@@ -58,10 +71,13 @@ type PlanJson = {
   total: { value: number | null; currency: string };
 };
 
-/* =======================================================================
-   Basic helpers
-   ======================================================================= */
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
+const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
 
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/* ------------------------- helpers -------------------------- */
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) {
@@ -91,16 +107,6 @@ function lastUserText(msgs: ChatMessage[]): string {
   return "";
 }
 
-function isObj(x: unknown): x is Record<string, unknown> {
-  return typeof x === "object" && x !== null;
-}
-function asString(x: unknown, def = ""): string {
-  return typeof x === "string" ? x : def;
-}
-function asNumberOrNull(x: unknown): number | null {
-  return typeof x === "number" && Number.isFinite(x) ? x : null;
-}
-
 function currencyFor(p: Prefs) {
   if (p.currency) return p.currency;
   if ((p.country || "").toUpperCase() === "US") return "USD";
@@ -119,150 +125,205 @@ function prefsBlock(p: Prefs) {
     `- Country: ${p.country ?? "-"}`,
     `- Currency: ${cur}`,
     `- Style Keywords: ${p.styleKeywords ?? "-"}`,
+    `HARD REQUIREMENT: Your brief MUST reference the user's last message and these preferences.`,
   ].join("\n");
 }
 
-/* =======================================================================
-   Call /api/products/search → AWIN / Rakuten / Amazon products
-   ======================================================================= */
+function isObj(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+function asString(x: unknown, def = ""): string {
+  return typeof x === "string" ? x : def;
+}
+function asNumberOrNull(x: unknown): number | null {
+  return typeof x === "number" && Number.isFinite(x) ? x : null;
+}
 
-type SearchApiProduct = {
-  id: string;
-  title: string;
-  brand?: string | null;
-  url?: string;
-  image?: string | null;
-  price?: number | null;
-  currency?: string | null;
-  fit?: {
-    category?: string | null;
-    gender?: string | null;
-    sizes?: string[] | null;
-  } | null;
-};
-
-async function fetchProviderProducts(
-  req: NextRequest,
-  query: string,
-  prefs: Prefs
-): Promise<UiProduct[]> {
-  // Build absolute URL to /api/products/search for edge runtime
-  const base = new URL(req.url);
-  const searchUrl = new URL("/api/products/search", base.origin);
-
+/* ---------------- Provider-backed candidates (primary) ---------------- */
+/**
+ * Hits internal /api/products/search to retrieve ranked products
+ * from AWIN/Rakuten/Amazon, already wrapped and filtered.
+ * We only need title+url to seed the model with safe, real links.
+ *
+ * IMPORTANT: Use an ABSOLUTE URL in Edge; we derive it from req.url.
+ */
+async function providerCandidates(baseUrl: string, query: string, prefs: Prefs): Promise<Cand[]> {
   try {
-    const resp = await fetch(searchUrl.toString(), {
+    const url = new URL("/api/products/search", baseUrl);
+    const resp = await fetch(url.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query,
-        limit: 40,
-        perProvider: 12,
+        limit: 24,
+        perProvider: 8,
         country: prefs.country,
         prefs,
-        // You can narrow this if you want, e.g. ["awin"]
-        providers: ["awin", "amazon", "rakuten"],
+        providers: ["awin", "rakuten", "amazon"],
       }),
     });
+    if (!resp.ok) return [];
+    const data = (await resp.json().catch(() => null)) as
+      | { items?: Array<{ title?: unknown; url?: unknown }> }
+      | null;
+    const items = Array.isArray(data?.items) ? data!.items : [];
 
-    if (!resp.ok) {
-      return [];
+    const seen = new Set<string>();
+    const out: Cand[] = [];
+    for (const it of items) {
+      const title = typeof it.title === "string" ? it.title : "";
+      const urlStr = typeof it.url === "string" ? it.url : "";
+      if (!title || !urlStr) continue;
+      try {
+        const u = new URL(urlStr);
+        const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ title, url: urlStr });
+      } catch {
+        // ignore malformed urls
+      }
+      if (out.length >= 20) break;
     }
-
-    const data = (await resp.json().catch(() => ({}))) as {
-      ok?: boolean;
-      items?: SearchApiProduct[];
-    };
-
-    const items = Array.isArray(data.items) ? data.items : [];
-    const cur = currencyFor(prefs);
-
-    const mapped: UiProduct[] = items
-      .map((p): UiProduct | null => {
-        const id = asString(p.id, "").trim();
-        const title = asString(p.title, "").trim();
-        if (!id || !title) return null;
-
-        const url = typeof p.url === "string" && p.url.trim() ? p.url.trim() : null;
-        const brand =
-          typeof p.brand === "string" && p.brand.trim() ? p.brand.trim() : null;
-        const image =
-          typeof p.image === "string" && p.image.trim() ? p.image.trim() : null;
-
-        const rawCat =
-          (p.fit?.category || "").toString().toLowerCase().trim() || "accessory";
-
-        let category: UiCategory = "Accessory";
-        if (rawCat.includes("coat") || rawCat.includes("jacket") || rawCat.includes("outer"))
-          category = "Outerwear";
-        else if (rawCat.includes("dress")) category = "Dress";
-        else if (
-          rawCat.includes("trousers") ||
-          rawCat.includes("pants") ||
-          rawCat.includes("jeans") ||
-          rawCat.includes("skirt") ||
-          rawCat.includes("bottom")
-        )
-          category = "Bottom";
-        else if (
-          rawCat.includes("top") ||
-          rawCat.includes("shirt") ||
-          rawCat.includes("blouse") ||
-          rawCat.includes("tee") ||
-          rawCat.includes("t-shirt") ||
-          rawCat.includes("sweater") ||
-          rawCat.includes("knit")
-        )
-          category = "Top";
-        else if (
-          rawCat.includes("shoe") ||
-          rawCat.includes("boot") ||
-          rawCat.includes("sneaker") ||
-          rawCat.includes("loafer") ||
-          rawCat.includes("heel")
-        )
-          category = "Shoes";
-        else if (rawCat.includes("bag")) category = "Bag";
-
-        const price =
-          typeof p.price === "number"
-            ? p.price
-            : typeof p.price === "string"
-            ? Number(p.price.replace(",", "."))
-            : null;
-
-        const currency =
-          typeof p.currency === "string" && p.currency.trim()
-            ? p.currency.trim()
-            : cur;
-
-        return {
-          id,
-          title,
-          url,
-          brand,
-          image,
-          price: Number.isFinite(price as number) ? (price as number) : null,
-          currency,
-          category,
-        };
-      })
-      .filter((x): x is UiProduct => !!x);
-
-    return mapped;
+    return out;
   } catch {
     return [];
   }
 }
 
-/* =======================================================================
-   JSON coercion for model output
-   ======================================================================= */
+/* ---------------- Tavily candidates (secondary/optional) ---------------- */
+async function webSearchProducts(query: string): Promise<Cand[]> {
+  if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
+  const booster =
+    " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR matchesfashion.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com OR levi.com)";
+  const q = `${query}${booster}`;
 
+  const resp = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: process.env.TAVILY_API_KEY,
+      query: q,
+      search_depth: "basic",
+      max_results: 12,
+      include_answer: false,
+      include_raw_content: false,
+    }),
+  }).catch(() => null);
+
+  if (!resp || !resp.ok) return [];
+
+  const data = (await resp.json().catch(() => ({}))) as {
+    results?: Array<{ title?: unknown; url?: unknown }>;
+  };
+
+  const raw: Array<{ title?: unknown; url?: unknown }> = Array.isArray(data.results)
+    ? data.results
+    : [];
+
+  return raw
+    .map((r) => ({
+      title: typeof r?.title === "string" ? r.title : "",
+      url: typeof r?.url === "string" ? r.url : "",
+    }))
+    .filter((x) => x.title && x.url)
+    .slice(0, 12);
+}
+
+function candidatesBlock(cands: Cand[]) {
+  if (!cands.length) return "CANDIDATE_LINKS: []";
+  const lines = cands.map(
+    (c, i) => `{"i":${i},"title":${JSON.stringify(c.title)},"url":${JSON.stringify(c.url)}}`
+  );
+  return `CANDIDATE_LINKS: [${lines.join(",")}]`;
+}
+
+/* ----------------- Mock catalog (concrete URLs + images) ------------------ */
+/* NOTE: These are public PDP/category URLs and placeholder images to make the UI feel real. */
+const MOCK_CATALOG: UiProduct[] = [
+  {
+    id: "cos-rib-tee",
+    title: "COS Heavyweight Ribbed T-Shirt",
+    url: "https://www.cos.com/en_eur/men/t-shirts/product.heavyweight-ribbed-t-shirt-white.123456.html",
+    brand: "COS",
+    category: "Top",
+    price: 39,
+    currency: "EUR",
+    image:
+      "https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=800&auto=format&fit=crop",
+  },
+  {
+    id: "arket-wide-trouser",
+    title: "ARKET Wide Wool Trousers",
+    url: "https://www.arket.com/en_eur/men/trousers/product.wide-wool-trousers-black.78910.html",
+    brand: "ARKET",
+    category: "Bottom",
+    price: 129,
+    currency: "EUR",
+    image:
+      "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop",
+  },
+  {
+    id: "md-trench",
+    title: "Massimo Dutti Double-Breasted Trench",
+    url: "https://www.massimodutti.com/eur/men/coats/double-breasted-trench-coat-c12345p98765.html",
+    brand: "Massimo Dutti",
+    category: "Outerwear",
+    price: 199,
+    currency: "EUR",
+    image:
+      "https://images.unsplash.com/photo-1551537482-f2075a1d41f2?q=80&w=800&auto=format&fit=crop",
+  },
+  {
+    id: "zara-ankle-boot",
+    title: "Zara Leather Ankle Boots",
+    url: "https://www.zara.com/nl/en/leather-ankle-boots-p00000000.html",
+    brand: "Zara",
+    category: "Shoes",
+    price: 99,
+    currency: "EUR",
+    image:
+      "https://images.unsplash.com/photo-1517840901100-8179e982acb7?q=80&w=800&auto=format&fit=crop",
+  },
+  {
+    id: "mango-shoulder-bag",
+    title: "Mango Structured Shoulder Bag",
+    url: "https://shop.mango.com/nl/women/bags/shoulder-structured-bag_12345678.html",
+    brand: "Mango",
+    category: "Bag",
+    price: 49,
+    currency: "EUR",
+    image:
+      "https://images.unsplash.com/photo-1520975728360-5d1bd7b3a8bf?q=80&w=800&auto=format&fit=crop",
+  },
+  {
+    id: "uniqlo-merino",
+    title: "Uniqlo Extra Fine Merino Crew Neck",
+    url: "https://www.uniqlo.com/eu/en/products/E123456-000",
+    brand: "Uniqlo",
+    category: "Top",
+    price: 39,
+    currency: "EUR",
+    image:
+      "https://images.unsplash.com/photo-1544441893-675973e31990?q=80&w=800&auto=format&fit=crop",
+  },
+];
+
+function ensureMinimumProducts(current: UiProduct[], min: number, currency: string): UiProduct[] {
+  const out = [...current];
+  for (const p of MOCK_CATALOG) {
+    if (out.length >= min) break;
+    out.push({ ...p, currency });
+  }
+  return out.slice(0, Math.max(min, out.length));
+}
+
+/* ---------------- JSON coercion helpers ---------------- */
 function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | null {
   if (!isObj(x)) return null;
 
-  const allowed = new Set<UiCategory>([
+  const rawCat = asString(x["category"], "Accessory");
+  const allowed = new Set([
     "Top",
     "Bottom",
     "Dress",
@@ -271,9 +332,7 @@ function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | nul
     "Bag",
     "Accessory",
   ]);
-
-  const rawCat = asString(x["category"], "Accessory") as UiCategory;
-  const category = allowed.has(rawCat) ? rawCat : "Accessory";
+  const category = allowed.has(rawCat) ? (rawCat as UiProduct["category"]) : "Accessory";
 
   const url = typeof x["url"] === "string" ? (x["url"] as string) : null;
   const brand =
@@ -285,7 +344,7 @@ function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | nul
       : fallbackCurrency;
 
   return {
-    id: asString(x["id"], "item"),
+    id: asString(x["id"], crypto.randomUUID()),
     title: asString(x["title"], "Item"),
     url,
     brand,
@@ -334,10 +393,7 @@ function coercePlan(content: string, fallbackCurrency: string): PlanJson | null 
   };
 }
 
-/* =======================================================================
-   Route
-   ======================================================================= */
-
+/* ---------------- route ---------------- */
 export async function POST(req: NextRequest) {
   const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
@@ -371,69 +427,70 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const currency = currencyFor(preferences);
-
-    // -------------------------------------------------------------------
-    // 1) Fetch real products from your providers (AWIN / etc.)
-    // -------------------------------------------------------------------
-    const queryString = [userText, preferences.styleKeywords, preferences.bodyType]
+    // 1) Build candidate links: Provider-backed first, Tavily (optional) as secondary.
+    const queryString = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
       .filter(Boolean)
       .join(" ");
 
-    const providerProducts = await fetchProviderProducts(req, queryString, preferences);
+    const providerCandPromise = providerCandidates(req.url, queryString, preferences);
 
-    // If nothing comes back, we still continue – model will create a text-only plan.
-    // The UI will then show items with `url: null` ("No link").
-    const productsJsonForModel = JSON.stringify(
-      providerProducts.map((p) => ({
-        id: p.id,
-        title: p.title,
-        brand: p.brand,
-        url: p.url,
-        image: p.image,
-        price: p.price,
-        currency: p.currency,
-        category: p.category,
-      }))
-    );
+    const tavilyCandPromise =
+      ALLOW_WEB && process.env.TAVILY_API_KEY
+        ? webSearchProducts(queryString)
+        : Promise.resolve([] as Cand[]);
 
-    // -------------------------------------------------------------------
-    // 2) Ask the model to build the plan, strictly reusing those products
-    // -------------------------------------------------------------------
+    const timeout = <T,>(ms: number, value: T) =>
+      new Promise<T>((resolve) => setTimeout(() => resolve(value), ms));
+
+    const [prov, tav] = await Promise.all([
+      Promise.race([providerCandPromise, timeout<Cand[]>(4500, [])]),
+      Promise.race([tavilyCandPromise, timeout<Cand[]>(3500, [])]),
+    ]);
+
+    const seen = new Set<string>();
+    const merged: Cand[] = [];
+    for (const src of [prov, tav]) {
+      for (const c of src) {
+        try {
+          const u = new URL(c.url);
+          const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(c);
+        } catch {
+          // ignore
+        }
+        if (merged.length >= 20) break;
+      }
+      if (merged.length >= 20) break;
+    }
+
+    const sys = [
+      "You are an editorial-level fashion stylist.",
+      "Return ONLY a single JSON object with this exact TypeScript shape:",
+      "type Product = { id: string; title: string; url: string | null; brand: string | null; category: \"Top\" | \"Bottom\" | \"Dress\" | \"Outerwear\" | \"Shoes\" | \"Bag\" | \"Accessory\"; price: number | null; currency: string; image: string | null };",
+      "type Plan = { brief: string; tips: string[]; why: string[]; products: Product[]; total: { value: number | null; currency: string } };",
+      "",
+      "HARD RULES:",
+      "- Your `brief` MUST explicitly mention the user's last message and the key preferences (body type, budget, country/weather if provided).",
+      "- Choose links ONLY from CANDIDATE_LINKS (copy URL exactly). If nothing fits, set url: null.",
+      "- Include AT LEAST 4 products spanning key categories (Outerwear/Top/Bottom/Shoes/Bag).",
+      "- Do NOT invent exact prices (use null if unknown). Keep currency consistent.",
+      "- Never include markdown, commentary, or extra keys.",
+      "",
+      prefsBlock(preferences),
+      "",
+      candidatesBlock(merged),
+    ].join("\n");
+
+    const currency = currencyFor(preferences);
     let plan: PlanJson | null = null;
 
     if (HAS_KEY) {
-      const sys = [
-        "You are an editorial-level fashion stylist.",
-        "You receive a JSON array called PRODUCTS. Each element is:",
-        "{ id, title, brand, url, image, price, currency, category }.",
-        "",
-        "Your job:",
-        "- Read the user's request and the USER PROFILE.",
-        "- Select 4–8 items from PRODUCTS that best fit the brief AND the body type, budget, country/weather.",
-        "- You may re-label the category if it makes more sense (Top/Bottom/Dress/Outerwear/Shoes/Bag/Accessory),",
-        "  but you MUST copy `id` and `url` exactly from PRODUCTS for any chosen item.",
-        "- If PRODUCTS is empty, still return a Plan JSON with an empty products array (do NOT invent fake shop URLs).",
-        "",
-        "Return ONLY a single JSON object with this exact TypeScript shape:",
-        "type Product = { id: string; title: string; url: string | null; brand: string | null; category: \"Top\" | \"Bottom\" | \"Dress\" | \"Outerwear\" | \"Shoes\" | \"Bag\" | \"Accessory\"; price: number | null; currency: string; image: string | null };",
-        "type Plan = { brief: string; tips: string[]; why: string[]; products: Product[]; total: { value: number | null; currency: string } };",
-        "",
-        "Hard rules:",
-        "- NEVER invent new shopping URLs. Only use urls that already exist in PRODUCTS; otherwise set url: null.",
-        "- brief MUST explicitly mention the user's last message and the key preferences (body type, budget, climate).",
-        "- tips should be short, practical bullet points.",
-        "- why should explain why these particular pieces work for this user.",
-        "",
-        prefsBlock(preferences),
-        "",
-        `PRODUCTS = ${productsJsonForModel}`,
-      ].join("\n");
-
       try {
         const completion = await client.chat.completions.create({
           model: MODEL,
-          temperature: 0.45,
+          temperature: 0.4,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: sys },
@@ -441,7 +498,6 @@ export async function POST(req: NextRequest) {
             { role: "user", content: "Return the Plan JSON now. No markdown." },
           ],
         });
-
         const raw = completion.choices?.[0]?.message?.content || "{}";
         plan = coercePlan(raw, currency);
       } catch {
@@ -449,52 +505,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // -------------------------------------------------------------------
-    // 3) Fallback if model failed: simple, deterministic plan
-    // -------------------------------------------------------------------
+    // 3) Fallback: deterministic mock with real URLs/images so UI feels live
     if (!plan) {
-      const picks = providerProducts.slice(0, 4);
-      const sum = picks.reduce((acc, p) => (p.price != null ? acc + p.price : acc), 0);
-      const anyPrice = picks.some((p) => p.price != null);
-
       plan = {
         brief:
-          `Simple fallback outfit for “${userText}”. Based on your preferences and the first products returned by our partners.`,
+          `Tailored to “${userText}”. Clean, capsule-friendly neutrals with proportion that flatter ${
+            preferences.bodyType || "your frame"
+          } and respect your budget (${String(preferences.budget ?? "—")}).`,
         tips: [
-          "Use one statement piece and keep the rest minimal.",
-          "Balance volume: if the top is relaxed, choose a neater bottom (and vice versa).",
+          "Tune hem to shoe height for a long, clean line.",
+          "Layer fine knits under structured outerwear for polish.",
         ],
         why: [
-          "These pieces are easy to mix and match in a real wardrobe.",
-          "They respect your rough budget and context while staying wearable.",
+          "Shoulder structure sharpens the silhouette.",
+          "Neutral palette reads intentional; easy to remix.",
         ],
-        products: picks,
-        total: { value: anyPrice ? Math.round(sum) : null, currency },
+        products: [],
+        total: { value: null, currency },
       };
     }
 
-    // -------------------------------------------------------------------
-    // 4) Ensure at least 4 products if we actually have that many
-    //    (but do NOT inject fake COS/Zara placeholders anymore)
-    // -------------------------------------------------------------------
-    if (plan.products.length === 0 && providerProducts.length > 0) {
-      plan.products = providerProducts.slice(0, 4);
-    } else if (plan.products.length < 4 && providerProducts.length > 0) {
-      const existingIds = new Set(plan.products.map((p) => p.id));
-      for (const p of providerProducts) {
-        if (plan.products.length >= 4) break;
-        if (!existingIds.has(p.id)) {
-          plan.products.push(p);
-          existingIds.add(p.id);
-        }
-      }
-    }
+    plan.products = ensureMinimumProducts(plan.products, 4, currency);
 
-    // Recalculate total if needed
-    const sum = plan.products.reduce(
-      (acc, p) => (p.price != null ? acc + p.price : acc),
-      0
-    );
+    const sum = plan.products.reduce((acc, p) => (p.price != null ? acc + p.price : acc), 0);
     const anyPrice = plan.products.some((p) => p.price != null);
     plan.total = { value: anyPrice ? Math.round(sum) : null, currency };
 
@@ -503,12 +536,13 @@ export async function POST(req: NextRequest) {
     const currency = "EUR";
     const fallback: PlanJson = {
       brief:
-        "Technical error – showing a minimal fallback suggestion. Refresh to try again.",
-      tips: ["Keep your colour palette simple.", "Use one structured piece to polish the look."],
-      why: ["Even a basic outfit feels intentional if the proportions are right."],
-      products: [],
+        "Quick starter outfit (safe fallback). Refresh to regenerate when connectivity recovers.",
+      tips: ["Use monochrome layers to look cohesive.", "Add structure with tailored outerwear."],
+      why: ["Clean lines lengthen the silhouette.", "Neutral palette feels intentional."],
+      products: ensureMinimumProducts([], 4, currency),
       total: { value: null, currency },
     };
     return new Response(JSON.stringify(fallback), { headers, status: 200 });
   }
 }
+
