@@ -1,23 +1,18 @@
 // FILE: app/api/products/search/route.ts
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { amazonProvider } from "@/lib/affiliates/providers/amazon";
-import { rakutenProvider } from "@/lib/affiliates/providers/rakuten";
-import { awinProvider } from "@/lib/affiliates/providers/awin";
-import { webProvider } from "@/lib/affiliates/providers/web";
-import { wrapProducts } from "@/lib/affiliates/linkWrapper";
-import { rankProducts } from "@/lib/affiliates/ranker";
-import type { Product, ProviderKey } from "@/lib/affiliates/types";
-import type { Prefs } from "@/lib/types";
+import type { Product } from "@/lib/affiliates/types";
+import { scrapeProducts } from "@/lib/scrape";
 
 type Req = {
   query?: string;
   limit?: number;
-  perProvider?: number;
+  perProvider?: number; // accepted for compatibility; treated as limit hints
   country?: string;
-  prefs?: Prefs;
-  providers?: ProviderKey[];
+  // Keep these for compatibility with existing callers; ignored by scraper.
+  providers?: string[];
+  prefs?: unknown;
   priceMin?: number;
   priceMax?: number;
 };
@@ -26,13 +21,17 @@ function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function sanitizeProviders(x: unknown): ProviderKey[] | null {
-  if (!Array.isArray(x) || x.length === 0) return null;
-  const out: ProviderKey[] = [];
-  for (const v of x) {
-    if (v === "amazon" || v === "rakuten" || v === "awin" || v === "web") out.push(v);
-  }
-  return out.length ? out : null;
+function applyPriceFilter(items: Product[], min?: number, max?: number): Product[] {
+  const hasMin = typeof min === "number" && Number.isFinite(min);
+  const hasMax = typeof max === "number" && Number.isFinite(max);
+  if (!hasMin && !hasMax) return items;
+
+  return items.filter((p) => {
+    if (typeof p.price !== "number") return true; // keep items without price
+    if (hasMin && p.price < (min as number)) return false;
+    if (hasMax && p.price > (max as number)) return false;
+    return true;
+  });
 }
 
 export async function POST(req: Request) {
@@ -43,75 +42,29 @@ export async function POST(req: Request) {
   const q = (body.query || "").trim();
   if (!q) return bad("Missing 'query'");
 
-  const per = Math.min(Math.max(body.perProvider ?? 6, 1), 12);
   const overall = Math.min(Math.max(body.limit ?? 24, 1), 60);
-  const country = body.country;
-  const prefs = body.prefs;
+  const country = body.country ?? "NL";
 
-  const selected: ProviderKey[] =
-    sanitizeProviders(body.providers) ?? (["web", "awin", "rakuten", "amazon"] as const);
+  const scraped = await scrapeProducts({ query: q, country, limit: overall });
 
-  const tasks: Array<Promise<{ key: ProviderKey; items: Product[] }>> = [];
+  const filtered = applyPriceFilter(scraped, body.priceMin, body.priceMax);
 
-  if (selected.includes("web")) {
-    tasks.push(
-      webProvider.search(q, { limit: Math.min(per * 2, 24) }).then((r) => ({
-        key: "web",
-        items: r.items,
-      }))
-    );
-  }
-  if (selected.includes("amazon")) {
-    tasks.push(
-      amazonProvider.search(q, { limit: per }).then((r) => ({
-        key: "amazon",
-        items: wrapProducts("amazon", r.items, country),
-      }))
-    );
-  }
-  if (selected.includes("rakuten")) {
-    tasks.push(
-      rakutenProvider.search(q, { limit: per }).then((r) => ({
-        key: "rakuten",
-        items: wrapProducts("rakuten", r.items, country),
-      }))
-    );
-  }
-  if (selected.includes("awin")) {
-    tasks.push(
-      awinProvider.search(q, { limit: per }).then((r) => ({
-        key: "awin",
-        items: wrapProducts("awin", r.items, country),
-      }))
-    );
-  }
-
-  const results = await Promise.all(tasks);
-  let merged: Product[] = results.flatMap((r) => r.items);
-
-  // Optional price filter
-  const hasMin = typeof body.priceMin === "number" && !Number.isNaN(body.priceMin);
-  const hasMax = typeof body.priceMax === "number" && !Number.isNaN(body.priceMax);
-  if (hasMin || hasMax) {
-    merged = merged.filter((p) => {
-      if (typeof p.price !== "number") return false;
-      if (hasMin && p.price < (body.priceMin as number)) return false;
-      if (hasMax && p.price > (body.priceMax as number)) return false;
-      return true;
-    });
-  }
-
-  const ranked = rankProducts({ products: merged, query: q, prefs }).slice(0, overall);
+  // Guarantee url exists (hard requirement for UI)
+  const items = filtered.filter((p) => typeof p.url === "string" && p.url.length > 8).slice(0, overall);
 
   return NextResponse.json(
     {
       ok: true,
-      count: ranked.length,
+      count: items.length,
       query: q,
-      items: ranked,
+      items,
       meta: {
-        providers: selected,
-        filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
+        source: "scrape",
+        country,
+        filteredByPrice:
+          typeof body.priceMin === "number" || typeof body.priceMax === "number"
+            ? { min: body.priceMin ?? null, max: body.priceMax ?? null }
+            : null,
       },
     },
     { status: 200 }
