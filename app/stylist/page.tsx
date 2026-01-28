@@ -67,6 +67,19 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   );
 }
 
+function proxyImage(src: string | null): string | null {
+  if (!src) return null;
+  const s = src.trim();
+  if (!s) return null;
+  if (s.startsWith("/")) return s;
+  try {
+    const u = new URL(s);
+    return `/api/image?url=${encodeURIComponent(u.toString())}`;
+  } catch {
+    return null;
+  }
+}
+
 /* ================== JSON coercion (matches /api/chat) ================== */
 
 function isObj(x: unknown): x is Record<string, unknown> {
@@ -138,7 +151,6 @@ function asProduct(x: unknown, fallbackCurrency: string): UiProduct | null {
   };
 }
 
-/** Coerces unknown JSON into AiJson; returns null if nothing usable */
 function coerceAiJson(content: string): AiJson | null {
   let raw: unknown;
   try {
@@ -198,8 +210,17 @@ const DEMOS = [
   `Hailey Bieber off-duty street, under €300, neutrals + leather`,
 ];
 
+type Resolved = {
+  url: string;
+  image?: string;
+  price?: number;
+  currency?: string;
+  retailer?: string;
+  title?: string;
+  brand?: string;
+};
+
 export default function StylistPage() {
-  /* Prefs (persisted locally) */
   const [prefs, setPrefs] = React.useState<Prefs>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -226,14 +247,48 @@ export default function StylistPage() {
   }, []);
 
   const sizes = prefs.sizes ?? {};
-
-  /* Favorites */
   const fav = useFavorites();
 
-  /* Chat state */
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
+
+  // Resolver cache: productId -> resolved real product
+  const [resolved, setResolved] = React.useState<Record<string, Resolved>>({});
+
+  const resolveProduct = React.useCallback(async (p: UiProduct) => {
+    const key = p.id;
+    if (resolved[key]) return;
+
+    const q = `${p.brand ?? ""} ${p.title}`.trim();
+    if (!q) return;
+
+    try {
+      const res = await fetch("/api/products/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q, limit: 1 }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { ok?: boolean; items?: Array<Record<string, unknown>> };
+      const first = Array.isArray(data.items) ? data.items[0] : null;
+      if (!first || typeof first.url !== "string" || !first.url) return;
+
+      const next: Resolved = {
+        url: first.url as string,
+        image: typeof first.image === "string" ? (first.image as string) : undefined,
+        price: typeof first.price === "number" ? (first.price as number) : undefined,
+        currency: typeof first.currency === "string" ? (first.currency as string) : undefined,
+        retailer: typeof first.retailer === "string" ? (first.retailer as string) : undefined,
+        title: typeof first.title === "string" ? (first.title as string) : undefined,
+        brand: typeof first.brand === "string" ? (first.brand as string) : undefined,
+      };
+
+      setResolved((cur) => ({ ...cur, [key]: next }));
+    } catch {
+      // ignore
+    }
+  }, [resolved]);
 
   const send = React.useCallback(
     async (text: string) => {
@@ -266,14 +321,11 @@ export default function StylistPage() {
         });
 
         const replyText = await res.text();
-        setMessages((curr) => [
-          ...curr,
-          { role: "assistant", content: replyText },
-        ]);
+        setMessages((curr) => [...curr, { role: "assistant", content: replyText }]);
       } catch {
         const fallback: AiJson = {
           brief:
-            "I hit a connectivity issue with product APIs. Here is a neutral, capsule-based fallback look you can refine.",
+            "I hit a connectivity issue. Here is a capsule-based fallback look while we recover.",
           tips: [
             "Keep to one or two base colors for high remix value.",
             "Use one structured piece to sharpen the silhouette.",
@@ -285,10 +337,7 @@ export default function StylistPage() {
           products: [],
           total: { value: null, currency: "EUR" },
         };
-        setMessages((curr) => [
-          ...curr,
-          { role: "assistant", content: JSON.stringify(fallback) },
-        ]);
+        setMessages((curr) => [...curr, { role: "assistant", content: JSON.stringify(fallback) }]);
       } finally {
         setSending(false);
       }
@@ -301,11 +350,23 @@ export default function StylistPage() {
     void send(input);
   };
 
-  /* =============== RENDER =============== */
+  // When a new assistant message arrives, trigger resolution for any weak products.
+  React.useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    const ai = coerceAiJson(last.content);
+    if (!ai) return;
+
+    for (const p of ai.products) {
+      // resolve if missing url OR missing image OR missing price
+      if (!p.url || !p.image || p.price == null) {
+        void resolveProduct(p);
+      }
+    }
+  }, [messages, resolveProduct]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
-      {/* Demo prompts + Lookboard link */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {DEMOS.map((d) => (
           <button
@@ -325,11 +386,8 @@ export default function StylistPage() {
         </a>
       </div>
 
-      {/* Preferences */}
       <section className="sticky top-14 z-10 mb-6 grid gap-3 rounded-2xl border bg-white/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">
-          Your fit & context
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">Your fit & context</p>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
           <div className="col-span-1">
@@ -354,11 +412,7 @@ export default function StylistPage() {
               aria-label="Body type"
               placeholder="pear / hourglass / apple / rectangle"
               value={prefs.bodyType ?? ""}
-              onChange={(e) =>
-                updatePrefs({
-                  bodyType: e.target.value || undefined,
-                })
-              }
+              onChange={(e) => updatePrefs({ bodyType: e.target.value || undefined })}
             />
           </div>
 
@@ -367,11 +421,7 @@ export default function StylistPage() {
               aria-label="Budget band"
               placeholder="e.g. 150-300 per look"
               value={prefs.budget ?? ""}
-              onChange={(e) =>
-                updatePrefs({
-                  budget: e.target.value || undefined,
-                })
-              }
+              onChange={(e) => updatePrefs({ budget: e.target.value || undefined })}
             />
           </div>
 
@@ -380,11 +430,7 @@ export default function StylistPage() {
               aria-label="Country"
               placeholder="NL / US / UK…"
               value={prefs.country ?? ""}
-              onChange={(e) =>
-                updatePrefs({
-                  country: e.target.value || undefined,
-                })
-              }
+              onChange={(e) => updatePrefs({ country: e.target.value || undefined })}
             />
           </div>
 
@@ -410,20 +456,14 @@ export default function StylistPage() {
             aria-label="Top size"
             placeholder="Top"
             value={sizes.top ?? ""}
-            onChange={(e) =>
-              updatePrefs({
-                sizes: { ...sizes, top: e.target.value || undefined },
-              })
-            }
+            onChange={(e) => updatePrefs({ sizes: { ...sizes, top: e.target.value || undefined } })}
           />
           <TextInput
             aria-label="Bottom size"
             placeholder="Bottom"
             value={sizes.bottom ?? ""}
             onChange={(e) =>
-              updatePrefs({
-                sizes: { ...sizes, bottom: e.target.value || undefined },
-              })
+              updatePrefs({ sizes: { ...sizes, bottom: e.target.value || undefined } })
             }
           />
           <TextInput
@@ -431,29 +471,21 @@ export default function StylistPage() {
             placeholder="Dress"
             value={sizes.dress ?? ""}
             onChange={(e) =>
-              updatePrefs({
-                sizes: { ...sizes, dress: e.target.value || undefined },
-              })
+              updatePrefs({ sizes: { ...sizes, dress: e.target.value || undefined } })
             }
           />
           <TextInput
             aria-label="Shoe size"
             placeholder="Shoe"
             value={sizes.shoe ?? ""}
-            onChange={(e) =>
-              updatePrefs({
-                sizes: { ...sizes, shoe: e.target.value || undefined },
-              })
-            }
+            onChange={(e) => updatePrefs({ sizes: { ...sizes, shoe: e.target.value || undefined } })}
           />
         </div>
       </section>
 
-      {/* Chat + look output */}
       <section className="grid content-start gap-4 rounded-2xl border bg-white p-4">
         <p className="text-xs text-gray-700">
-          Describe muse, occasion, weather, and constraints. The stylist uses your
-          profile plus live products to build a shoppable look.
+          Describe muse, occasion, weather, and constraints. The stylist uses your profile plus live products to build a shoppable look.
         </p>
 
         <div className="grid gap-3">
@@ -463,9 +495,7 @@ export default function StylistPage() {
             return (
               <div
                 key={i}
-                className={`rounded-2xl border p-3 text-sm ${
-                  m.role === "user" ? "bg-gray-50" : "bg-white"
-                }`}
+                className={`rounded-2xl border p-3 text-sm ${m.role === "user" ? "bg-gray-50" : "bg-white"}`}
               >
                 <p className="mb-1 text-[10px] uppercase tracking-wide text-gray-500">
                   {m.role === "user" ? "You" : "RunwayTwin Stylist"}
@@ -478,37 +508,41 @@ export default function StylistPage() {
                     <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-[10px] text-gray-700">
                       <span>Est. total (if priced):</span>
                       <span className="font-semibold">
-                        {ai.total.value != null
-                          ? `${ai.total.currency} ${ai.total.value}`
-                          : "—"}
+                        {ai.total.value != null ? `${ai.total.currency} ${ai.total.value}` : "—"}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                       {ai.products.map((p) => {
+                        const r = resolved[p.id];
+                        const url = r?.url ?? p.url;
+                        const img = proxyImage(r?.image ?? p.image);
+                        const title = r?.title ?? p.title;
+                        const brand = r?.brand ?? p.brand;
+                        const price = r?.price ?? p.price;
+                        const currency = r?.currency ?? p.currency;
+
                         const favPayload = {
                           id: p.id,
-                          title: p.title,
-                          url: p.url ?? undefined,
-                          image: p.image ?? undefined,
-                          brand: p.brand ?? undefined,
+                          title,
+                          url: url ?? undefined,
+                          image: img ?? undefined,
+                          brand: brand ?? undefined,
                           category: p.category,
-                          price: p.price ?? undefined,
-                          currency: p.currency ?? undefined,
+                          price: price ?? undefined,
+                          currency: currency ?? undefined,
                         };
+
                         const saved = fav.has(favPayload);
 
                         return (
-                          <article
-                            key={p.id}
-                            className="group flex flex-col rounded-2xl border p-3"
-                          >
+                          <article key={p.id} className="group flex flex-col rounded-2xl border p-3">
                             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
-                              {p.image ? (
+                              {img ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
-                                  src={p.image}
-                                  alt={p.title}
+                                  src={img}
+                                  alt={title}
                                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                                   loading="lazy"
                                 />
@@ -525,21 +559,22 @@ export default function StylistPage() {
                                 {saved ? "Saved" : "Save"}
                               </button>
                             </div>
+
                             <h3 className="mt-2 line-clamp-2 text-xs font-semibold text-gray-900">
-                              {p.title}
+                              {title}
                             </h3>
                             <p className="text-[10px] text-gray-500">
-                              {p.brand ?? "—"} • {p.category}
+                              {brand ?? "—"} • {p.category}
                             </p>
+
                             <div className="mt-1 text-[10px] text-gray-800">
-                              {p.price != null
-                                ? `${p.currency} ${p.price}`
-                                : "Price at retailer"}
+                              {price != null ? `${currency} ${price}` : "Price at retailer"}
                             </div>
+
                             <div className="mt-2 flex gap-2">
-                              {p.url ? (
+                              {url ? (
                                 <a
-                                  href={p.url}
+                                  href={url}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[10px] font-medium hover:bg-gray-50"
@@ -548,7 +583,7 @@ export default function StylistPage() {
                                 </a>
                               ) : (
                                 <span className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[9px] text-gray-500">
-                                  No link
+                                  Resolving…
                                 </span>
                               )}
                             </div>
@@ -558,62 +593,57 @@ export default function StylistPage() {
                     </div>
 
                     {(ai.why.length > 0 || ai.tips.length > 0) && (
-                      <div className="grid gap-2">
-                        {ai.why.length > 0 && (
+                      <div className="grid gap-2 pt-2">
+                        {ai.why.length > 0 ? (
                           <div>
-                            <p className="mb-1 text-[11px] font-semibold">
-                              Why this fits you
-                            </p>
-                            <ul className="list-disc pl-4 text-[11px] text-gray-800">
-                              {ai.why.map((w, idx) => (
-                                <li key={idx}>{w}</li>
+                            <p className="text-xs font-semibold">Why this fits you</p>
+                            <ul className="list-disc pl-5 text-xs text-gray-700">
+                              {ai.why.map((x) => (
+                                <li key={x}>{x}</li>
                               ))}
                             </ul>
                           </div>
-                        )}
-                        {ai.tips.length > 0 && (
+                        ) : null}
+
+                        {ai.tips.length > 0 ? (
                           <div>
-                            <p className="mb-1 text-[11px] font-semibold">
-                              Capsule & styling notes
-                            </p>
-                            <ul className="list-disc pl-4 text-[11px] text-gray-800">
-                              {ai.tips.map((t, idx) => (
-                                <li key={idx}>{t}</li>
+                            <p className="text-xs font-semibold">Styling tips</p>
+                            <ul className="list-disc pl-5 text-xs text-gray-700">
+                              {ai.tips.map((x) => (
+                                <li key={x}>{x}</li>
                               ))}
                             </ul>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap text-gray-900">
-                    {m.content}
-                  </p>
+                  <p className="whitespace-pre-wrap text-gray-800">{m.content}</p>
                 )}
               </div>
             );
           })}
         </div>
 
-        <form onSubmit={onSubmit} className="mt-1 flex gap-2">
+        <form onSubmit={onSubmit} className="mt-2 flex gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`"Zendaya in Paris, black-tie gala, 18°C, soft drama, budget €400 total"`}
-            className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-3 text-sm outline-none focus:border-gray-600"
+            placeholder="Describe a look..."
+            className="flex-1 rounded-xl border px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+            aria-label="Chat input"
           />
           <button
             type="submit"
             disabled={sending}
-            className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-black/90 disabled:opacity-50"
+            className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
           >
-            {sending ? "Styling" : "Send"}
+            {sending ? "Sending..." : "Send"}
           </button>
         </form>
       </section>
     </main>
   );
 }
-
 
