@@ -5,26 +5,34 @@ import { NextResponse } from "next/server";
 import { amazonProvider } from "@/lib/affiliates/providers/amazon";
 import { rakutenProvider } from "@/lib/affiliates/providers/rakuten";
 import { awinProvider } from "@/lib/affiliates/providers/awin";
+import { webProvider } from "@/lib/affiliates/providers/web";
 import { wrapProducts } from "@/lib/affiliates/linkWrapper";
 import { rankProducts } from "@/lib/affiliates/ranker";
-import type { Product } from "@/lib/affiliates/types";
+import type { Product, ProviderKey } from "@/lib/affiliates/types";
 import type { Prefs } from "@/lib/types";
-
-type ProviderKey = "amazon" | "rakuten" | "awin";
 
 type Req = {
   query?: string;
-  limit?: number;        // overall cap after merge
-  perProvider?: number;  // fetch cap per provider (default 6)
-  country?: string;      // for link wrapping
-  prefs?: Prefs;         // optional user preferences to guide ranking
+  limit?: number; // overall cap after merge
+  perProvider?: number; // fetch cap per provider (default 6)
+  country?: string; // for link wrapping
+  prefs?: Prefs; // optional user preferences to guide ranking
   providers?: ProviderKey[]; // subset to query (default: all)
-  priceMin?: number;     // optional inclusive
-  priceMax?: number;     // optional inclusive
+  priceMin?: number; // optional inclusive
+  priceMax?: number; // optional inclusive
 };
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
+}
+
+function sanitizeProviders(x: unknown): ProviderKey[] | null {
+  if (!Array.isArray(x) || x.length === 0) return null;
+  const out: ProviderKey[] = [];
+  for (const v of x) {
+    if (v === "amazon" || v === "rakuten" || v === "awin" || v === "web") out.push(v);
+  }
+  return out.length ? out : null;
 }
 
 export async function POST(req: Request) {
@@ -40,20 +48,15 @@ export async function POST(req: Request) {
   const country = body.country;
   const prefs = body.prefs;
 
-  const selected: ProviderKey[] =
-    Array.isArray(body.providers) && body.providers.length
-      ? (body.providers.filter(
-          (p): p is ProviderKey => p === "amazon" || p === "rakuten" || p === "awin"
-        ) as ProviderKey[])
-      : (["amazon", "rakuten", "awin"] as const);
+  const selected =
+    sanitizeProviders(body.providers) ?? (["amazon", "rakuten", "awin", "web"] as ProviderKey[]);
 
-  // Fetch chosen providers in parallel (mock-safe)
   const tasks: Array<Promise<{ key: ProviderKey; items: Product[] }>> = [];
 
   if (selected.includes("amazon")) {
     tasks.push(
       amazonProvider.search(q, { limit: per }).then((r) => ({
-        key: "amazon" as const,
+        key: "amazon",
         items: wrapProducts("amazon", r.items, country),
       }))
     );
@@ -61,7 +64,7 @@ export async function POST(req: Request) {
   if (selected.includes("rakuten")) {
     tasks.push(
       rakutenProvider.search(q, { limit: per }).then((r) => ({
-        key: "rakuten" as const,
+        key: "rakuten",
         items: wrapProducts("rakuten", r.items, country),
       }))
     );
@@ -69,14 +72,29 @@ export async function POST(req: Request) {
   if (selected.includes("awin")) {
     tasks.push(
       awinProvider.search(q, { limit: per }).then((r) => ({
-        key: "awin" as const,
+        key: "awin",
         items: wrapProducts("awin", r.items, country),
+      }))
+    );
+  }
+  if (selected.includes("web")) {
+    tasks.push(
+      webProvider.search(q, { limit: Math.min(per * 2, 24) }).then((r) => ({
+        key: "web",
+        items: r.items, // no affiliate wrapping for web results
       }))
     );
   }
 
   const results = await Promise.all(tasks);
   let merged: Product[] = results.flatMap((r) => r.items);
+
+  // If user didn't select web and affiliate providers yielded nothing, try web as fallback.
+  const requestedWeb = selected.includes("web");
+  if (!requestedWeb && merged.length === 0) {
+    const fallback = await webProvider.search(q, { limit: Math.min(per * 2, 24) });
+    merged = fallback.items;
+  }
 
   // Optional price filter
   const hasMin = typeof body.priceMin === "number" && !Number.isNaN(body.priceMin);
@@ -102,8 +120,10 @@ export async function POST(req: Request) {
       meta: {
         providers: selected,
         filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
+        scraped: ranked.some((p) => typeof p.retailer === "string" && p.retailer.includes(".")),
       },
     },
     { status: 200 }
   );
 }
+
