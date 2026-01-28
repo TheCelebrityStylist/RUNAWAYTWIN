@@ -5,31 +5,8 @@ import OpenAI from "openai";
 import { NextRequest } from "next/server";
 
 /**
- * Chat → JSON stylist plan with guaranteed, linkable products.
- *
- * Uses:
- * - Provider-backed candidates from /api/products/search
- * - Optional Tavily web search (if ALLOW_WEB + TAVILY_API_KEY)
- * - Strict JSON schema (response_format: json_object)
- * - Mock catalog as a deterministic UI-safe fallback
- *
- * Response shape:
- *   {
- *     brief: string,
- *     tips: string[],
- *     why: string[],
- *     products: Array<{
- *       id: string,
- *       title: string,
- *       url: string | null,
- *       brand: string | null,
- *       category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory",
- *       price: number | null,
- *       currency: string,
- *       image: string | null
- *     }>,
- *     total: { value: number | null, currency: string }
- *   }
+ * Chat → JSON stylist plan with linkable products.
+ * If the model returns products with url:null, we backfill via /api/products/search (web provider).
  */
 
 type Role = "system" | "user" | "assistant";
@@ -77,7 +54,6 @@ const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-/* ------------------------- helpers -------------------------- */
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) {
@@ -139,14 +115,6 @@ function asNumberOrNull(x: unknown): number | null {
   return typeof x === "number" && Number.isFinite(x) ? x : null;
 }
 
-/* ---------------- Provider-backed candidates (primary) ---------------- */
-/**
- * Hits internal /api/products/search to retrieve ranked products
- * from AWIN/Rakuten/Amazon, already wrapped and filtered.
- * We only need title+url to seed the model with safe, real links.
- *
- * IMPORTANT: Use an ABSOLUTE URL in Edge; we derive it from req.url.
- */
 async function providerCandidates(baseUrl: string, query: string, prefs: Prefs): Promise<Cand[]> {
   try {
     const url = new URL("/api/products/search", baseUrl);
@@ -159,7 +127,7 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
         perProvider: 8,
         country: prefs.country,
         prefs,
-        providers: ["awin", "rakuten", "amazon"],
+        providers: ["web", "awin", "rakuten", "amazon"],
       }),
     });
     if (!resp.ok) return [];
@@ -181,7 +149,7 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
         seen.add(key);
         out.push({ title, url: urlStr });
       } catch {
-        // ignore malformed urls
+        // ignore
       }
       if (out.length >= 20) break;
     }
@@ -191,11 +159,10 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
   }
 }
 
-/* ---------------- Tavily candidates (secondary/optional) ---------------- */
 async function webSearchProducts(query: string): Promise<Cand[]> {
   if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
   const booster =
-    " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR matchesfashion.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com OR levi.com)";
+    " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com)";
   const q = `${query}${booster}`;
 
   const resp = await fetch("https://api.tavily.com/search", {
@@ -238,87 +205,63 @@ function candidatesBlock(cands: Cand[]) {
   return `CANDIDATE_LINKS: [${lines.join(",")}]`;
 }
 
-/* ----------------- Mock catalog (concrete URLs + images) ------------------ */
-/* NOTE: These are public PDP/category URLs and placeholder images to make the UI feel real. */
 const MOCK_CATALOG: UiProduct[] = [
   {
     id: "cos-rib-tee",
     title: "COS Heavyweight Ribbed T-Shirt",
-    url: "https://www.cos.com/en_eur/men/t-shirts/product.heavyweight-ribbed-t-shirt-white.123456.html",
+    url: "https://www.cos.com/",
     brand: "COS",
     category: "Top",
-    price: 39,
+    price: null,
+    currency: "EUR",
+    image:
+      "https://images.unsplash.com/photo-1520975657287-04f0b1436f4b?q=80&w=800&auto=format&fit=crop",
+  },
+  {
+    id: "arket-wide-trouser",
+    title: "ARKET Wide Wool Trousers",
+    url: "https://www.arket.com/",
+    brand: "ARKET",
+    category: "Bottom",
+    price: null,
     currency: "EUR",
     image:
       "https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=800&auto=format&fit=crop",
   },
   {
-    id: "arket-wide-trouser",
-    title: "ARKET Wide Wool Trousers",
-    url: "https://www.arket.com/en_eur/men/trousers/product.wide-wool-trousers-black.78910.html",
-    brand: "ARKET",
-    category: "Bottom",
-    price: 129,
-    currency: "EUR",
-    image:
-      "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "md-trench",
+    id: "massimo-trench",
     title: "Massimo Dutti Double-Breasted Trench",
-    url: "https://www.massimodutti.com/eur/men/coats/double-breasted-trench-coat-c12345p98765.html",
+    url: "https://www.massimodutti.com/",
     brand: "Massimo Dutti",
     category: "Outerwear",
-    price: 199,
+    price: null,
     currency: "EUR",
     image:
-      "https://images.unsplash.com/photo-1551537482-f2075a1d41f2?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1520975867597-0f643f1f1f47?q=80&w=800&auto=format&fit=crop",
   },
   {
-    id: "zara-ankle-boot",
+    id: "zara-boots",
     title: "Zara Leather Ankle Boots",
-    url: "https://www.zara.com/nl/en/leather-ankle-boots-p00000000.html",
+    url: "https://www.zara.com/",
     brand: "Zara",
     category: "Shoes",
-    price: 99,
+    price: null,
     currency: "EUR",
     image:
-      "https://images.unsplash.com/photo-1517840901100-8179e982acb7?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "mango-shoulder-bag",
-    title: "Mango Structured Shoulder Bag",
-    url: "https://shop.mango.com/nl/women/bags/shoulder-structured-bag_12345678.html",
-    brand: "Mango",
-    category: "Bag",
-    price: 49,
-    currency: "EUR",
-    image:
-      "https://images.unsplash.com/photo-1520975728360-5d1bd7b3a8bf?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "uniqlo-merino",
-    title: "Uniqlo Extra Fine Merino Crew Neck",
-    url: "https://www.uniqlo.com/eu/en/products/E123456-000",
-    brand: "Uniqlo",
-    category: "Top",
-    price: 39,
-    currency: "EUR",
-    image:
-      "https://images.unsplash.com/photo-1544441893-675973e31990?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1528701800489-20be3c1ea2d3?q=80&w=800&auto=format&fit=crop",
   },
 ];
 
 function ensureMinimumProducts(current: UiProduct[], min: number, currency: string): UiProduct[] {
   const out = [...current];
+  if (out.length >= min) return out;
   for (const p of MOCK_CATALOG) {
     if (out.length >= min) break;
     out.push({ ...p, currency });
   }
-  return out.slice(0, Math.max(min, out.length));
+  return out;
 }
 
-/* ---------------- JSON coercion helpers ---------------- */
 function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | null {
   if (!isObj(x)) return null;
 
@@ -336,7 +279,7 @@ function productFromModel(x: unknown, fallbackCurrency: string): UiProduct | nul
 
   const url = typeof x["url"] === "string" ? (x["url"] as string) : null;
   const brand =
-    typeof x["brand"] === "string" && x["brand"].trim() ? (x["brand"] as string) : null;
+    typeof x["brand"] === "string" && (x["brand"] as string).trim() ? (x["brand"] as string) : null;
 
   const currency =
     typeof x["currency"] === "string" && (x["currency"] as string).trim()
@@ -379,21 +322,85 @@ function coercePlan(content: string, fallbackCurrency: string): PlanJson | null 
 
   const totalObj = isObj(raw["total"]) ? (raw["total"] as Record<string, unknown>) : {};
   const totalCurrency =
-    typeof totalObj["currency"] === "string"
-      ? (totalObj["currency"] as string)
-      : fallbackCurrency;
+    typeof totalObj["currency"] === "string" ? (totalObj["currency"] as string) : fallbackCurrency;
   const totalValue = asNumberOrNull(totalObj["value"]);
 
-  return {
-    brief,
-    tips,
-    why,
-    products,
-    total: { value: totalValue, currency: totalCurrency },
-  };
+  return { brief, tips, why, products, total: { value: totalValue, currency: totalCurrency } };
 }
 
-/* ---------------- route ---------------- */
+function timeout<T>(ms: number, fallback: T) {
+  return new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms));
+}
+
+async function enrichMissingLinks(
+  baseUrl: string,
+  prefs: Prefs,
+  products: UiProduct[]
+): Promise<UiProduct[]> {
+  const needs = products
+    .map((p, idx) => ({ p, idx }))
+    .filter(({ p }) => !p.url || !p.image)
+    .slice(0, 6);
+
+  if (needs.length === 0) return products;
+
+  const enriched = [...products];
+
+  await Promise.all(
+    needs.map(async ({ p, idx }) => {
+      const qParts = [p.title, p.brand ?? "", p.category, prefs.country ?? ""].filter(Boolean);
+      const q = qParts.join(" ").trim();
+      if (!q) return;
+
+      try {
+        const url = new URL("/api/products/search", baseUrl);
+        const resp = await Promise.race([
+          fetch(url.toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: q,
+              limit: 6,
+              perProvider: 6,
+              country: prefs.country,
+              prefs,
+              providers: ["web"],
+            }),
+          }),
+          timeout<Response>(4000, new Response(null, { status: 599 })),
+        ]);
+
+        if (!resp.ok) return;
+
+        const data = (await resp.json().catch(() => null)) as
+          | { items?: Array<{ title?: unknown; url?: unknown; image?: unknown; price?: unknown; currency?: unknown }> }
+          | null;
+
+        const firstItem = Array.isArray(data?.items) ? data!.items[0] : undefined;
+        if (!firstItem) return;
+
+        const urlStr = typeof firstItem.url === "string" ? firstItem.url : null;
+        const imgStr = typeof firstItem.image === "string" ? firstItem.image : null;
+        const priceNum =
+          typeof firstItem.price === "number" && Number.isFinite(firstItem.price) ? firstItem.price : null;
+        const curStr = typeof firstItem.currency === "string" ? firstItem.currency : p.currency;
+
+        enriched[idx] = {
+          ...p,
+          url: p.url ?? urlStr,
+          image: p.image ?? imgStr,
+          price: p.price ?? priceNum,
+          currency: curStr,
+        };
+      } catch {
+        // ignore
+      }
+    })
+  );
+
+  return enriched;
+}
+
 export async function POST(req: NextRequest) {
   const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
@@ -420,27 +427,19 @@ export async function POST(req: NextRequest) {
     if (!userText) {
       return new Response(
         JSON.stringify({
-          error:
-            "Tell me your occasion, body type, budget, and any celebrity muse. I’ll style a full look.",
+          error: "Tell me your occasion, body type, budget, and any celebrity muse. I’ll style a full look.",
         }),
         { status: 400, headers }
       );
     }
 
-    // 1) Build candidate links: Provider-backed first, Tavily (optional) as secondary.
     const queryString = [userText, preferences.styleKeywords, preferences.bodyType, preferences.country]
       .filter(Boolean)
       .join(" ");
 
     const providerCandPromise = providerCandidates(req.url, queryString, preferences);
-
     const tavilyCandPromise =
-      ALLOW_WEB && process.env.TAVILY_API_KEY
-        ? webSearchProducts(queryString)
-        : Promise.resolve([] as Cand[]);
-
-    const timeout = <T,>(ms: number, value: T) =>
-      new Promise<T>((resolve) => setTimeout(() => resolve(value), ms));
+      ALLOW_WEB && process.env.TAVILY_API_KEY ? webSearchProducts(queryString) : Promise.resolve([] as Cand[]);
 
     const [prov, tav] = await Promise.all([
       Promise.race([providerCandPromise, timeout<Cand[]>(4500, [])]),
@@ -505,27 +504,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3) Fallback: deterministic mock with real URLs/images so UI feels live
     if (!plan) {
       plan = {
-        brief:
-          `Tailored to “${userText}”. Clean, capsule-friendly neutrals with proportion that flatter ${
-            preferences.bodyType || "your frame"
-          } and respect your budget (${String(preferences.budget ?? "—")}).`,
-        tips: [
-          "Tune hem to shoe height for a long, clean line.",
-          "Layer fine knits under structured outerwear for polish.",
-        ],
-        why: [
-          "Shoulder structure sharpens the silhouette.",
-          "Neutral palette reads intentional; easy to remix.",
-        ],
+        brief: `Tailored to “${userText}”.`,
+        tips: ["Use a cohesive palette.", "Balance structure with softness."],
+        why: ["Clean proportions flatter more body types.", "Practical choices still read editorial."],
         products: [],
         total: { value: null, currency },
       };
     }
 
+    // Ensure we have at least 4 items
     plan.products = ensureMinimumProducts(plan.products, 4, currency);
+
+    // Backfill missing urls/images/prices using the web provider
+    plan.products = await enrichMissingLinks(req.url, preferences, plan.products);
 
     const sum = plan.products.reduce((acc, p) => (p.price != null ? acc + p.price : acc), 0);
     const anyPrice = plan.products.some((p) => p.price != null);
@@ -535,8 +528,7 @@ export async function POST(req: NextRequest) {
   } catch {
     const currency = "EUR";
     const fallback: PlanJson = {
-      brief:
-        "Quick starter outfit (safe fallback). Refresh to regenerate when connectivity recovers.",
+      brief: "Quick starter outfit (safe fallback). Refresh to regenerate when connectivity recovers.",
       tips: ["Use monochrome layers to look cohesive.", "Add structure with tailored outerwear."],
       why: ["Clean lines lengthen the silhouette.", "Neutral palette feels intentional."],
       products: ensureMinimumProducts([], 4, currency),
@@ -545,4 +537,3 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify(fallback), { headers, status: 200 });
   }
 }
-
