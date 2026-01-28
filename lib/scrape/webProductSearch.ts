@@ -5,14 +5,18 @@ import type { Product } from "@/lib/affiliates/types";
 
 type WebSearchOptions = {
   query: string;
-  limit?: number; // final items returned
+  limit?: number;
   preferEU?: boolean;
 };
 
 const UA = "Mozilla/5.0 (compatible; RunwayTwinBot/1.0; +https://runwaytwin.local)";
-
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 24;
+
+function isEnabled(): boolean {
+  const v = (process.env.WEB_SCRAPE_ENABLED || "true").trim().toLowerCase();
+  return v !== "false" && v !== "0";
+}
 
 // Optional allowlist: comma-separated domains, e.g. "zalando.nl,cos.com,arket.com"
 function getAllowlist(): string[] {
@@ -22,11 +26,6 @@ function getAllowlist(): string[] {
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter((s) => s.length > 0);
-}
-
-function isEnabled(): boolean {
-  const v = (process.env.WEB_SCRAPE_ENABLED || "true").trim().toLowerCase();
-  return v !== "false" && v !== "0";
 }
 
 function clampLimit(n?: number): number {
@@ -60,18 +59,17 @@ const EU_HOST_HINTS = [
   ".fi",
   ".pl",
   ".at",
+  "zalando.",
+  "zara.com",
+  "mango.com",
+  "hm.com",
+  "cos.com",
+  "arket.com",
   "ssense.com",
   "mytheresa.com",
   "farfetch.com",
-  "endclothing.com",
   "mrporter.com",
   "net-a-porter.com",
-  "arket.com",
-  "cos.com",
-  "hm.com",
-  "mango.com",
-  "zara.com",
-  "zalando.",
 ];
 
 function scoreByRegion(url: string, preferEU?: boolean): number {
@@ -116,8 +114,8 @@ async function tryFetchHtml(url: string): Promise<string | null> {
 
 /**
  * Search result harvesting
- * We try DuckDuckGo HTML first; if blocked, we fall back to Bing HTML.
- * This is intentionally lightweight (no headless browser).
+ * - DuckDuckGo HTML first
+ * - Bing HTML fallback
  */
 async function searchResultLinksDDG(query: string): Promise<string[]> {
   const q = encodeURIComponent(query);
@@ -135,7 +133,7 @@ async function searchResultLinksDDG(query: string): Promise<string[]> {
       const u = new URL(href);
       if (u.protocol !== "http:" && u.protocol !== "https:") continue;
       out.push(u.toString());
-      if (out.length >= 20) break;
+      if (out.length >= 24) break;
     } catch {
       // ignore
     }
@@ -159,7 +157,7 @@ async function searchResultLinksBing(query: string): Promise<string[]> {
       const u = new URL(href);
       if (u.protocol !== "http:" && u.protocol !== "https:") continue;
       out.push(u.toString());
-      if (out.length >= 20) break;
+      if (out.length >= 24) break;
     } catch {
       // ignore
     }
@@ -170,8 +168,7 @@ async function searchResultLinksBing(query: string): Promise<string[]> {
 async function searchResultLinks(query: string): Promise<string[]> {
   const ddg = await searchResultLinksDDG(query);
   if (ddg.length) return ddg;
-  const bing = await searchResultLinksBing(query);
-  return bing;
+  return searchResultLinksBing(query);
 }
 
 /* =========================
@@ -209,19 +206,6 @@ function firstOf<T>(x: T[] | T | undefined | null): T | undefined {
   return Array.isArray(x) ? x[0] : x;
 }
 
-function pickOffer(offers: unknown): Record<string, unknown> | null {
-  if (!offers) return null;
-  const list = Array.isArray(offers) ? offers : [offers];
-  for (const o of list) {
-    if (typeof o === "object" && o !== null) {
-      const availability = String((o as Record<string, unknown>)["availability"] || "").toLowerCase();
-      if (availability.includes("instock")) return o as Record<string, unknown>;
-    }
-  }
-  const first = list[0];
-  return typeof first === "object" && first !== null ? (first as Record<string, unknown>) : null;
-}
-
 function toNum(x: unknown): number | undefined {
   if (typeof x === "number" && Number.isFinite(x)) return x;
   if (typeof x === "string") {
@@ -252,11 +236,23 @@ function hostnameRetailer(url: string): string | undefined {
   }
 }
 
+function pickOffer(offers: unknown): Record<string, unknown> | null {
+  if (!offers) return null;
+  const list = Array.isArray(offers) ? offers : [offers];
+  for (const o of list) {
+    if (typeof o === "object" && o !== null) {
+      const availability = String((o as Record<string, unknown>)["availability"] || "").toLowerCase();
+      if (availability.includes("instock")) return o as Record<string, unknown>;
+    }
+  }
+  const first = list[0];
+  return typeof first === "object" && first !== null ? (first as Record<string, unknown>) : null;
+}
+
 function normalizeFromJsonLd(url: string, node: unknown): Product | null {
   if (typeof node !== "object" || node === null) return null;
   const obj = node as Record<string, unknown>;
 
-  // Dive into @graph if present
   if (obj["@graph"] && Array.isArray(obj["@graph"])) {
     for (const child of obj["@graph"] as unknown[]) {
       const p = normalizeFromJsonLd(url, child);
@@ -274,7 +270,6 @@ function normalizeFromJsonLd(url: string, node: unknown): Product | null {
 
   const isProduct = types.includes("product");
   const isOffer = types.includes("offer");
-
   if (!isProduct && !isOffer) return null;
 
   const productNode: Record<string, unknown> = isProduct
@@ -347,21 +342,21 @@ function normalizeFromJsonLd(url: string, node: unknown): Product | null {
 }
 
 function scrapeFallbackOG(url: string, html: string): Product | null {
-  const titleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
-  const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  const titleMatch = html.match(
+    /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i
+  );
+  const imgMatch = html.match(
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+  );
   const title = titleMatch?.[1]?.trim();
   if (!title) return null;
 
   return {
     id: url,
     title,
-    brand: undefined,
     retailer: hostnameRetailer(url),
     url,
     image: imgMatch?.[1]?.trim() || undefined,
-    price: undefined,
-    currency: undefined,
-    availability: undefined,
   };
 }
 
@@ -378,9 +373,6 @@ async function extractProductFromUrl(url: string): Promise<Product | null> {
   return scrapeFallbackOG(url, html);
 }
 
-/**
- * Public: web product search
- */
 export async function webProductSearch(opts: WebSearchOptions): Promise<Product[]> {
   if (!isEnabled()) return [];
 
@@ -390,7 +382,7 @@ export async function webProductSearch(opts: WebSearchOptions): Promise<Product[
 
   const allowlist = getAllowlist();
 
-  // Add "buy signal" bias to reduce editorial/blog results.
+  // reduce blog/editorial results
   const query = `${q} (price OR € OR $)`;
 
   const linksRaw = await searchResultLinks(query);
@@ -399,7 +391,7 @@ export async function webProductSearch(opts: WebSearchOptions): Promise<Product[
     .map((u) => ({ u, s: scoreByRegion(u, opts.preferEU) }))
     .sort((a, b) => b.s - a.s)
     .map((x) => x.u)
-    .slice(0, 18);
+    .slice(0, 20);
 
   if (!links.length) return [];
 
@@ -408,9 +400,9 @@ export async function webProductSearch(opts: WebSearchOptions): Promise<Product[
     const prod = await extractProductFromUrl(href);
     if (!prod) continue;
 
-    // Avoid pure category/listing pages: require some signal beyond just a title
-    const hasSomeSignal = Boolean(prod.price || prod.currency || prod.image);
-    if (!hasSomeSignal) continue;
+    // avoid obvious non-product pages
+    const hasSignal = Boolean(prod.price || prod.currency || prod.image);
+    if (!hasSignal) continue;
 
     out.push(prod);
     if (out.length >= limit) break;
