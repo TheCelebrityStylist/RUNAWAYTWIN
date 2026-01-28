@@ -3,17 +3,13 @@
 
 import * as React from "react";
 import { ProductCard, ProductCardSkeleton } from "@/components/ProductCard";
-import type { Product } from "@/lib/affiliates/types";
+import type { Product, ProviderKey } from "@/lib/affiliates/types";
 
 type ApiResponse =
   | { ok: true; items: Product[]; count: number; query: string }
   | { error: string };
 
-type ProvidersState = {
-  amazon: boolean;
-  rakuten: boolean;
-  awin: boolean;
-};
+type ProvidersState = Record<ProviderKey, boolean>;
 
 export default function ProductsPage() {
   const [query, setQuery] = React.useState<string>("black blazer");
@@ -24,6 +20,7 @@ export default function ProductsPage() {
     amazon: true,
     rakuten: true,
     awin: true,
+    web: true,
   });
   const [priceMin, setPriceMin] = React.useState<string>("");
   const [priceMax, setPriceMax] = React.useState<string>("");
@@ -42,9 +39,7 @@ export default function ProductsPage() {
     setError(null);
 
     try {
-      const enabledProviders = (Object.keys(providers) as Array<keyof ProvidersState>)
-        .filter((k) => providers[k])
-        .map((k) => k as "amazon" | "rakuten" | "awin");
+      const enabledProviders = (Object.keys(providers) as ProviderKey[]).filter((k) => providers[k]);
 
       const body: Record<string, unknown> = {
         query: q,
@@ -99,8 +94,8 @@ export default function ProductsPage() {
       <header className="mb-6 grid gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Product Finder (demo)</h1>
         <p className="text-sm text-gray-600">
-          Filter by provider and price; results are merged and ranked. Works in mock mode without
-          any keys.
+          Filter by provider and price; results are merged and ranked. The <span className="font-medium">web</span>{" "}
+          provider scrapes real product pages via Product JSON-LD (no affiliate keys needed).
         </p>
 
         <form onSubmit={onSubmit} className="grid gap-3" role="search" aria-label="Product search">
@@ -128,14 +123,12 @@ export default function ProductsPage() {
             {/* Providers */}
             <fieldset className="flex flex-wrap items-center gap-3">
               <legend className="sr-only">Providers</legend>
-              {(["amazon", "rakuten", "awin"] as const).map((key) => (
+              {(["web", "amazon", "rakuten", "awin"] as const).map((key) => (
                 <label key={key} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={providers[key]}
-                    onChange={(e) =>
-                      setProviders((p) => ({ ...p, [key]: e.target.checked }))
-                    }
+                    onChange={(e) => setProviders((p) => ({ ...p, [key]: e.target.checked }))}
                     className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black/60"
                   />
                   <span className="capitalize">{key}</span>
@@ -204,3 +197,4 @@ export default function ProductsPage() {
     </main>
   );
 }
+
