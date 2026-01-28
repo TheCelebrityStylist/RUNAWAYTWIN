@@ -7,7 +7,7 @@ import * as React from "react";
  * ProductCard with local favorite toggle.
  * Works with the /looks page by writing to the shared KEY "rwt-favorites-v1"
  * as a map of uniqueKey -> Product JSON.
- * 
+ *
  * Also exports ProductCardSkeleton to support route-level loading UIs.
  */
 
@@ -48,6 +48,18 @@ function uniqueKey(p: Product) {
   return p.url || p.id || p.title;
 }
 
+function proxyImage(src: string | null | undefined): string {
+  const s = typeof src === "string" ? src.trim() : "";
+  if (!s) return "/placeholder.png";
+  if (s.startsWith("/")) return s;
+  try {
+    const u = new URL(s);
+    return `/api/image?url=${encodeURIComponent(u.toString())}`;
+  } catch {
+    return "/placeholder.png";
+  }
+}
+
 export function ProductCard({ item }: { item: Product }) {
   const key = uniqueKey(item);
 
@@ -69,9 +81,10 @@ export function ProductCard({ item }: { item: Product }) {
     }
   }, [fav, item, key]);
 
+  const imgSrc = proxyImage(item.image);
+
   return (
     <article className="relative grid h-full grid-rows-[auto_1fr_auto] overflow-hidden rounded-2xl border bg-white shadow-sm">
-      {/* Favorite button */}
       <button
         type="button"
         onClick={toggleFav}
@@ -85,7 +98,6 @@ export function ProductCard({ item }: { item: Product }) {
         {fav ? "♥" : "♡"}
       </button>
 
-      {/* Image */}
       <a
         href={item.url}
         target="_blank"
@@ -94,21 +106,19 @@ export function ProductCard({ item }: { item: Product }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={item.image || "/placeholder.png"}
+          src={imgSrc}
           alt={item.title}
           className="h-full w-full object-cover transition hover:scale-[1.02]"
           loading="lazy"
         />
       </a>
 
-      {/* Body */}
       <div className="grid gap-1 p-3 text-sm">
         <p className="text-xs text-neutral-500">{item.brand || item.retailer || "—"}</p>
         <h3 className="line-clamp-2 font-medium text-neutral-900">{item.title}</h3>
         <p className="text-xs text-neutral-500">{item.category || ""}</p>
       </div>
 
-      {/* Footer */}
       <div className="flex items-center justify-between border-t px-3 py-2">
         <div className="text-sm font-semibold text-neutral-900">
           {typeof item.price === "number" && item.currency
@@ -130,13 +140,9 @@ export function ProductCard({ item }: { item: Product }) {
   );
 }
 
-/** Skeleton used in route-level loading UIs */
 export function ProductCardSkeleton() {
   return (
-    <div
-      aria-hidden="true"
-      className="animate-pulse rounded-2xl border bg-white shadow-sm"
-    >
+    <div aria-hidden="true" className="animate-pulse rounded-2xl border bg-white shadow-sm">
       <div className="aspect-[3/4] w-full bg-neutral-100" />
       <div className="space-y-2 p-3">
         <div className="h-3 w-24 rounded bg-neutral-200" />
