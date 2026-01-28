@@ -7,8 +7,8 @@ export type Product = {
   id: ProductID;
   title: string;
   brand?: string;
-  retailer?: string; // e.g., "amazon", "rakuten", "awin:Zara" or domain for "web"
-  url: string; // raw product URL (wrapped at response for affiliate providers)
+  retailer?: string; // e.g., "amazon", "rakuten", "awin:Zara", or a domain for "web"
+  url: string; // raw product URL (wrapped for affiliate providers)
   image?: string;
   price?: number;
   currency?: Currency;
