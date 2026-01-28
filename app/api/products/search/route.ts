@@ -3,34 +3,22 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import type { Product } from "@/lib/affiliates/types";
+import type { Prefs } from "@/lib/types";
 import { scrapeProducts } from "@/lib/scrape";
 
 type Req = {
   query?: string;
   limit?: number;
-  perProvider?: number; // accepted for compatibility with the UI
-  country?: string;
-  providers?: string[];
-  prefs?: unknown;
+  perProvider?: number; // ignored (kept for backward compat)
+  country?: string; // ignored for now
+  prefs?: Prefs;
+  providers?: Array<"amazon" | "rakuten" | "awin">; // ignored (kept for backward compat)
   priceMin?: number;
   priceMax?: number;
 };
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
-}
-
-function applyPriceFilter(items: Product[], min?: number, max?: number): Product[] {
-  const hasMin = typeof min === "number" && Number.isFinite(min);
-  const hasMax = typeof max === "number" && Number.isFinite(max);
-  if (!hasMin && !hasMax) return items;
-
-  return items.filter((p) => {
-    if (typeof p.price !== "number") return true; // keep items without price
-    if (hasMin && p.price < (min as number)) return false;
-    if (hasMax && p.price > (max as number)) return false;
-    return true;
-  });
 }
 
 export async function POST(req: Request) {
@@ -42,14 +30,20 @@ export async function POST(req: Request) {
   if (!q) return bad("Missing 'query'");
 
   const overall = Math.min(Math.max(body.limit ?? 24, 1), 60);
-  const country = body.country ?? "NL";
 
-  const scraped = await scrapeProducts({ query: q, country, limit: overall });
-  const filtered = applyPriceFilter(scraped, body.priceMin, body.priceMax);
+  let items: Product[] = await scrapeProducts({ query: q, limit: overall });
 
-  const items = filtered
-    .filter((p) => typeof p.url === "string" && p.url.length > 8)
-    .slice(0, overall);
+  const hasMin = typeof body.priceMin === "number" && Number.isFinite(body.priceMin);
+  const hasMax = typeof body.priceMax === "number" && Number.isFinite(body.priceMax);
+
+  if (hasMin || hasMax) {
+    items = items.filter((p) => {
+      if (typeof p.price !== "number") return false;
+      if (hasMin && p.price < (body.priceMin as number)) return false;
+      if (hasMax && p.price > (body.priceMax as number)) return false;
+      return true;
+    });
+  }
 
   return NextResponse.json(
     {
@@ -58,12 +52,8 @@ export async function POST(req: Request) {
       query: q,
       items,
       meta: {
-        source: "scrape",
-        country,
-        filteredByPrice:
-          typeof body.priceMin === "number" || typeof body.priceMax === "number"
-            ? { min: body.priceMin ?? null, max: body.priceMax ?? null }
-            : null,
+        mode: "scrape",
+        filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
       },
     },
     { status: 200 }
