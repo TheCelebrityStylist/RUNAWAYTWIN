@@ -10,22 +10,21 @@ type WebSearchOptions = {
 };
 
 const UA = "Mozilla/5.0 (compatible; RunwayTwinBot/1.0; +https://runwaytwin.local)";
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 24;
 
-function isEnabled(): boolean {
+function enabled(): boolean {
   const v = (process.env.WEB_SCRAPE_ENABLED || "true").trim().toLowerCase();
   return v !== "false" && v !== "0";
 }
 
-// Optional allowlist: comma-separated domains, e.g. "zalando.nl,cos.com,arket.com"
-function getAllowlist(): string[] {
+function allowlist(): string[] {
   const raw = (process.env.WEB_SCRAPE_DOMAINS_ALLOWLIST || "").trim();
   if (!raw) return [];
   return raw
     .split(",")
     .map((s) => s.trim().toLowerCase())
-    .filter((s) => s.length > 0);
+    .filter(Boolean);
 }
 
 function clampLimit(n?: number): number {
@@ -72,58 +71,48 @@ const EU_HOST_HINTS = [
   "net-a-porter.com",
 ];
 
-function scoreByRegion(url: string, preferEU?: boolean): number {
+function regionScore(url: string, preferEU?: boolean): number {
   try {
     const host = new URL(url).hostname.toLowerCase();
-    const isEUish = EU_HOST_HINTS.some((h) => host.includes(h));
-    return preferEU ? (isEUish ? 2 : 0) : isEUish ? 0 : 2;
+    const isEU = EU_HOST_HINTS.some((h) => host.includes(h));
+    return preferEU ? (isEU ? 2 : 0) : isEU ? 0 : 2;
   } catch {
     return 0;
   }
 }
 
-function allowedByAllowlist(url: string, allowlist: string[]): boolean {
-  if (allowlist.length === 0) return true;
+function allowedByAllowlist(url: string, list: string[]): boolean {
+  if (list.length === 0) return true;
   try {
     const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-    return allowlist.some((d) => host === d || host.endsWith(`.${d}`) || host.includes(d));
+    return list.some((d) => host === d || host.endsWith(`.${d}`) || host.includes(d));
   } catch {
     return false;
   }
 }
 
-async function tryFetchHtml(url: string): Promise<string | null> {
+async function fetchHtml(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: {
-        "user-agent": UA,
-        accept: "text/html,application/xhtml+xml",
-      },
+      headers: { "user-agent": UA, accept: "text/html,application/xhtml+xml" },
       cache: "no-store",
       redirect: "follow",
     });
     if (!res.ok) return null;
     const html = await res.text();
-    if (!html || html.length < 200) return null;
+    if (!html || html.length < 300) return null;
     return html;
   } catch {
     return null;
   }
 }
 
-/**
- * Search result harvesting
- * - DuckDuckGo HTML first
- * - Bing HTML fallback
- */
-async function searchResultLinksDDG(query: string): Promise<string[]> {
+async function ddgLinks(query: string): Promise<string[]> {
   const q = encodeURIComponent(query);
-  const url = `https://duckduckgo.com/html/?q=${q}`;
-  const html = await tryFetchHtml(url);
+  const html = await fetchHtml(`https://duckduckgo.com/html/?q=${q}`);
   if (!html) return [];
   const out: string[] = [];
-
   const rx = /<a[^>]+class="result__a"[^>]+href="([^"]+)"/gi;
   let m: RegExpExecArray | null;
   while ((m = rx.exec(html))) {
@@ -141,13 +130,11 @@ async function searchResultLinksDDG(query: string): Promise<string[]> {
   return out;
 }
 
-async function searchResultLinksBing(query: string): Promise<string[]> {
+async function bingLinks(query: string): Promise<string[]> {
   const q = encodeURIComponent(query);
-  const url = `https://www.bing.com/search?q=${q}`;
-  const html = await tryFetchHtml(url);
+  const html = await fetchHtml(`https://www.bing.com/search?q=${q}`);
   if (!html) return [];
   const out: string[] = [];
-
   const rx = /<li class="b_algo"[\s\S]*?<a[^>]+href="([^"]+)"/gi;
   let m: RegExpExecArray | null;
   while ((m = rx.exec(html))) {
@@ -165,17 +152,13 @@ async function searchResultLinksBing(query: string): Promise<string[]> {
   return out;
 }
 
-async function searchResultLinks(query: string): Promise<string[]> {
-  const ddg = await searchResultLinksDDG(query);
-  if (ddg.length) return ddg;
-  return searchResultLinksBing(query);
+async function searchLinks(query: string): Promise<string[]> {
+  const a = await ddgLinks(query);
+  if (a.length) return a;
+  return bingLinks(query);
 }
 
-/* =========================
- * JSON-LD extraction
- * ========================= */
-
-type JsonLd = unknown;
+/* ---------------- JSON-LD product parsing ---------------- */
 
 function safeJsonParse(text: string): unknown | null {
   try {
@@ -185,11 +168,11 @@ function safeJsonParse(text: string): unknown | null {
   }
 }
 
-function extractJsonLdBlocks(html: string): JsonLd[] {
+function extractJsonLd(html: string): unknown[] {
   const matches = Array.from(
     html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
   );
-  const blocks: JsonLd[] = [];
+  const blocks: unknown[] = [];
   for (const m of matches) {
     const raw = (m[1] || "").trim();
     if (!raw) continue;
@@ -201,12 +184,16 @@ function extractJsonLdBlocks(html: string): JsonLd[] {
   return blocks;
 }
 
-function firstOf<T>(x: T[] | T | undefined | null): T | undefined {
+function first<T>(x: T[] | T | undefined | null): T | undefined {
   if (!x) return undefined;
   return Array.isArray(x) ? x[0] : x;
 }
 
-function toNum(x: unknown): number | undefined {
+function str(x: unknown): string | undefined {
+  return typeof x === "string" && x.trim() ? x.trim() : undefined;
+}
+
+function num(x: unknown): number | undefined {
   if (typeof x === "number" && Number.isFinite(x)) return x;
   if (typeof x === "string") {
     const n = Number(x.replace(",", "."));
@@ -215,11 +202,7 @@ function toNum(x: unknown): number | undefined {
   return undefined;
 }
 
-function toStr(x: unknown): string | undefined {
-  return typeof x === "string" && x.trim().length ? x.trim() : undefined;
-}
-
-function normalizeAvailability(raw: unknown): Product["availability"] | undefined {
+function availability(raw: unknown): Product["availability"] | undefined {
   const s = String(raw || "").toLowerCase();
   if (!s) return undefined;
   if (s.includes("instock")) return "in_stock";
@@ -228,7 +211,7 @@ function normalizeAvailability(raw: unknown): Product["availability"] | undefine
   return "unknown";
 }
 
-function hostnameRetailer(url: string): string | undefined {
+function retailerDomain(url: string): string | undefined {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
@@ -241,21 +224,23 @@ function pickOffer(offers: unknown): Record<string, unknown> | null {
   const list = Array.isArray(offers) ? offers : [offers];
   for (const o of list) {
     if (typeof o === "object" && o !== null) {
-      const availability = String((o as Record<string, unknown>)["availability"] || "").toLowerCase();
-      if (availability.includes("instock")) return o as Record<string, unknown>;
+      const a = String((o as Record<string, unknown>)["availability"] || "").toLowerCase();
+      if (a.includes("instock")) return o as Record<string, unknown>;
     }
   }
-  const first = list[0];
-  return typeof first === "object" && first !== null ? (first as Record<string, unknown>) : null;
+  const firstOffer = list[0];
+  return typeof firstOffer === "object" && firstOffer !== null
+    ? (firstOffer as Record<string, unknown>)
+    : null;
 }
 
-function normalizeFromJsonLd(url: string, node: unknown): Product | null {
+function fromJsonLd(url: string, node: unknown): Product | null {
   if (typeof node !== "object" || node === null) return null;
   const obj = node as Record<string, unknown>;
 
   if (obj["@graph"] && Array.isArray(obj["@graph"])) {
     for (const child of obj["@graph"] as unknown[]) {
-      const p = normalizeFromJsonLd(url, child);
+      const p = fromJsonLd(url, child);
       if (p) return p;
     }
     return null;
@@ -278,7 +263,7 @@ function normalizeFromJsonLd(url: string, node: unknown): Product | null {
       ? (obj["itemOffered"] as Record<string, unknown>)
       : obj;
 
-  const title = toStr(productNode["name"]);
+  const title = str(productNode["name"]);
   if (!title) return null;
 
   const brandNode = productNode["brand"];
@@ -286,62 +271,49 @@ function normalizeFromJsonLd(url: string, node: unknown): Product | null {
     typeof brandNode === "string"
       ? brandNode
       : typeof brandNode === "object" && brandNode !== null
-        ? toStr((brandNode as Record<string, unknown>)["name"])
+        ? str((brandNode as Record<string, unknown>)["name"])
         : undefined;
 
-  const offers = productNode["offers"] ?? obj["offers"];
-  const offer = pickOffer(offers);
+  const offer = pickOffer(productNode["offers"] ?? obj["offers"]);
 
-  const price =
-    offer
-      ? toNum(
-          offer["price"] ??
-            (typeof offer["priceSpecification"] === "object" &&
-            offer["priceSpecification"] !== null
-              ? (offer["priceSpecification"] as Record<string, unknown>)["price"]
-              : undefined)
-        )
-      : undefined;
+  const price = offer
+    ? num(
+        offer["price"] ??
+          (typeof offer["priceSpecification"] === "object" && offer["priceSpecification"] !== null
+            ? (offer["priceSpecification"] as Record<string, unknown>)["price"]
+            : undefined)
+      )
+    : undefined;
 
-  const currency =
-    offer
-      ? toStr(
-          offer["priceCurrency"] ??
-            (typeof offer["priceSpecification"] === "object" &&
-            offer["priceSpecification"] !== null
-              ? (offer["priceSpecification"] as Record<string, unknown>)["priceCurrency"]
-              : undefined)
-        )
-      : undefined;
+  const currency = offer
+    ? str(
+        offer["priceCurrency"] ??
+          (typeof offer["priceSpecification"] === "object" && offer["priceSpecification"] !== null
+            ? (offer["priceSpecification"] as Record<string, unknown>)["priceCurrency"]
+            : undefined)
+      )
+    : undefined;
 
-  const availability = offer ? normalizeAvailability(offer["availability"]) : undefined;
+  const imageRaw = first(productNode["image"] as unknown) ?? productNode["image"];
+  const image = str(imageRaw);
 
-  const imageRaw = firstOf(productNode["image"] as unknown) ?? productNode["image"];
-  const image = toStr(imageRaw);
-
-  const id =
-    toStr(productNode["sku"]) ||
-    toStr(productNode["productID"]) ||
-    toStr(productNode["@id"]) ||
-    url;
+  const id = str(productNode["sku"]) || str(productNode["productID"]) || str(productNode["@id"]) || url;
 
   return {
     id,
     title,
     brand,
-    retailer: hostnameRetailer(url),
+    retailer: retailerDomain(url),
     url,
     image,
     price,
     currency,
-    availability,
-    fit: {
-      category: toStr(productNode["category"]),
-    },
+    availability: offer ? availability(offer["availability"]) : undefined,
+    fit: { category: str(productNode["category"]) },
   };
 }
 
-function scrapeFallbackOG(url: string, html: string): Product | null {
+function ogFallback(url: string, html: string): Product | null {
   const titleMatch = html.match(
     /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i
   );
@@ -350,63 +322,59 @@ function scrapeFallbackOG(url: string, html: string): Product | null {
   );
   const title = titleMatch?.[1]?.trim();
   if (!title) return null;
-
   return {
     id: url,
     title,
-    retailer: hostnameRetailer(url),
+    retailer: retailerDomain(url),
     url,
     image: imgMatch?.[1]?.trim() || undefined,
   };
 }
 
-async function extractProductFromUrl(url: string): Promise<Product | null> {
-  const html = await tryFetchHtml(url);
+async function extractProduct(url: string): Promise<Product | null> {
+  const html = await fetchHtml(url);
   if (!html) return null;
 
-  const blocks = extractJsonLdBlocks(html);
+  const blocks = extractJsonLd(html);
   for (const b of blocks) {
-    const prod = normalizeFromJsonLd(url, b);
-    if (prod) return prod;
+    const p = fromJsonLd(url, b);
+    if (p && (p.price != null || p.image)) return p;
   }
 
-  return scrapeFallbackOG(url, html);
+  const og = ogFallback(url, html);
+  if (og && og.image) return og;
+
+  return null;
 }
 
 export async function webProductSearch(opts: WebSearchOptions): Promise<Product[]> {
-  if (!isEnabled()) return [];
+  if (!enabled()) return [];
 
-  const limit = clampLimit(opts.limit);
   const q = opts.query.trim();
   if (!q) return [];
 
-  const allowlist = getAllowlist();
+  const limit = clampLimit(opts.limit);
+  const list = allowlist();
 
-  // reduce blog/editorial results
+  // discourage editorials
   const query = `${q} (price OR € OR $)`;
 
-  const linksRaw = await searchResultLinks(query);
+  const linksRaw = await searchLinks(query);
   const links = linksRaw
-    .filter((u) => allowedByAllowlist(u, allowlist))
-    .map((u) => ({ u, s: scoreByRegion(u, opts.preferEU) }))
+    .filter((u) => allowedByAllowlist(u, list))
+    .map((u) => ({ u, s: regionScore(u, opts.preferEU) }))
     .sort((a, b) => b.s - a.s)
     .map((x) => x.u)
     .slice(0, 20);
 
-  if (!links.length) return [];
-
   const out: Product[] = [];
   for (const href of links) {
-    const prod = await extractProductFromUrl(href);
-    if (!prod) continue;
-
-    // avoid obvious non-product pages
-    const hasSignal = Boolean(prod.price || prod.currency || prod.image);
-    if (!hasSignal) continue;
-
-    out.push(prod);
+    const p = await extractProduct(href);
+    if (!p) continue;
+    out.push(p);
     if (out.length >= limit) break;
   }
 
   return uniqBy(out, (p) => p.url).slice(0, limit);
 }
+
