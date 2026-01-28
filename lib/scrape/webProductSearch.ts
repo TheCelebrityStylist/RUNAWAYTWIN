@@ -126,7 +126,6 @@ async function searchResultLinksDDG(query: string): Promise<string[]> {
   if (!html) return [];
   const out: string[] = [];
 
-  // DuckDuckGo HTML results anchor
   const rx = /<a[^>]+class="result__a"[^>]+href="([^"]+)"/gi;
   let m: RegExpExecArray | null;
   while ((m = rx.exec(html))) {
@@ -151,7 +150,6 @@ async function searchResultLinksBing(query: string): Promise<string[]> {
   if (!html) return [];
   const out: string[] = [];
 
-  // Bing result anchors are often in <li class="b_algo"><h2><a href="...">
   const rx = /<li class="b_algo"[\s\S]*?<a[^>]+href="([^"]+)"/gi;
   let m: RegExpExecArray | null;
   while ((m = rx.exec(html))) {
@@ -281,9 +279,9 @@ function normalizeFromJsonLd(url: string, node: unknown): Product | null {
 
   const productNode: Record<string, unknown> = isProduct
     ? obj
-    : (typeof obj["itemOffered"] === "object" && obj["itemOffered"] !== null
-        ? (obj["itemOffered"] as Record<string, unknown>)
-        : obj);
+    : typeof obj["itemOffered"] === "object" && obj["itemOffered"] !== null
+      ? (obj["itemOffered"] as Record<string, unknown>)
+      : obj;
 
   const title = toStr(productNode["name"]);
   if (!title) return null;
@@ -300,14 +298,26 @@ function normalizeFromJsonLd(url: string, node: unknown): Product | null {
   const offer = pickOffer(offers);
 
   const price =
-    offer ? toNum(offer["price"] ?? (typeof offer["priceSpecification"] === "object" && offer["priceSpecification"] !== null
-      ? (offer["priceSpecification"] as Record<string, unknown>)["price"]
-      : undefined)) : undefined;
+    offer
+      ? toNum(
+          offer["price"] ??
+            (typeof offer["priceSpecification"] === "object" &&
+            offer["priceSpecification"] !== null
+              ? (offer["priceSpecification"] as Record<string, unknown>)["price"]
+              : undefined)
+        )
+      : undefined;
 
   const currency =
-    offer ? toStr(offer["priceCurrency"] ?? (typeof offer["priceSpecification"] === "object" && offer["priceSpecification"] !== null
-      ? (offer["priceSpecification"] as Record<string, unknown>)["priceCurrency"]
-      : undefined)) : undefined;
+    offer
+      ? toStr(
+          offer["priceCurrency"] ??
+            (typeof offer["priceSpecification"] === "object" &&
+            offer["priceSpecification"] !== null
+              ? (offer["priceSpecification"] as Record<string, unknown>)["priceCurrency"]
+              : undefined)
+        )
+      : undefined;
 
   const availability = offer ? normalizeAvailability(offer["availability"]) : undefined;
 
@@ -380,8 +390,8 @@ export async function webProductSearch(opts: WebSearchOptions): Promise<Product[
 
   const allowlist = getAllowlist();
 
-  // Add "product" bias to reduce editorial/blog results.
-  const query = `${q} (price OR € OR $) (site:com OR site:nl OR site:de OR site:fr OR site:it OR site:es)`;
+  // Add "buy signal" bias to reduce editorial/blog results.
+  const query = `${q} (price OR € OR $)`;
 
   const linksRaw = await searchResultLinks(query);
   const links = linksRaw
@@ -397,9 +407,11 @@ export async function webProductSearch(opts: WebSearchOptions): Promise<Product[
   for (const href of links) {
     const prod = await extractProductFromUrl(href);
     if (!prod) continue;
-    // Basic sanity: try to avoid pure category/listing pages by requiring at least a title and either price/currency/image.
+
+    // Avoid pure category/listing pages: require some signal beyond just a title
     const hasSomeSignal = Boolean(prod.price || prod.currency || prod.image);
     if (!hasSomeSignal) continue;
+
     out.push(prod);
     if (out.length >= limit) break;
   }
