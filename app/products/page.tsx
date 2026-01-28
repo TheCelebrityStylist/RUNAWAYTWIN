@@ -94,8 +94,8 @@ export default function ProductsPage() {
       <header className="mb-6 grid gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Product Finder (demo)</h1>
         <p className="text-sm text-gray-600">
-          Filter by provider and price; results are merged and ranked. The <span className="font-medium">web</span>{" "}
-          provider scrapes real product pages via Product JSON-LD (no affiliate keys needed).
+          Filter by provider and price; results are merged and ranked.{" "}
+          <span className="font-medium">web</span> scrapes real product pages via Product JSON-LD (no keys needed).
         </p>
 
         <form onSubmit={onSubmit} className="grid gap-3" role="search" aria-label="Product search">
@@ -123,7 +123,7 @@ export default function ProductsPage() {
             {/* Providers */}
             <fieldset className="flex flex-wrap items-center gap-3">
               <legend className="sr-only">Providers</legend>
-              {(["web", "amazon", "rakuten", "awin"] as const).map((key) => (
+              {(["amazon", "rakuten", "awin", "web"] as const).map((key) => (
                 <label key={key} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
