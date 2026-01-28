@@ -5,34 +5,34 @@ import { NextResponse } from "next/server";
 import { amazonProvider } from "@/lib/affiliates/providers/amazon";
 import { rakutenProvider } from "@/lib/affiliates/providers/rakuten";
 import { awinProvider } from "@/lib/affiliates/providers/awin";
+import { webProvider } from "@/lib/affiliates/providers/web";
 import { wrapProducts } from "@/lib/affiliates/linkWrapper";
-import type { Product, ProviderResult } from "@/lib/affiliates/types";
+import { rankProducts } from "@/lib/affiliates/ranker";
+import type { Product, ProviderKey } from "@/lib/affiliates/types";
+import type { Prefs } from "@/lib/types";
 
 type Req = {
   query?: string;
-  limit?: number; // overall limit after merge
-  perProvider?: number; // default 6
-  country?: string; // for linkWrapper decisions
+  limit?: number;        // overall cap after merge
+  perProvider?: number;  // fetch cap per provider (default 6)
+  country?: string;      // for link wrapping
+  prefs?: Prefs;         // optional user preferences to guide ranking
+  providers?: ProviderKey[]; // subset to query (default: all)
+  priceMin?: number;     // optional inclusive
+  priceMax?: number;     // optional inclusive
 };
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function rank(products: Product[], q: string): Product[] {
-  const query = q.toLowerCase();
-  return products
-    .map((p) => {
-      const title = p.title.toLowerCase();
-      const brand = (p.brand || "").toLowerCase();
-      const score =
-        (title.includes(query) ? 3 : 0) +
-        (brand && query.includes(brand) ? 1 : 0) +
-        (typeof p.price === "number" ? 0.5 : 0);
-      return { p, score };
-    })
-    .sort((a, b) => b.score - a.score)
-    .map((x) => x.p);
+function sanitizeProviders(x: unknown): ProviderKey[] | null {
+  if (!Array.isArray(x) || x.length === 0) return null;
+  const out: ProviderKey[] = [];
+  for (const v of x) {
+    if (v === "amazon" || v === "rakuten" || v === "awin" || v === "web") out.push(v);
+  }
+  return out.length ? out : null;
 }
 
 export async function POST(req: Request) {
@@ -46,21 +46,71 @@ export async function POST(req: Request) {
   const per = Math.min(Math.max(body.perProvider ?? 6, 1), 12);
   const overall = Math.min(Math.max(body.limit ?? 24, 1), 60);
   const country = body.country;
+  const prefs = body.prefs;
 
-  // Fetch all providers in parallel (mock-safe)
-  const [amz, rak, awn] = await Promise.all([
-    amazonProvider.search(q, { limit: per }),
-    rakutenProvider.search(q, { limit: per }),
-    awinProvider.search(q, { limit: per }),
-  ]);
+  const selected: ProviderKey[] =
+    sanitizeProviders(body.providers) ?? (["amazon", "rakuten", "awin", "web"] as const);
 
-  const merged = [
-    ...wrapProducts("amazon", amz.items, country),
-    ...wrapProducts("rakuten", rak.items, country),
-    ...wrapProducts("awin", awn.items, country),
-  ];
+  const tasks: Array<Promise<{ key: ProviderKey; items: Product[] }>> = [];
 
-  const ranked = rank(merged, q).slice(0, overall);
+  if (selected.includes("amazon")) {
+    tasks.push(
+      amazonProvider.search(q, { limit: per }).then((r) => ({
+        key: "amazon",
+        items: wrapProducts("amazon", r.items, country),
+      }))
+    );
+  }
+
+  if (selected.includes("rakuten")) {
+    tasks.push(
+      rakutenProvider.search(q, { limit: per }).then((r) => ({
+        key: "rakuten",
+        items: wrapProducts("rakuten", r.items, country),
+      }))
+    );
+  }
+
+  if (selected.includes("awin")) {
+    tasks.push(
+      awinProvider.search(q, { limit: per }).then((r) => ({
+        key: "awin",
+        items: wrapProducts("awin", r.items, country),
+      }))
+    );
+  }
+
+  if (selected.includes("web")) {
+    tasks.push(
+      webProvider.search(q, { limit: Math.min(per * 2, 24) }).then((r) => ({
+        key: "web",
+        items: r.items, // no wrapping for web results
+      }))
+    );
+  }
+
+  const results = await Promise.all(tasks);
+  let merged: Product[] = results.flatMap((r) => r.items);
+
+  // If web not selected but mocks returned nothing, fall back to web automatically.
+  if (!selected.includes("web") && merged.length === 0) {
+    const fallback = await webProvider.search(q, { limit: Math.min(per * 2, 24) });
+    merged = fallback.items;
+  }
+
+  // Optional price filter
+  const hasMin = typeof body.priceMin === "number" && !Number.isNaN(body.priceMin);
+  const hasMax = typeof body.priceMax === "number" && !Number.isNaN(body.priceMax);
+  if (hasMin || hasMax) {
+    merged = merged.filter((p) => {
+      if (typeof p.price !== "number") return false;
+      if (hasMin && p.price < (body.priceMin as number)) return false;
+      if (hasMax && p.price > (body.priceMax as number)) return false;
+      return true;
+    });
+  }
+
+  const ranked = rankProducts({ products: merged, query: q, prefs }).slice(0, overall);
 
   return NextResponse.json(
     {
@@ -68,6 +118,11 @@ export async function POST(req: Request) {
       count: ranked.length,
       query: q,
       items: ranked,
+      meta: {
+        providers: selected,
+        filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
+        scraped: ranked.some((p) => typeof p.retailer === "string" && p.retailer.includes(".")),
+      },
     },
     { status: 200 }
   );
