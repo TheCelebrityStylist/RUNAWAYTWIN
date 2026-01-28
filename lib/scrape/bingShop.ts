@@ -5,7 +5,10 @@ import { cleanText, fetchText } from "@/lib/scrape/http";
 /**
  * Bing Shop fallback scraper via Jina proxy:
  * - Works without keys
- * - Often returns real outbound URLs
+ * - Often returns real outbound URLs (depends on Bing markup)
+ *
+ * IMPORTANT: File name/casing must remain exactly `bingShop.ts`
+ * for Linux (Vercel) module resolution.
  */
 export async function scrapeBingShop(params: {
   query: string;
