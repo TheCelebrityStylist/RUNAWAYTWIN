@@ -11,7 +11,6 @@ function marketForCountry(country?: string): HmMarket {
   if (c === "GB" || c === "UK") return "en_gb";
   if (c === "DE") return "en_de";
   if (c === "FR") return "en_fr";
-  // default NL
   return "en_nl";
 }
 
@@ -98,7 +97,6 @@ export async function scrapeHmProducts(params: {
   const $ = cheerio.load(html);
   const currency = currencyForCountry(country);
 
-  // Primary: LD+JSON Product nodes
   const nodes = ldJsonObjects($);
   const products: Product[] = [];
   const seen = new Set<string>();
@@ -118,7 +116,6 @@ export async function scrapeHmProducts(params: {
       const brand = pickBrand(node);
       const image = pickImage(node);
 
-      // Offers can be object or array
       let price: number | undefined;
       const offers = node["offers"];
       if (offers && typeof offers === "object" && !Array.isArray(offers)) {
@@ -147,12 +144,11 @@ export async function scrapeHmProducts(params: {
     if (products.length >= limit) break;
   }
 
-  // Fallback: parse product tiles if LD+JSON doesn’t include products (site variations)
+  // Fallback: parse product tiles if LD+JSON changes
   if (products.length === 0) {
     const tiles: Product[] = [];
     const tileSeen = new Set<string>();
 
-    // This selector is intentionally broad; H&M markup changes frequently.
     $("a[href*='/productpage.']").each((_, el) => {
       if (tiles.length >= limit) return;
 
