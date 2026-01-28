@@ -1,21 +1,8 @@
 // FILE: lib/scrape/http.ts
-// Small, dependency-free fetch helpers for server-side scraping.
-
 export type FetchTextOpts = {
-  /** Abort after this many ms (default 10s). */
   timeoutMs?: number;
-  /** Additional headers (User-Agent etc.). */
   headers?: Record<string, string>;
-  /**
-   * If true, route through Jina AI reader proxy for simpler HTML retrieval.
-   * This helps with sites that gate/transform HTML or require JS.
-   * Format: https://r.jina.ai/http(s)://<host>/<path>?<query>
-   */
   viaJina?: boolean;
-  /**
-   * If true, do not cache at the edge/CDN layer.
-   * For scraping, this is usually correct.
-   */
   noStore?: boolean;
 };
 
@@ -32,8 +19,7 @@ function defaultHeaders(): Record<string, string> {
 
 function toJinaUrl(u: string): string {
   const url = new URL(u);
-  const proto = url.protocol.replace(":", ""); // http|https
-  // Jina expects: https://r.jina.ai/http(s)://example.com/path?x=1
+  const proto = url.protocol.replace(":", "");
   return `https://r.jina.ai/${proto}://${url.host}${url.pathname}${url.search}`;
 }
 
