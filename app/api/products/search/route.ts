@@ -13,13 +13,13 @@ import type { Prefs } from "@/lib/types";
 
 type Req = {
   query?: string;
-  limit?: number; // overall cap after merge
-  perProvider?: number; // fetch cap per provider (default 6)
-  country?: string; // for link wrapping
-  prefs?: Prefs; // optional user preferences to guide ranking
-  providers?: ProviderKey[]; // subset to query (default: all)
-  priceMin?: number; // optional inclusive
-  priceMax?: number; // optional inclusive
+  limit?: number;
+  perProvider?: number;
+  country?: string;
+  prefs?: Prefs;
+  providers?: ProviderKey[];
+  priceMin?: number;
+  priceMax?: number;
 };
 
 function bad(message: string, status = 400) {
@@ -48,11 +48,19 @@ export async function POST(req: Request) {
   const country = body.country;
   const prefs = body.prefs;
 
-  const selected =
-    sanitizeProviders(body.providers) ?? (["amazon", "rakuten", "awin", "web"] as ProviderKey[]);
+  const selected: ProviderKey[] =
+    sanitizeProviders(body.providers) ?? (["web", "awin", "rakuten", "amazon"] as const);
 
   const tasks: Array<Promise<{ key: ProviderKey; items: Product[] }>> = [];
 
+  if (selected.includes("web")) {
+    tasks.push(
+      webProvider.search(q, { limit: Math.min(per * 2, 24) }).then((r) => ({
+        key: "web",
+        items: r.items,
+      }))
+    );
+  }
   if (selected.includes("amazon")) {
     tasks.push(
       amazonProvider.search(q, { limit: per }).then((r) => ({
@@ -77,24 +85,9 @@ export async function POST(req: Request) {
       }))
     );
   }
-  if (selected.includes("web")) {
-    tasks.push(
-      webProvider.search(q, { limit: Math.min(per * 2, 24) }).then((r) => ({
-        key: "web",
-        items: r.items, // no affiliate wrapping for web results
-      }))
-    );
-  }
 
   const results = await Promise.all(tasks);
   let merged: Product[] = results.flatMap((r) => r.items);
-
-  // If user didn't select web and affiliate providers yielded nothing, try web as fallback.
-  const requestedWeb = selected.includes("web");
-  if (!requestedWeb && merged.length === 0) {
-    const fallback = await webProvider.search(q, { limit: Math.min(per * 2, 24) });
-    merged = fallback.items;
-  }
 
   // Optional price filter
   const hasMin = typeof body.priceMin === "number" && !Number.isNaN(body.priceMin);
@@ -108,7 +101,6 @@ export async function POST(req: Request) {
     });
   }
 
-  // Rank with query + prefs
   const ranked = rankProducts({ products: merged, query: q, prefs }).slice(0, overall);
 
   return NextResponse.json(
@@ -120,7 +112,6 @@ export async function POST(req: Request) {
       meta: {
         providers: selected,
         filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
-        scraped: ranked.some((p) => typeof p.retailer === "string" && p.retailer.includes(".")),
       },
     },
     { status: 200 }
