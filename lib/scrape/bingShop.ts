@@ -5,10 +5,7 @@ import { cleanText, fetchText } from "@/lib/scrape/http";
 /**
  * Bing Shop fallback scraper via Jina proxy:
  * - Works without keys
- * - Produces REAL outbound URLs (when present in the rendered content)
- * - Often lacks price/image (depends on Bing markup + proxy rendering)
- *
- * This is a fallback intended to guarantee clickable product URLs when other sources fail.
+ * - Often returns real outbound URLs
  */
 export async function scrapeBingShop(params: {
   query: string;
@@ -20,8 +17,11 @@ export async function scrapeBingShop(params: {
   const url = new URL("https://www.bing.com/shop");
   url.searchParams.set("q", query);
 
-  // Jina makes the HTML readable text/markdown-like.
-  const txt = await fetchText(url.toString(), { viaJina: true, timeoutMs: 12_000, noStore: true });
+  const txt = await fetchText(url.toString(), {
+    viaJina: true,
+    timeoutMs: 12_000,
+    noStore: true,
+  });
   if (!txt) return [];
 
   // Extract markdown links: [title](https://...)
@@ -33,13 +33,13 @@ export async function scrapeBingShop(params: {
   while ((m = re.exec(txt)) !== null) {
     const title = cleanText(m[1] ?? "");
     const href = m[2] ?? "";
-
     if (!title || !href) continue;
 
-    // Skip Bing internal URLs and obvious tracking pages.
     try {
       const u = new URL(href);
       const host = u.hostname.replace(/^www\./, "");
+
+      // Skip Bing/Microsoft internal links
       if (host.endsWith("bing.com") || host.endsWith("microsoft.com")) continue;
 
       // Avoid overly generic links
