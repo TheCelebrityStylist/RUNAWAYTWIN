@@ -8,9 +8,8 @@ import { scrapeProducts } from "@/lib/scrape";
 type Req = {
   query?: string;
   limit?: number;
-  perProvider?: number; // accepted for compatibility; treated as limit hints
+  perProvider?: number; // accepted for compatibility with the UI
   country?: string;
-  // Keep these for compatibility with existing callers; ignored by scraper.
   providers?: string[];
   prefs?: unknown;
   priceMin?: number;
@@ -46,11 +45,11 @@ export async function POST(req: Request) {
   const country = body.country ?? "NL";
 
   const scraped = await scrapeProducts({ query: q, country, limit: overall });
-
   const filtered = applyPriceFilter(scraped, body.priceMin, body.priceMax);
 
-  // Guarantee url exists (hard requirement for UI)
-  const items = filtered.filter((p) => typeof p.url === "string" && p.url.length > 8).slice(0, overall);
+  const items = filtered
+    .filter((p) => typeof p.url === "string" && p.url.length > 8)
+    .slice(0, overall);
 
   return NextResponse.json(
     {
@@ -70,4 +69,3 @@ export async function POST(req: Request) {
     { status: 200 }
   );
 }
-
