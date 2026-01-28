@@ -23,9 +23,6 @@ export async function scrapeProducts(opts: ScrapeOpts): Promise<Product[]> {
   const country = opts.country;
   const limit = clamp(opts.limit ?? 24, 1, 60);
 
-  // Strategy:
-  // 1) H&M (stable LD+JSON) gives real PDP URLs + often price/image
-  // 2) Bing Shop via Jina as a broad fallback to guarantee outbound URLs
   const [hm, bing] = await Promise.all([
     scrapeHmProducts({ query, country, limit }),
     scrapeBingShop({ query, country, limit }),
@@ -34,7 +31,7 @@ export async function scrapeProducts(opts: ScrapeOpts): Promise<Product[]> {
   const merged: Product[] = [];
   const seen = new Set<string>();
 
-  function add(list: Product[]) {
+  const add = (list: Product[]) => {
     for (const p of list) {
       if (!p.url) continue;
       const key = safeKey(p.url);
@@ -44,7 +41,7 @@ export async function scrapeProducts(opts: ScrapeOpts): Promise<Product[]> {
       merged.push(p);
       if (merged.length >= limit) return;
     }
-  }
+  };
 
   add(hm);
   add(bing);
