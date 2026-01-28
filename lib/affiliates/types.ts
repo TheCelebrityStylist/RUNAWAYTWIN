@@ -7,8 +7,8 @@ export type Product = {
   id: ProductID;
   title: string;
   brand?: string;
-  retailer?: string; // e.g., "amazon", "rakuten", "awin:Zara"
-  url: string; // raw product URL (wrapped at response)
+  retailer?: string; // e.g., "amazon", "rakuten", "awin:Zara" or a domain for "web"
+  url: string; // raw product URL (wrapped at response for affiliate providers)
   image?: string;
   price?: number;
   currency?: Currency;
@@ -24,8 +24,10 @@ export type Product = {
   attrs?: Record<string, string | number | boolean | null | undefined>;
 };
 
+export type ProviderKey = "amazon" | "rakuten" | "awin" | "web";
+
 export type ProviderResult = {
-  provider: "amazon" | "rakuten" | "awin";
+  provider: ProviderKey;
   items: Product[];
 };
 
