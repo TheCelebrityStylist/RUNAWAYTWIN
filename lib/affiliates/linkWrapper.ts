@@ -58,7 +58,7 @@ function wrapAwin(url: string, product?: Product, clickrefExtra?: string) {
  * For other providers we just return as-is.
  */
 export function wrapProducts(
-  provider: "amazon" | "rakuten" | "awin",
+  provider: "amazon" | "rakuten" | "awin" | "web",
   items: Product[],
   clickrefExtra?: string
 ): Product[] {
@@ -68,3 +68,4 @@ export function wrapProducts(
     url: p.url ? wrapAwin(p.url, p, clickrefExtra) : p.url,
   }));
 }
+
