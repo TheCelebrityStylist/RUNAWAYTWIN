@@ -359,6 +359,139 @@ function validateUiProduct(p: UiProduct): boolean {
   return true;
 }
 
+function hashText(input: string): number {
+  let h = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    h = (h << 5) - h + input.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function pick<T>(arr: T[], seed: number): T {
+  return arr[seed % arr.length];
+}
+
+function aestheticRead(userText: string): string {
+  const t = userText.toLowerCase();
+  const seed = hashText(userText);
+  if (t.includes("gallery") || t.includes("opening")) {
+    return pick(
+      [
+        "Intellectual minimalism with architectural restraint.",
+        "Quiet structure, disciplined lines, gallery-ready composure.",
+        "Sculptural tailoring with a restrained, cultural edge.",
+      ],
+      seed
+    );
+  }
+  if (t.includes("rain") || t.includes("wet")) {
+    return pick(
+      [
+        "Weather-proof structure with a clean, urban line.",
+        "Rain-ready tailoring with deliberate proportions.",
+        "Protective layers, sharp silhouettes, no excess.",
+      ],
+      seed
+    );
+  }
+  if (t.includes("off-duty") || t.includes("street")) {
+    return pick(
+      [
+        "Restrained off-duty minimalism with a tactile edge.",
+        "Elevated casual built on clean lines and texture.",
+        "Controlled street polish without the noise.",
+      ],
+      seed
+    );
+  }
+  return pick(
+    [
+      "Controlled minimalism with a decisive silhouette.",
+      "Modern uniformity with a quiet edge.",
+      "Clean proportion, considered texture, zero excess.",
+    ],
+    seed
+  );
+}
+
+function formatMoney(currency: string, price: number): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(price);
+  } catch {
+    return `${currency} ${Math.round(price)}`;
+  }
+}
+
+function lineFor(role: string, p: UiProduct): string {
+  return `${role} — ${p.brand} — ${p.title} — ${formatMoney(p.currency, p.price ?? 0)}`;
+}
+
+function roleReason(role: keyof typeof roleReasons, userText: string): string {
+  const seed = hashText(`${role}:${userText}`);
+  return pick(roleReasons[role], seed);
+}
+
+const roleReasons = {
+  Anchor: [
+    "Sets the line and carries the visual authority.",
+    "Defines the silhouette and the level of formality.",
+    "Controls the proportion; everything else follows.",
+  ],
+  Support: [
+    "Keeps the proportions balanced and the look disciplined.",
+    "Supports the anchor without competing for attention.",
+    "Adds structure without hardening the silhouette.",
+  ],
+  Footwear: [
+    "Grounds the look with weather-aware practicality.",
+    "Handles the environment while staying sharp.",
+    "Keeps the silhouette clean under real conditions.",
+  ],
+  Accent: [
+    "Adds a precise texture note without noise.",
+    "A restrained finish that reinforces the palette.",
+    "Small detail, high impact.",
+  ],
+} satisfies Record<string, string[]>;
+
+function mapRoleProducts(products: UiProduct[]) {
+  const anchor =
+    products.find((p) => p.category === "Outerwear") ||
+    products.find((p) => p.category === "Dress") ||
+    products.find((p) => p.category === "Top") ||
+    products[0];
+  const support =
+    products.find((p) => p.category === "Bottom" && p.id !== anchor?.id) ||
+    products.find((p) => p.category === "Top" && p.id !== anchor?.id);
+  const footwear = products.find((p) => p.category === "Shoes");
+  const accent = products.find((p) => p.category === "Bag" || p.category === "Accessory");
+  return { anchor, support, footwear, accent };
+}
+
+function ensureNarrative(plan: PlanJson, userText: string): PlanJson {
+  if (!plan.products.length) return plan;
+  const { anchor, support, footwear, accent } = mapRoleProducts(plan.products);
+  const tips: string[] = [];
+  if (anchor) tips.push(lineFor("Anchor", anchor));
+  if (support) tips.push(lineFor("Support Piece", support));
+  if (footwear) tips.push(lineFor("Footwear", footwear));
+  if (accent) tips.push(lineFor("Optional Accent", accent));
+
+  const why: string[] = [];
+  if (anchor) why.push(roleReason("Anchor", userText));
+  if (support) why.push(roleReason("Support", userText));
+  if (footwear) why.push(roleReason("Footwear", userText));
+  if (accent) why.push(roleReason("Accent", userText));
+
+  return {
+    ...plan,
+    brief: aestheticRead(userText),
+    tips,
+    why,
+  };
+}
+
 function timeout<T>(ms: number, fallback: T) {
   return new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms));
 }
@@ -521,7 +654,7 @@ export async function POST(req: NextRequest) {
       "",
       "HARD RULES:",
       "- Your `brief` MUST explicitly mention the user's last message and the key preferences (body type, budget, country/weather if provided).",
-      "- Choose links ONLY from CANDIDATE_LINKS (copy URL exactly). If nothing fits, set url: null.",
+      "- Choose links ONLY from CANDIDATE_LINKS (copy URL exactly). If nothing fits, return an empty products array.",
       "- If a candidate provides category/brand/price/currency/image/retailer/availability, reuse those values. Do NOT invent them.",
       "- Do NOT invent products. If nothing meets the standard, return an empty products array.",
       "- Do NOT invent exact prices. If missing, omit the product entirely.",
@@ -558,9 +691,9 @@ export async function POST(req: NextRequest) {
     if (!plan) {
       const seeded = productsFromCandidates(merged, currency);
       plan = {
-        brief: `Tailored to “${userText}”.`,
-        tips: ["Use a cohesive palette.", "Balance structure with softness."],
-        why: ["Clean proportions flatter more body types.", "Practical choices still read editorial."],
+        brief: aestheticRead(userText),
+        tips: [],
+        why: [],
         products: seeded,
         total: { value: null, currency },
       };
@@ -569,6 +702,7 @@ export async function POST(req: NextRequest) {
     // Backfill missing urls/images/prices using providers (strict validation may still remove items)
     plan.products = await enrichMissingLinks(req.url, preferences, plan.products);
     plan.products = plan.products.filter((p) => validateUiProduct(p));
+    plan = ensureNarrative(plan, userText);
 
     const sum = plan.products.reduce((acc, p) => (p.price != null ? acc + p.price : acc), 0);
     const anyPrice = plan.products.some((p) => p.price != null);
@@ -577,10 +711,15 @@ export async function POST(req: NextRequest) {
     if (!plan.products.length) {
       return new Response(
         JSON.stringify({
-          brief:
-            "I would wait before purchasing — nothing currently meets the standard for this look.",
-          tips: [],
-          why: [],
+          brief: "Inventory is thin for this brief.",
+          tips: [
+            "Increase the budget by ~10–15% to access stronger tailoring and footwear.",
+            "If staying strict, pivot the aesthetic toward clean utility rather than sculptural tailoring.",
+          ],
+          why: [
+            "The current price band limits structural fabrics and weather-ready shoes.",
+            "A small budget shift unlocks significantly better silhouettes.",
+          ],
           products: [],
           total: { value: null, currency },
         }),
@@ -592,9 +731,15 @@ export async function POST(req: NextRequest) {
   } catch {
     const currency = "EUR";
     const fallback: PlanJson = {
-      brief: "I would wait before purchasing — nothing currently meets the standard for this look.",
-      tips: [],
-      why: [],
+      brief: "Inventory is thin for this brief.",
+      tips: [
+        "Increase the budget by ~10–15% to access stronger tailoring and footwear.",
+        "If staying strict, pivot the aesthetic toward clean utility rather than sculptural tailoring.",
+      ],
+      why: [
+        "The current price band limits structural fabrics and weather-ready shoes.",
+        "A small budget shift unlocks significantly better silhouettes.",
+      ],
       products: [],
       total: { value: null, currency },
     };

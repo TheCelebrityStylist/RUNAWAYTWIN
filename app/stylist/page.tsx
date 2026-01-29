@@ -622,22 +622,22 @@ export default function StylistPage() {
 
                     {(ai.why.length > 0 || ai.tips.length > 0) && (
                       <div className="grid gap-2 pt-2">
-                        {ai.why.length > 0 ? (
+                        {ai.tips.length > 0 ? (
                           <div>
-                            <p className="text-xs font-semibold">Why this fits you</p>
+                            <p className="text-xs font-semibold">The Look</p>
                             <ul className="list-disc pl-5 text-xs text-gray-700">
-                              {ai.why.map((x) => (
+                              {ai.tips.map((x) => (
                                 <li key={x}>{x}</li>
                               ))}
                             </ul>
                           </div>
                         ) : null}
 
-                        {ai.tips.length > 0 ? (
+                        {ai.why.length > 0 ? (
                           <div>
-                            <p className="text-xs font-semibold">Styling tips</p>
+                            <p className="text-xs font-semibold">Why this works</p>
                             <ul className="list-disc pl-5 text-xs text-gray-700">
-                              {ai.tips.map((x) => (
+                              {ai.why.map((x) => (
                                 <li key={x}>{x}</li>
                               ))}
                             </ul>
