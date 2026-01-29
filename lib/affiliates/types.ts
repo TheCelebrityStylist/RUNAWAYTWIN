@@ -7,25 +7,25 @@ export type Product = {
   id: ProductID;
   title: string;
   brand?: string;
-  retailer?: string; // e.g., "amazon", "rakuten", "awin:Zara", or a domain for "web"
-  url: string; // raw product URL (wrapped for affiliate providers)
+  retailer?: string; // e.g., "amazon", "rakuten", "awin:Zara", "web:duckduckgo"
+  url: string; // raw product URL (wrapped at response)
   image?: string;
   price?: number;
   currency?: Currency;
   availability?: "in_stock" | "out_of_stock" | "preorder" | "unknown";
+  // Optional fit metadata for stylist ranking
   fit?: {
     gender?: "female" | "male" | "unisex";
     category?: string; // "top", "bottom", "dress", "outerwear", "shoes", etc.
-    sizes?: string[];
+    sizes?: string[]; // available sizes
     color?: string;
   };
+  // Free-form attributes for provider-specific details
   attrs?: Record<string, string | number | boolean | null | undefined>;
 };
 
-export type ProviderKey = "amazon" | "rakuten" | "awin" | "web";
-
 export type ProviderResult = {
-  provider: ProviderKey;
+  provider: "amazon" | "rakuten" | "awin" | "web";
   items: Product[];
 };
 
