@@ -1,59 +1,65 @@
 // FILE: lib/scrape/http.ts
-export type FetchTextOpts = {
-  viaJina?: boolean;
+// Minimal HTTP helpers for scraping from a server environment.
+
+export type FetchHtmlOpts = {
   timeoutMs?: number;
-  noStore?: boolean;
-  revalidateSeconds?: number;
+  userAgent?: string;
+  acceptLanguage?: string;
 };
 
-export function clamp(n: number, min: number, max: number): number {
-  return Math.min(Math.max(n, min), max);
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const t = setTimeout(() => resolve(fallback), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(t);
+        resolve(fallback);
+      }
+    );
+  });
 }
 
-export function cleanText(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
+function toJinaProxy(u: string): string {
+  // Jina AI HTML proxy often bypasses basic bot-blocking.
+  // Format: https://r.jina.ai/http(s)://example.com/...
+  if (u.startsWith("https://") || u.startsWith("http://")) return `https://r.jina.ai/${u}`;
+  return `https://r.jina.ai/http://${u}`;
 }
 
-function withTimeout(signal: AbortSignal, timeoutMs: number): AbortSignal {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  signal.addEventListener("abort", () => ctrl.abort(), { once: true });
-  ctrl.signal.addEventListener(
-    "abort",
-    () => {
-      clearTimeout(t);
-    },
-    { once: true }
-  );
-  return ctrl.signal;
-}
-
-export async function fetchText(url: string, opts: FetchTextOpts = {}): Promise<string> {
-  const viaJina = opts.viaJina ?? false;
-  const timeoutMs = opts.timeoutMs ?? 12_000;
-
-  const finalUrl = viaJina ? `https://r.jina.ai/http://${url.replace(/^https?:\/\//, "")}` : url;
-
-  const baseSignal = new AbortController().signal;
-  const signal = withTimeout(baseSignal, timeoutMs);
+export async function fetchHtml(url: string, opts?: FetchHtmlOpts): Promise<string | null> {
+  const timeoutMs = Math.max(1000, opts?.timeoutMs ?? 8000);
 
   const headers: Record<string, string> = {
-    "User-Agent":
-      "Mozilla/5.0 (compatible; RunwayTwinBot/1.0; +https://example.com/bot)",
-    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "user-agent":
+      opts?.userAgent ??
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+    accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "accept-language": opts?.acceptLanguage ?? "en-US,en;q=0.9,nl;q=0.8",
   };
 
-  const res = await fetch(finalUrl, {
-    method: "GET",
-    headers,
-    signal,
-    cache: opts.noStore ? "no-store" : "force-cache",
-    next:
-      typeof opts.revalidateSeconds === "number"
-        ? { revalidate: opts.revalidateSeconds }
-        : undefined,
-  }).catch(() => null);
+  const direct = await withTimeout(
+    fetch(url, { headers, redirect: "follow" })
+      .then(async (r) => (r.ok ? r.text() : null))
+      .catch(() => null),
+    timeoutMs,
+    null
+  );
+  if (direct && direct.length > 200) return direct;
 
-  if (!res || !res.ok) return "";
-  return await res.text();
+  const proxyUrl = toJinaProxy(url);
+  const proxied = await withTimeout(
+    fetch(proxyUrl, { headers, redirect: "follow" })
+      .then(async (r) => (r.ok ? r.text() : null))
+      .catch(() => null),
+    timeoutMs,
+    null
+  );
+
+  if (proxied && proxied.length > 200) return proxied;
+  return null;
 }
