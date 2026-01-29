@@ -1,36 +1,37 @@
 // FILE: lib/affiliates/types.ts
-export type Provider = "amazon" | "rakuten" | "awin";
 export type Currency = "EUR" | "USD" | "GBP" | string;
 
-/**
- * Provider keys used across the codebase.
- *
- * - "web" is a real-product search provider (SerpAPI/Tavily fallback) that does not require affiliate programs.
- * - "amazon"/"rakuten"/"awin" are kept for future affiliate integrations and mock-mode demos.
- */
-export type ProviderKey = Provider | "web";
-
-export type Category =
-  | "Top"
-  | "Bottom"
-  | "Dress"
-  | "Outerwear"
-  | "Shoes"
-  | "Bag"
-  | "Accessory";
+export type ProductID = string;
 
 export type Product = {
-  id: string;
+  id: ProductID;
   title: string;
-  url: string | null;
-  brand: string | null;
-  category: Category;
-  price: number | null;
-  currency: Currency;
-  image: string | null;
+  brand?: string;
+  retailer?: string; // e.g., "amazon", "rakuten", "awin:Zara", "web:Zara"
+  url: string; // raw product URL (wrapped at response)
+  image?: string;
+  price?: number;
+  currency?: Currency;
+  availability?: "in_stock" | "out_of_stock" | "preorder" | "unknown";
+  // Optional fit metadata for stylist ranking
+  fit?: {
+    gender?: "female" | "male" | "unisex";
+    category?: string; // "top", "bottom", "dress", "outerwear", "shoes", etc.
+    sizes?: string[]; // available sizes
+    color?: string;
+  };
+  // Free-form attributes for provider-specific details
+  attrs?: Record<string, string | number | boolean | null | undefined>;
 };
 
 export type ProviderResult = {
-  provider: ProviderKey;
+  provider: "amazon" | "rakuten" | "awin" | "web";
   items: Product[];
 };
+
+/** Useful union for request validation and UI toggles */
+export type ProviderKey = ProviderResult["provider"];
+
+export interface Provider {
+  search: (q: string, opts?: { limit?: number; currency?: Currency }) => Promise<ProviderResult>;
+}
