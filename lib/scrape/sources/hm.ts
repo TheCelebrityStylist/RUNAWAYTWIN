@@ -1,6 +1,6 @@
 // FILE: lib/scrape/sources/hm.ts
 import * as cheerio from "cheerio";
-import type { Product } from "@/lib/affiliates/types";
+import type { Product, Category } from "@/lib/affiliates/types";
 import { absolutizeUrl, cleanText, fetchText } from "@/lib/scrape/http";
 
 type HmMarket = "en_gb" | "en_us" | "en_nl" | "en_de" | "en_fr";
@@ -186,13 +186,13 @@ export async function scrapeHmProducts(params: {
   return products;
 }
 
-function guessCategory(title: string): string {
+function guessCategory(title: string): Category {
   const t = title.toLowerCase();
-  if (/\bboot|\bshoe|\bsneaker|\bheel/.test(t)) return "shoes";
-  if (/\bcoat|\btrench|\bjacket|\bblazer|\bouterwear/.test(t)) return "outerwear";
-  if (/\bdress/.test(t)) return "dress";
-  if (/\btrouser|\bpant|\bjean|\bskirt|\bdenim/.test(t)) return "bottom";
-  if (/\bshirt|\btee|\btop|\bblouse|\bknit|\bsweater/.test(t)) return "top";
-  if (/\bbag|\btote|\bshoulder bag|\bcrossbody/.test(t)) return "bag";
-  return "accessory";
+  if (/\bboot|\bshoe|\bsneaker|\bheel/.test(t)) return "Shoes";
+  if (/\bcoat|\btrench|\bjacket|\bblazer|\bouterwear/.test(t)) return "Outerwear";
+  if (/\bdress/.test(t)) return "Dress";
+  if (/\btrouser|\bpant|\bjean|\bskirt|\bdenim/.test(t)) return "Bottom";
+  if (/\bshirt|\btee|\btop|\bblouse|\bknit|\bsweater/.test(t)) return "Top";
+  if (/\bbag|\btote|\bshoulder bag|\bcrossbody/.test(t)) return "Bag";
+  return "Accessory";
 }

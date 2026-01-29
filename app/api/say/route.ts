@@ -5,8 +5,9 @@ import OpenAI from "openai";
 import { NextRequest } from "next/server";
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const apiKey = process.env.OPENAI_API_KEY;
+const HAS_KEY = Boolean(apiKey);
+const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 type Role = "system" | "user" | "assistant";
 type ChatMessage = { role: Role; content: string | unknown[] };
@@ -56,6 +57,13 @@ export async function POST(req: NextRequest) {
       return new Response("Hi! I’m good — excited to style your next look. What occasion are you dressing for?", {
         headers,
       });
+    }
+
+    if (!client) {
+      return new Response(
+        "Hi! I’m good — excited to style your next look. What occasion are you dressing for?",
+        { headers }
+      );
     }
 
     const completion = await client.chat.completions.create({

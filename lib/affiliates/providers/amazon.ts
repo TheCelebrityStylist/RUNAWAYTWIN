@@ -4,6 +4,7 @@ import type { Provider, ProviderResult, Product } from "../types";
 const MOCK = (process.env.MOCK_AFFILIATES || "true").toLowerCase() !== "false";
 
 function mock(q: string, limit = 6): ProviderResult {
+  const categories = ["Top", "Bottom", "Dress", "Outerwear", "Shoes"] as const;
   const base: Product[] = Array.from({ length: limit }).map((_, i) => ({
     id: `amz-${i}`,
     title: `${q} — Amazon pick #${i + 1}`,
@@ -15,7 +16,7 @@ function mock(q: string, limit = 6): ProviderResult {
     currency: "EUR",
     availability: "in_stock",
     fit: {
-      category: ["top", "bottom", "dress", "outerwear", "shoes"][i % 5],
+      category: categories[i % categories.length],
       gender: "female",
     },
   }));

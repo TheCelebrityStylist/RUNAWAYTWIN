@@ -4,7 +4,7 @@
 import * as React from "react";
 import type { Product } from "@/lib/affiliates/types";
 
-function formatPrice(price?: number, currency?: string) {
+function formatPrice(price?: number | null, currency?: string | null) {
   if (typeof price !== "number") return "Price at retailer";
   const cur = currency || "EUR";
   try {
@@ -92,4 +92,3 @@ export function ProductCardSkeleton() {
     </div>
   );
 }
-

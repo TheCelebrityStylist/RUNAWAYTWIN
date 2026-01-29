@@ -49,10 +49,11 @@ type PlanJson = {
 };
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
-const HAS_KEY = Boolean(process.env.OPENAI_API_KEY);
+const apiKey = process.env.OPENAI_API_KEY;
+const HAS_KEY = Boolean(apiKey);
 const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 function contentToText(c: unknown): string {
   if (typeof c === "string") return c;
@@ -485,7 +486,7 @@ export async function POST(req: NextRequest) {
     const currency = currencyFor(preferences);
     let plan: PlanJson | null = null;
 
-    if (HAS_KEY) {
+    if (HAS_KEY && client) {
       try {
         const completion = await client.chat.completions.create({
           model: MODEL,

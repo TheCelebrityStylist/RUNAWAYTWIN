@@ -1,7 +1,8 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const apiKey = process.env.OPENAI_API_KEY;
+const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 export async function POST(req: Request) {
   try {
@@ -15,6 +16,11 @@ Return: a shoppable outfit idea (top, bottom, shoes, accessory), including a sho
 User prefs:
 ${JSON.stringify(prefs, null, 2)}
 `;
+
+    if (!client) {
+      const fallback = "Mock reply: Add a sleek blazer, straight-leg trousers, and minimalist sneakers.";
+      return NextResponse.json({ reply: fallback }, { status: 200 });
+    }
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
