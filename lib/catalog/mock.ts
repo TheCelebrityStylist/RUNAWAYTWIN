@@ -23,6 +23,7 @@ export type MockItem = {
   retailer: string;
   url: string;
   image: string;
+  availability: "in_stock" | "out_of_stock" | "unknown";
   tags: string[]; // style keywords
 };
 
@@ -41,8 +42,9 @@ export const CATALOG: MockItem[] = [
     price: 119,
     currency: "EUR",
     retailer: "zara.com",
-    url: "https://www.zara.com/",
+    url: "https://www.zara.com/nl/en/water-resistant-trench-coat-p123456.html",
     image: U(800, 1000, "trench"),
+    availability: "in_stock",
     tags: ["minimal", "tailoring", "rain", "neutral"],
   },
   {
@@ -54,8 +56,9 @@ export const CATALOG: MockItem[] = [
     price: 89,
     currency: "EUR",
     retailer: "cos.com",
-    url: "https://www.cos.com/",
+    url: "https://www.cos.com/en_eur/men/knitwear/product.merino-knit-sweater.123456.html",
     image: U(800, 1000, "knit"),
+    availability: "in_stock",
     tags: ["capsule", "minimal", "layering"],
   },
   {
@@ -67,8 +70,9 @@ export const CATALOG: MockItem[] = [
     price: 129,
     currency: "EUR",
     retailer: "arket.com",
-    url: "https://www.arket.com/",
+    url: "https://www.arket.com/en_eur/women/trousers/product.high-waist-tailored-trouser.123456.html",
     image: U(800, 1000, "trouser"),
+    availability: "in_stock",
     tags: ["tailoring", "work", "black"],
   },
   {
@@ -80,8 +84,9 @@ export const CATALOG: MockItem[] = [
     price: 165,
     currency: "EUR",
     retailer: "stories.com",
-    url: "https://www.stories.com/",
+    url: "https://www.stories.com/en_eur/shoes/boots/product.leather-ankle-boot.123456.html",
     image: U(800, 1000, "boots"),
+    availability: "in_stock",
     tags: ["minimal", "weather", "heel-low"],
   },
   {
@@ -93,8 +98,9 @@ export const CATALOG: MockItem[] = [
     price: 49,
     currency: "EUR",
     retailer: "mango.com",
-    url: "https://shop.mango.com/",
+    url: "https://shop.mango.com/nl/women/bags/product.structured-shoulder-bag_12345678.html",
     image: U(800, 1000, "bag"),
+    availability: "in_stock",
     tags: ["event", "minimal", "black"],
   },
   {
@@ -106,8 +112,9 @@ export const CATALOG: MockItem[] = [
     price: 690,
     currency: "EUR",
     retailer: "net-a-porter.com",
-    url: "https://www.net-a-porter.com/",
+    url: "https://www.net-a-porter.com/en-nl/shop/product/gianvito-rossi/shoes/123456.html",
     image: U(800, 1000, "sandal"),
+    availability: "in_stock",
     tags: ["evening", "glam"],
   },
   // ——— Mens / unisex ———
@@ -120,8 +127,9 @@ export const CATALOG: MockItem[] = [
     price: 19,
     currency: "EUR",
     retailer: "uniqlo.com",
-    url: "https://www.uniqlo.com/",
+    url: "https://www.uniqlo.com/eu/en/product/u-crew-neck-t-shirt-123456.html",
     image: U(800, 1000, "tee"),
+    availability: "in_stock",
     tags: ["minimal", "capsule"],
   },
   {
@@ -133,8 +141,9 @@ export const CATALOG: MockItem[] = [
     price: 110,
     currency: "EUR",
     retailer: "levi.com",
-    url: "https://www.levi.com/",
+    url: "https://www.levi.com/DE/en_DE/clothing/men/jeans/501-original-fit-jeans/p/123456",
     image: U(800, 1000, "jeans"),
+    availability: "in_stock",
     tags: ["denim", "casual"],
   },
   {
@@ -146,8 +155,9 @@ export const CATALOG: MockItem[] = [
     price: 225,
     currency: "EUR",
     retailer: "cos.com",
-    url: "https://www.cos.com/",
+    url: "https://www.cos.com/en_eur/men/tailoring/product.sharp-wool-blazer.123456.html",
     image: U(800, 1000, "blazer"),
+    availability: "in_stock",
     tags: ["tailoring", "work", "smart-casual"],
   },
   {
@@ -159,8 +169,9 @@ export const CATALOG: MockItem[] = [
     price: 99,
     currency: "EUR",
     retailer: "nike.com",
-    url: "https://www.nike.com/",
+    url: "https://www.nike.com/nl/t/court-sneakers-123456",
     image: U(800, 1000, "sneaker"),
+    availability: "in_stock",
     tags: ["street", "casual", "white"],
   },
 ];
@@ -206,4 +217,3 @@ export function searchCatalog(opts: {
   // Always return at least a basic set in deterministic order
   return scored.length ? scored : CATALOG.slice(0, 6);
 }
-

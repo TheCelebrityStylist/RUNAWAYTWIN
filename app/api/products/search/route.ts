@@ -109,6 +109,23 @@ export async function POST(req: Request) {
     .map((p) => toStrictProduct(p))
     .filter((p): p is StrictProduct => Boolean(p));
 
+  if (!strictItems.length) {
+    return NextResponse.json(
+      {
+        ok: false,
+        count: 0,
+        query: q,
+        items: [],
+        error: "No verified products available for this query.",
+        meta: {
+          providers: selected,
+          filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
+        },
+      },
+      { status: 200 }
+    );
+  }
+
   return NextResponse.json(
     {
       ok: true,
