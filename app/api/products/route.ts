@@ -1,129 +1,47 @@
-// FILE: app/api/products/search/route.ts
+// FILE: app/api/products/route.ts
+// Backwards-compatible endpoint.
+// The app's canonical product search endpoint is now:
+//   POST /api/products/search
+//
+// This route simply forwards the request body to /api/products/search.
+
 export const runtime = "edge";
 
 import { NextResponse } from "next/server";
-import { amazonProvider } from "@/lib/affiliates/providers/amazon";
-import { rakutenProvider } from "@/lib/affiliates/providers/rakuten";
-import { awinProvider } from "@/lib/affiliates/providers/awin";
-import { webProvider } from "@/lib/affiliates/providers/web";
-import { wrapProducts } from "@/lib/affiliates/linkWrapper";
-import { rankProducts } from "@/lib/affiliates/ranker";
-import type { Product, ProviderKey } from "@/lib/affiliates/types";
-import type { Prefs } from "@/lib/types";
-
-type Req = {
-  query?: string;
-  limit?: number;        // overall cap after merge
-  perProvider?: number;  // fetch cap per provider (default 6)
-  country?: string;      // for link wrapping
-  prefs?: Prefs;         // optional user preferences to guide ranking
-  providers?: ProviderKey[]; // subset to query (default: all)
-  priceMin?: number;     // optional inclusive
-  priceMax?: number;     // optional inclusive
-};
-
-function bad(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
-}
-
-function sanitizeProviders(x: unknown): ProviderKey[] | null {
-  if (!Array.isArray(x) || x.length === 0) return null;
-  const out: ProviderKey[] = [];
-  for (const v of x) {
-    if (v === "amazon" || v === "rakuten" || v === "awin" || v === "web") out.push(v);
-  }
-  return out.length ? out : null;
-}
 
 export async function POST(req: Request) {
   const ct = req.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) return bad("Expected application/json", 415);
-
-  const body = (await req.json().catch(() => ({}))) as Req;
-  const q = (body.query || "").trim();
-  if (!q) return bad("Missing 'query'");
-
-  const per = Math.min(Math.max(body.perProvider ?? 6, 1), 12);
-  const overall = Math.min(Math.max(body.limit ?? 24, 1), 60);
-  const country = body.country;
-  const prefs = body.prefs;
-
-  const selected: ProviderKey[] =
-    sanitizeProviders(body.providers) ?? (["amazon", "rakuten", "awin", "web"] as const);
-
-  const tasks: Array<Promise<{ key: ProviderKey; items: Product[] }>> = [];
-
-  if (selected.includes("amazon")) {
-    tasks.push(
-      amazonProvider.search(q, { limit: per }).then((r) => ({
-        key: "amazon",
-        items: wrapProducts("amazon", r.items, country),
-      }))
-    );
+  if (!ct.includes("application/json")) {
+    return NextResponse.json({ error: "Expected application/json" }, { status: 415 });
   }
 
-  if (selected.includes("rakuten")) {
-    tasks.push(
-      rakutenProvider.search(q, { limit: per }).then((r) => ({
-        key: "rakuten",
-        items: wrapProducts("rakuten", r.items, country),
-      }))
-    );
-  }
+  const body = await req.text();
+  const url = new URL("/api/products/search", req.url);
 
-  if (selected.includes("awin")) {
-    tasks.push(
-      awinProvider.search(q, { limit: per }).then((r) => ({
-        key: "awin",
-        items: wrapProducts("awin", r.items, country),
-      }))
-    );
-  }
+  const resp = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
 
-  if (selected.includes("web")) {
-    tasks.push(
-      webProvider.search(q, { limit: Math.min(per * 2, 24) }).then((r) => ({
-        key: "web",
-        items: r.items, // no wrapping for web results
-      }))
-    );
-  }
+  const text = await resp.text();
+  return new NextResponse(text, {
+    status: resp.status,
+    headers: {
+      "Content-Type": resp.headers.get("content-type") || "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
+}
 
-  const results = await Promise.all(tasks);
-  let merged: Product[] = results.flatMap((r) => r.items);
-
-  // If web not selected but mocks returned nothing, fall back to web automatically.
-  if (!selected.includes("web") && merged.length === 0) {
-    const fallback = await webProvider.search(q, { limit: Math.min(per * 2, 24) });
-    merged = fallback.items;
-  }
-
-  // Optional price filter
-  const hasMin = typeof body.priceMin === "number" && !Number.isNaN(body.priceMin);
-  const hasMax = typeof body.priceMax === "number" && !Number.isNaN(body.priceMax);
-  if (hasMin || hasMax) {
-    merged = merged.filter((p) => {
-      if (typeof p.price !== "number") return false;
-      if (hasMin && p.price < (body.priceMin as number)) return false;
-      if (hasMax && p.price > (body.priceMax as number)) return false;
-      return true;
-    });
-  }
-
-  const ranked = rankProducts({ products: merged, query: q, prefs }).slice(0, overall);
-
+export async function GET() {
   return NextResponse.json(
     {
       ok: true,
-      count: ranked.length,
-      query: q,
-      items: ranked,
-      meta: {
-        providers: selected,
-        filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
-        scraped: ranked.some((p) => typeof p.retailer === "string" && p.retailer.includes(".")),
-      },
+      message: "Use POST /api/products/search",
+      example: { query: "black blazer", providers: ["web"], limit: 24, perProvider: 6 },
     },
     { status: 200 }
   );
 }
+
