@@ -1,24 +1,51 @@
 // FILE: lib/affiliates/providers/amazon.ts
-import type { Provider, ProviderResult, Product } from "../types";
+import type { Provider, ProviderResult, Product, Category } from "../types";
+import { searchCatalog } from "@/lib/catalog/mock";
 
 const MOCK = (process.env.MOCK_AFFILIATES || "true").toLowerCase() !== "false";
 
+function mapCategory(cat: string): Category {
+  switch (cat) {
+    case "top":
+      return "Top";
+    case "bottom":
+      return "Bottom";
+    case "outerwear":
+      return "Outerwear";
+    case "dress":
+      return "Dress";
+    case "shoes":
+      return "Shoes";
+    case "bag":
+      return "Bag";
+    default:
+      return "Accessory";
+  }
+}
+
 function mock(q: string, limit = 6): ProviderResult {
-  const categories = ["Top", "Bottom", "Dress", "Outerwear", "Shoes"] as const;
-  const base: Product[] = Array.from({ length: limit }).map((_, i) => ({
-    id: `amz-${i}`,
-    title: `${q} — Amazon pick #${i + 1}`,
-    brand: ["Levi's", "Mango", "Nike", "COS", "Arket"][i % 5],
-    retailer: "amazon",
-    url: `https://www.amazon.nl/s?k=${encodeURIComponent(q)}&i=fashion&idx=${i}`,
-    image: `https://images.unsplash.com/photo-1520975657287-04f0b1436f4b?ixid=${i}`,
-    price: 49 + i * 5,
-    currency: "EUR",
+  const items = searchCatalog({
+    q,
+    gender: "unisex",
+    budgetMax: 500,
+    keywords: q.split(/\s+/).filter(Boolean).slice(0, 6),
+  }).slice(0, limit);
+
+  const base: Product[] = items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    brand: item.brand,
+    retailer: item.retailer,
+    url: item.url,
+    image: item.image,
+    price: item.price,
+    currency: item.currency,
     availability: "in_stock",
     fit: {
-      category: categories[i % categories.length],
-      gender: "female",
+      category: mapCategory(item.categories[0] || "accessory"),
+      gender: item.gender,
     },
+    source: "amazon",
   }));
   return { provider: "amazon", items: base };
 }
