@@ -75,6 +75,8 @@ function normalize(p: Product | LegacyFavProduct): Product | null {
     return {
       ...np,
       brand: typeof np.brand === "string" ? np.brand : undefined,
+      affiliate_url:
+        typeof np.affiliate_url === "string" ? np.affiliate_url : undefined,
       retailer: typeof np.retailer === "string" ? np.retailer : undefined,
       image: typeof np.image === "string" ? np.image : undefined,
       price:
@@ -98,6 +100,7 @@ function normalize(p: Product | LegacyFavProduct): Product | null {
     title,
     url,
     brand: typeof lp.brand === "string" ? lp.brand || undefined : undefined,
+    affiliate_url: url,
     retailer:
       typeof lp.retailer === "string" ? lp.retailer || undefined : undefined,
     image: typeof lp.image === "string" ? lp.image || undefined : undefined,

@@ -29,8 +29,10 @@ export type Product = {
   price?: number | null;
   currency?: Currency | null;
   brand?: string | null;
+  affiliate_url?: string | null;
   retailer?: string | null;
   availability?: Availability | null;
+  category?: Category;
 
   // Structured metadata (kept optional to avoid breaking older providers)
   fit?: {

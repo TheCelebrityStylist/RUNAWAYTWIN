@@ -31,11 +31,13 @@ type Cand = {
   title: string;
   url: string;
   brand?: string | null;
+  affiliate_url?: string | null;
+  retailer?: string | null;
+  availability?: string | null;
   category?: UiProduct["category"];
   price?: number | null;
   currency?: string | null;
   image?: string | null;
-  retailer?: string | null;
 };
 
 type UiProduct = {
@@ -43,6 +45,9 @@ type UiProduct = {
   title: string;
   url: string | null;
   brand: string | null;
+  affiliate_url: string | null;
+  retailer: string | null;
+  availability: string | null;
   category: "Top" | "Bottom" | "Dress" | "Outerwear" | "Shoes" | "Bag" | "Accessory";
   price: number | null;
   currency: string;
@@ -60,8 +65,6 @@ type PlanJson = {
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const apiKey = process.env.OPENAI_API_KEY;
 const HAS_KEY = Boolean(apiKey);
-const ALLOW_WEB = (process.env.ALLOW_WEB || "true").toLowerCase() !== "false";
-
 const client = apiKey ? new OpenAI({ apiKey }) : null;
 
 function contentToText(c: unknown): string {
@@ -161,6 +164,7 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
     const data = (await resp.json().catch(() => null)) as
       | {
           items?: Array<{
+            id?: unknown;
             title?: unknown;
             url?: unknown;
             brand?: unknown;
@@ -168,7 +172,9 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
             price?: unknown;
             currency?: unknown;
             retailer?: unknown;
-            fit?: { category?: unknown };
+            affiliate_url?: unknown;
+            availability?: unknown;
+            category?: unknown;
           }>;
         }
       | null;
@@ -185,7 +191,9 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
       const price = typeof it.price === "number" && Number.isFinite(it.price) ? it.price : null;
       const currency = typeof it.currency === "string" ? it.currency : null;
       const retailer = typeof it.retailer === "string" ? it.retailer : null;
-      const category = normalizeCategory(it.fit?.category, title);
+      const affiliate = typeof it.affiliate_url === "string" ? it.affiliate_url : null;
+      const availability = typeof it.availability === "string" ? it.availability : null;
+      const category = normalizeCategory(it.category, title);
       try {
         const u = new URL(urlStr);
         const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
@@ -199,6 +207,8 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
           price,
           currency,
           retailer,
+          affiliate_url: affiliate,
+          availability,
           category,
         });
       } catch {
@@ -212,127 +222,23 @@ async function providerCandidates(baseUrl: string, query: string, prefs: Prefs):
   }
 }
 
-async function webSearchProducts(query: string): Promise<Cand[]> {
-  if (!ALLOW_WEB || !process.env.TAVILY_API_KEY) return [];
-  const booster =
-    " site:(zara.com OR mango.com OR hm.com OR net-a-porter.com OR farfetch.com OR uniqlo.com OR cos.com OR arket.com OR massimodutti.com)";
-  const q = `${query}${booster}`;
-
-  const resp = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: process.env.TAVILY_API_KEY,
-      query: q,
-      search_depth: "basic",
-      max_results: 12,
-      include_answer: false,
-      include_raw_content: false,
-    }),
-  }).catch(() => null);
-
-  if (!resp || !resp.ok) return [];
-
-  const data = (await resp.json().catch(() => ({}))) as {
-    results?: Array<{ title?: unknown; url?: unknown }>;
-  };
-
-  const raw: Array<{ title?: unknown; url?: unknown }> = Array.isArray(data.results)
-    ? data.results
-    : [];
-
-  return raw
-    .map((r) => ({
-      title: typeof r?.title === "string" ? r.title : "",
-      url: typeof r?.url === "string" ? r.url : "",
-      category: normalizeCategory(r?.title),
-    }))
-    .filter((x) => x.title && x.url)
-    .slice(0, 12);
-}
-
 function candidatesBlock(cands: Cand[]) {
   if (!cands.length) return "CANDIDATE_LINKS: []";
   const lines = cands.map(
     (c, i) =>
-      `{"i":${i},"title":${JSON.stringify(c.title)},"url":${JSON.stringify(c.url)},"brand":${JSON.stringify(
+      `{"i":${i},"title":${JSON.stringify(c.title)},"url":${JSON.stringify(
+        c.url
+      )},"affiliate_url":${JSON.stringify(c.affiliate_url ?? c.url)},"brand":${JSON.stringify(
         c.brand ?? null
       )},"category":${JSON.stringify(c.category ?? "Accessory")},"price":${JSON.stringify(
         c.price ?? null
       )},"currency":${JSON.stringify(c.currency ?? null)},"image":${JSON.stringify(
         c.image ?? null
+      )},"retailer":${JSON.stringify(c.retailer ?? null)},"availability":${JSON.stringify(
+        c.availability ?? null
       )}}`
   );
   return `CANDIDATE_LINKS: [${lines.join(",")}]`;
-}
-
-const MOCK_CATALOG: UiProduct[] = [
-  {
-    id: "cos-rib-tee",
-    title: "COS Heavyweight Ribbed T-Shirt",
-    url: "https://www.cos.com/",
-    brand: "COS",
-    category: "Top",
-    price: null,
-    currency: "EUR",
-    image:
-      "https://images.unsplash.com/photo-1520975657287-04f0b1436f4b?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "arket-wide-trouser",
-    title: "ARKET Wide Wool Trousers",
-    url: "https://www.arket.com/",
-    brand: "ARKET",
-    category: "Bottom",
-    price: null,
-    currency: "EUR",
-    image:
-      "https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "massimo-trench",
-    title: "Massimo Dutti Double-Breasted Trench",
-    url: "https://www.massimodutti.com/",
-    brand: "Massimo Dutti",
-    category: "Outerwear",
-    price: null,
-    currency: "EUR",
-    image:
-      "https://images.unsplash.com/photo-1520975867597-0f643f1f1f47?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: "zara-boots",
-    title: "Zara Leather Ankle Boots",
-    url: "https://www.zara.com/",
-    brand: "Zara",
-    category: "Shoes",
-    price: null,
-    currency: "EUR",
-    image:
-      "https://images.unsplash.com/photo-1528701800489-20be3c1ea2d3?q=80&w=800&auto=format&fit=crop",
-  },
-];
-
-function mockCandidates(currency: string): Cand[] {
-  return MOCK_CATALOG.map((p) => ({
-    title: p.title,
-    url: p.url ?? "",
-    brand: p.brand,
-    category: p.category,
-    price: p.price,
-    currency: p.currency ?? currency,
-    image: p.image,
-  })).filter((c) => c.title && c.url);
-}
-
-function ensureMinimumProducts(current: UiProduct[], min: number, currency: string): UiProduct[] {
-  const out = [...current];
-  if (out.length >= min) return out;
-  for (const p of MOCK_CATALOG) {
-    if (out.length >= min) break;
-    out.push({ ...p, currency });
-  }
-  return out;
 }
 
 function productsFromCandidates(cands: Cand[], currency: string): UiProduct[] {
@@ -346,6 +252,9 @@ function productsFromCandidates(cands: Cand[], currency: string): UiProduct[] {
       title: c.title,
       url: c.url,
       brand: c.brand ?? null,
+      affiliate_url: c.affiliate_url ?? c.url,
+      retailer: c.retailer ?? null,
+      availability: c.availability ?? null,
       category,
       price: c.price ?? null,
       currency: c.currency ?? currency,
@@ -377,6 +286,7 @@ function productFromModel(
 
   const url = typeof x["url"] === "string" ? (x["url"] as string) : null;
   const candidate = url ? candidatesByUrl.get(url) : undefined;
+  if (!candidate) return null;
   const brand =
     typeof x["brand"] === "string" && (x["brand"] as string).trim() ? (x["brand"] as string) : null;
 
@@ -390,6 +300,9 @@ function productFromModel(
     title: candidate?.title ?? asString(x["title"], "Item"),
     url: candidate?.url ?? url,
     brand: candidate?.brand ?? brand,
+    affiliate_url: candidate?.affiliate_url ?? candidate?.url ?? url,
+    retailer: candidate?.retailer ?? null,
+    availability: candidate?.availability ?? null,
     category: candidate?.category ?? category,
     price: candidate?.price ?? asNumberOrNull(x["price"]),
     currency: candidate?.currency ?? currency,
@@ -437,6 +350,15 @@ function coercePlan(
   return { brief, tips, why, products, total: { value: totalValue, currency: totalCurrency } };
 }
 
+function validateUiProduct(p: UiProduct): boolean {
+  if (!p.id || !p.title || !p.brand || !p.category) return false;
+  if (!p.affiliate_url || !p.url || !p.image) return false;
+  if (!p.retailer || !p.availability) return false;
+  if (typeof p.price !== "number" || !Number.isFinite(p.price) || p.price <= 0) return false;
+  if (!p.currency || !/^[A-Z]{3}$/.test(p.currency)) return false;
+  return true;
+}
+
 function timeout<T>(ms: number, fallback: T) {
   return new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms));
 }
@@ -482,24 +404,52 @@ async function enrichMissingLinks(
         if (!resp.ok) return;
 
         const data = (await resp.json().catch(() => null)) as
-          | { items?: Array<{ title?: unknown; url?: unknown; image?: unknown; price?: unknown; currency?: unknown }> }
+          | {
+              items?: Array<{
+                title?: unknown;
+                url?: unknown;
+                affiliate_url?: unknown;
+                image?: unknown;
+                price?: unknown;
+                currency?: unknown;
+                brand?: unknown;
+                retailer?: unknown;
+                availability?: unknown;
+                category?: unknown;
+              }>;
+            }
           | null;
 
         const firstItem = Array.isArray(data?.items) ? data!.items[0] : undefined;
         if (!firstItem) return;
 
         const urlStr = typeof firstItem.url === "string" ? firstItem.url : null;
+        const affiliateStr =
+          typeof firstItem.affiliate_url === "string" ? firstItem.affiliate_url : urlStr;
         const imgStr = typeof firstItem.image === "string" ? firstItem.image : null;
         const priceNum =
           typeof firstItem.price === "number" && Number.isFinite(firstItem.price) ? firstItem.price : null;
         const curStr = typeof firstItem.currency === "string" ? firstItem.currency : p.currency;
+        const brandStr = typeof firstItem.brand === "string" ? firstItem.brand : p.brand;
+        const retailerStr = typeof firstItem.retailer === "string" ? firstItem.retailer : p.retailer;
+        const availabilityStr =
+          typeof firstItem.availability === "string" ? firstItem.availability : p.availability;
+        const categoryStr =
+          typeof firstItem.category === "string"
+            ? normalizeCategory(firstItem.category)
+            : p.category;
 
         enriched[idx] = {
           ...p,
           url: p.url ?? urlStr,
+          affiliate_url: p.affiliate_url ?? affiliateStr,
           image: p.image ?? imgStr,
           price: p.price ?? priceNum,
           currency: curStr,
+          brand: p.brand ?? brandStr ?? null,
+          retailer: p.retailer ?? retailerStr ?? null,
+          availability: p.availability ?? availabilityStr ?? null,
+          category: p.category ?? categoryStr,
         };
       } catch {
         // ignore
@@ -546,62 +496,37 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join(" ");
 
-    const providerCandPromise = providerCandidates(req.url, queryString, preferences);
-    const tavilyCandPromise =
-      ALLOW_WEB && process.env.TAVILY_API_KEY ? webSearchProducts(queryString) : Promise.resolve([] as Cand[]);
-
-    const [prov, tav] = await Promise.all([
-      Promise.race([providerCandPromise, timeout<Cand[]>(4500, [])]),
-      Promise.race([tavilyCandPromise, timeout<Cand[]>(3500, [])]),
-    ]);
+    const prov = await Promise.race([providerCandidates(req.url, queryString, preferences), timeout<Cand[]>(4500, [])]);
 
     const seen = new Set<string>();
     const merged: Cand[] = [];
-    for (const src of [prov, tav]) {
-      for (const c of src) {
-        try {
-          const u = new URL(c.url);
-          const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          merged.push(c);
-        } catch {
-          // ignore
-        }
-        if (merged.length >= 20) break;
+    for (const c of prov) {
+      try {
+        const u = new URL(c.url);
+        const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(c);
+      } catch {
+        // ignore
       }
       if (merged.length >= 20) break;
     }
 
-    if (merged.length < 8) {
-      const fallbacks = mockCandidates(currencyFor(preferences));
-      for (const c of fallbacks) {
-        try {
-          const u = new URL(c.url);
-          const key = `${u.hostname.replace(/^www\./, "")}${u.pathname}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          merged.push(c);
-        } catch {
-          // ignore
-        }
-        if (merged.length >= 12) break;
-      }
-    }
-
     const sys = [
-      "You are an editorial-level fashion stylist.",
+      "You are an editorial-level fashion stylist with a decisive point of view.",
       "Return ONLY a single JSON object with this exact TypeScript shape:",
-      "type Product = { id: string; title: string; url: string | null; brand: string | null; category: \"Top\" | \"Bottom\" | \"Dress\" | \"Outerwear\" | \"Shoes\" | \"Bag\" | \"Accessory\"; price: number | null; currency: string; image: string | null };",
+      "type Product = { id: string; title: string; brand: string; category: \"Top\" | \"Bottom\" | \"Dress\" | \"Outerwear\" | \"Shoes\" | \"Bag\" | \"Accessory\"; price: number; currency: string; image: string; url: string; affiliate_url: string; retailer: string; availability: string };",
       "type Plan = { brief: string; tips: string[]; why: string[]; products: Product[]; total: { value: number | null; currency: string } };",
       "",
       "HARD RULES:",
       "- Your `brief` MUST explicitly mention the user's last message and the key preferences (body type, budget, country/weather if provided).",
       "- Choose links ONLY from CANDIDATE_LINKS (copy URL exactly). If nothing fits, set url: null.",
-      "- If a candidate provides category/brand/price/currency/image, reuse those values. Do NOT invent them.",
-      "- Include AT LEAST 4 products spanning key categories (Outerwear/Top/Bottom/Shoes/Bag).",
-      "- Do NOT invent exact prices (use null if unknown). Keep currency consistent.",
+      "- If a candidate provides category/brand/price/currency/image/retailer/availability, reuse those values. Do NOT invent them.",
+      "- Do NOT invent products. If nothing meets the standard, return an empty products array.",
+      "- Do NOT invent exact prices. If missing, omit the product entirely.",
       "- Never include markdown, commentary, or extra keys.",
+      "- Avoid generic filler phrases. Write with fashion intelligence and restraint.",
       "",
       prefsBlock(preferences),
       "",
@@ -641,24 +566,36 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // Ensure we have at least 4 items
-    plan.products = ensureMinimumProducts(plan.products, 4, currency);
-
-    // Backfill missing urls/images/prices using the web provider
+    // Backfill missing urls/images/prices using providers (strict validation may still remove items)
     plan.products = await enrichMissingLinks(req.url, preferences, plan.products);
+    plan.products = plan.products.filter((p) => validateUiProduct(p));
 
     const sum = plan.products.reduce((acc, p) => (p.price != null ? acc + p.price : acc), 0);
     const anyPrice = plan.products.some((p) => p.price != null);
     plan.total = { value: anyPrice ? Math.round(sum) : null, currency };
 
+    if (!plan.products.length) {
+      return new Response(
+        JSON.stringify({
+          brief:
+            "I would wait before purchasing — nothing currently meets the standard for this look.",
+          tips: [],
+          why: [],
+          products: [],
+          total: { value: null, currency },
+        }),
+        { headers }
+      );
+    }
+
     return new Response(JSON.stringify(plan), { headers });
   } catch {
     const currency = "EUR";
     const fallback: PlanJson = {
-      brief: "Quick starter outfit (safe fallback). Refresh to regenerate when connectivity recovers.",
-      tips: ["Use monochrome layers to look cohesive.", "Add structure with tailored outerwear."],
-      why: ["Clean lines lengthen the silhouette.", "Neutral palette feels intentional."],
-      products: ensureMinimumProducts([], 4, currency),
+      brief: "I would wait before purchasing — nothing currently meets the standard for this look.",
+      tips: [],
+      why: [],
+      products: [],
       total: { value: null, currency },
     };
     return new Response(JSON.stringify(fallback), { headers, status: 200 });

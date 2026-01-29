@@ -8,6 +8,7 @@ import { awinProvider } from "@/lib/affiliates/providers/awin";
 import { webProvider } from "@/lib/affiliates/providers/web";
 import { wrapProducts } from "@/lib/affiliates/linkWrapper";
 import { rankProducts } from "@/lib/affiliates/ranker";
+import { toStrictProduct, type StrictProduct } from "@/lib/affiliates/validate";
 import type { Product, ProviderKey } from "@/lib/affiliates/types";
 import type { Prefs } from "@/lib/types";
 
@@ -104,13 +105,16 @@ export async function POST(req: Request) {
 
   // Rank with query + prefs
   const ranked = rankProducts({ products: merged, query: q, prefs }).slice(0, overall);
+  const strictItems: StrictProduct[] = ranked
+    .map((p) => toStrictProduct(p))
+    .filter((p): p is StrictProduct => Boolean(p));
 
   return NextResponse.json(
     {
       ok: true,
-      count: ranked.length,
+      count: strictItems.length,
       query: q,
-      items: ranked,
+      items: strictItems,
       meta: {
         providers: selected,
         filteredByPrice: hasMin || hasMax ? { min: body.priceMin, max: body.priceMax } : null,
@@ -119,4 +123,3 @@ export async function POST(req: Request) {
     { status: 200 }
   );
 }
-

@@ -33,6 +33,9 @@ type UiProduct = {
   title: string;
   url: string | null;
   brand: string | null;
+  affiliate_url: string | null;
+  retailer: string | null;
+  availability: string | null;
   category: UiCategory;
   price: number | null;
   currency: string;
@@ -139,11 +142,29 @@ function asProduct(x: unknown, fallbackCurrency: string): UiProduct | null {
       ? (x["image"] as string)
       : null;
 
+  const affiliateUrl =
+    typeof x["affiliate_url"] === "string" && x["affiliate_url"].trim().length
+      ? (x["affiliate_url"] as string)
+      : url;
+
+  const retailer =
+    typeof x["retailer"] === "string" && x["retailer"].trim().length
+      ? (x["retailer"] as string)
+      : null;
+
+  const availability =
+    typeof x["availability"] === "string" && x["availability"].trim().length
+      ? (x["availability"] as string)
+      : null;
+
   return {
     id: id || (url ?? title),
     title,
     url,
     brand,
+    affiliate_url: affiliateUrl,
+    retailer,
+    availability,
     category: cat,
     price,
     currency,
@@ -212,10 +233,12 @@ const DEMOS = [
 
 type Resolved = {
   url: string;
+  affiliate_url?: string;
   image?: string;
   price?: number;
   currency?: string;
   retailer?: string;
+  availability?: string;
   title?: string;
   brand?: string;
 };
@@ -276,10 +299,12 @@ export default function StylistPage() {
 
       const next: Resolved = {
         url: first.url as string,
+        affiliate_url: typeof first.affiliate_url === "string" ? (first.affiliate_url as string) : undefined,
         image: typeof first.image === "string" ? (first.image as string) : undefined,
         price: typeof first.price === "number" ? (first.price as number) : undefined,
         currency: typeof first.currency === "string" ? (first.currency as string) : undefined,
         retailer: typeof first.retailer === "string" ? (first.retailer as string) : undefined,
+        availability: typeof first.availability === "string" ? (first.availability as string) : undefined,
         title: typeof first.title === "string" ? (first.title as string) : undefined,
         brand: typeof first.brand === "string" ? (first.brand as string) : undefined,
       };
@@ -515,12 +540,14 @@ export default function StylistPage() {
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                       {ai.products.map((p) => {
                         const r = resolved[p.id];
-                        const url = r?.url ?? p.url;
+                        const url = r?.affiliate_url ?? r?.url ?? p.affiliate_url ?? p.url;
                         const img = proxyImage(r?.image ?? p.image);
                         const title = r?.title ?? p.title;
                         const brand = r?.brand ?? p.brand;
                         const price = r?.price ?? p.price;
                         const currency = r?.currency ?? p.currency;
+                        const retailer = r?.retailer ?? p.retailer;
+                        const availability = r?.availability ?? p.availability;
 
                         const favPayload = {
                           id: p.id,
@@ -531,6 +558,7 @@ export default function StylistPage() {
                           category: p.category,
                           price: price ?? undefined,
                           currency: currency ?? undefined,
+                          retailer: retailer ?? undefined,
                         };
 
                         const saved = fav.has(favPayload);
@@ -646,4 +674,3 @@ export default function StylistPage() {
     </main>
   );
 }
-

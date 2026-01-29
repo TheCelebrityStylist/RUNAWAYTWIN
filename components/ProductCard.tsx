@@ -19,6 +19,7 @@ function uniqueKey(p: Product) {
 }
 
 export function ProductCard({ item }: { item: Product }) {
+  const link = item.affiliate_url ?? item.url;
   const key = uniqueKey(item);
 
   const [imgSrc, setImgSrc] = React.useState<string>(item.image || "/placeholder.svg");
@@ -49,15 +50,15 @@ export function ProductCard({ item }: { item: Product }) {
       <div className="mt-3 grid gap-1">
         <h3 className="line-clamp-2 text-sm font-semibold">{item.title}</h3>
         <p className="text-xs text-gray-500">
-          {(item.brand || item.retailer || "—") + " · " + (item.fit?.category || "Accessory")}
+          {(item.brand || item.retailer || "—") + " · " + (item.fit?.category || item.category || "Accessory")}
         </p>
         <p className="text-xs text-gray-700">{formatPrice(item.price, item.currency)}</p>
       </div>
 
       <div className="mt-3">
-        {item.url ? (
+        {link ? (
           <a
-            href={item.url}
+            href={link}
             target="_blank"
             rel="noreferrer"
             className="inline-flex w-full items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
