@@ -2,157 +2,93 @@
 "use client";
 
 import * as React from "react";
+import type { Product } from "@/lib/affiliates/types";
 
-/**
- * ProductCard with local favorite toggle.
- * Works with the /looks page by writing to the shared KEY "rwt-favorites-v1"
- * as a map of uniqueKey -> Product JSON.
- *
- * Also exports ProductCardSkeleton to support route-level loading UIs.
- */
-
-export type Product = {
-  id?: string | null;
-  title: string;
-  brand?: string | null;
-  price?: number | null;
-  currency?: string | null;
-  image?: string | null;
-  url: string;
-  retailer?: string | null;
-  category?: string | null;
-};
-
-const FAV_KEY = "rwt-favorites-v1";
-
-function readFavMap(): Record<string, Product> {
+function formatPrice(price?: number, currency?: string) {
+  if (typeof price !== "number") return "Price at retailer";
+  const cur = currency || "EUR";
   try {
-    const raw = localStorage.getItem(FAV_KEY);
-    if (!raw) return {};
-    const obj = JSON.parse(raw) as Record<string, Product>;
-    return obj && typeof obj === "object" ? obj : {};
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: cur }).format(price);
   } catch {
-    return {};
-  }
-}
-
-function writeFavMap(map: Record<string, Product>) {
-  try {
-    localStorage.setItem(FAV_KEY, JSON.stringify(map));
-  } catch {
-    /* ignore */
+    return `${cur} ${price.toFixed(0)}`;
   }
 }
 
 function uniqueKey(p: Product) {
-  return p.url || p.id || p.title;
-}
-
-function proxyImage(src: string | null | undefined): string {
-  const s = typeof src === "string" ? src.trim() : "";
-  if (!s) return "/placeholder.png";
-  if (s.startsWith("/")) return s;
-  try {
-    const u = new URL(s);
-    return `/api/image?url=${encodeURIComponent(u.toString())}`;
-  } catch {
-    return "/placeholder.png";
-  }
+  return `${p.id}|${p.url}`;
 }
 
 export function ProductCard({ item }: { item: Product }) {
   const key = uniqueKey(item);
 
-  const [fav, setFav] = React.useState<boolean>(() => {
-    const map = readFavMap();
-    return Boolean(map[key]);
-  });
+  const [imgSrc, setImgSrc] = React.useState<string>(item.image || "/placeholder.svg");
 
-  const toggleFav = React.useCallback(() => {
-    const map = readFavMap();
-    if (fav) {
-      delete map[key];
-      writeFavMap(map);
-      setFav(false);
-    } else {
-      map[key] = item;
-      writeFavMap(map);
-      setFav(true);
-    }
-  }, [fav, item, key]);
-
-  const imgSrc = proxyImage(item.image);
+  React.useEffect(() => {
+    setImgSrc(item.image || "/placeholder.svg");
+  }, [item.image]);
 
   return (
-    <article className="relative grid h-full grid-rows-[auto_1fr_auto] overflow-hidden rounded-2xl border bg-white shadow-sm">
-      <button
-        type="button"
-        onClick={toggleFav}
-        aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-        className={`absolute right-2 top-2 rounded-full border px-2 py-1 text-xs font-semibold backdrop-blur transition ${
-          fav
-            ? "border-red-500 bg-red-500/90 text-white"
-            : "border-neutral-300 bg-white/90 text-neutral-700 hover:bg-neutral-50"
-        }`}
-      >
-        {fav ? "♥" : "♡"}
-      </button>
-
-      <a
-        href={item.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block aspect-[3/4] w-full overflow-hidden bg-neutral-100"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+    <article className="rounded-2xl border bg-white p-3 shadow-sm">
+      <div className="relative overflow-hidden rounded-2xl bg-gray-50">
         <img
           src={imgSrc}
           alt={item.title}
-          className="h-full w-full object-cover transition hover:scale-[1.02]"
+          className="h-72 w-full object-cover"
           loading="lazy"
+          onError={() => setImgSrc("/placeholder.svg")}
         />
-      </a>
-
-      <div className="grid gap-1 p-3 text-sm">
-        <p className="text-xs text-neutral-500">{item.brand || item.retailer || "—"}</p>
-        <h3 className="line-clamp-2 font-medium text-neutral-900">{item.title}</h3>
-        <p className="text-xs text-neutral-500">{item.category || ""}</p>
-      </div>
-
-      <div className="flex items-center justify-between border-t px-3 py-2">
-        <div className="text-sm font-semibold text-neutral-900">
-          {typeof item.price === "number" && item.currency
-            ? `${item.currency} ${item.price}`
-            : item.currency
-            ? `${item.currency} ?`
-            : "—"}
-        </div>
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-800 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+        <button
+          type="button"
+          className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-medium shadow-sm"
+          aria-label={`Save ${item.title}`}
         >
-          View
-        </a>
+          Save
+        </button>
       </div>
+
+      <div className="mt-3 grid gap-1">
+        <h3 className="line-clamp-2 text-sm font-semibold">{item.title}</h3>
+        <p className="text-xs text-gray-500">
+          {(item.brand || item.retailer || "—") + " · " + (item.fit?.category || "Accessory")}
+        </p>
+        <p className="text-xs text-gray-700">{formatPrice(item.price, item.currency)}</p>
+      </div>
+
+      <div className="mt-3">
+        {item.url ? (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex w-full items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60"
+          >
+            View
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="inline-flex w-full items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium text-gray-400"
+            aria-disabled="true"
+          >
+            No link
+          </button>
+        )}
+      </div>
+
+      <span className="sr-only">{key}</span>
     </article>
   );
 }
 
 export function ProductCardSkeleton() {
   return (
-    <div aria-hidden="true" className="animate-pulse rounded-2xl border bg-white shadow-sm">
-      <div className="aspect-[3/4] w-full bg-neutral-100" />
-      <div className="space-y-2 p-3">
-        <div className="h-3 w-24 rounded bg-neutral-200" />
-        <div className="h-4 w-5/6 rounded bg-neutral-200" />
-        <div className="h-3 w-1/3 rounded bg-neutral-200" />
-      </div>
-      <div className="flex items-center justify-between border-t px-3 py-3">
-        <div className="h-4 w-16 rounded bg-neutral-200" />
-        <div className="h-6 w-16 rounded-full border bg-neutral-100" />
-      </div>
+    <div className="animate-pulse rounded-2xl border bg-white p-3 shadow-sm">
+      <div className="h-72 w-full rounded-2xl bg-gray-100" />
+      <div className="mt-3 h-4 w-3/4 rounded bg-gray-100" />
+      <div className="mt-2 h-3 w-1/2 rounded bg-gray-100" />
+      <div className="mt-2 h-3 w-1/3 rounded bg-gray-100" />
+      <div className="mt-4 h-10 w-full rounded-xl bg-gray-100" />
     </div>
   );
 }
