@@ -3,6 +3,7 @@ export const runtime = "edge";
 
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
+import { searchCatalog } from "@/lib/catalog/mock";
 
 /**
  * Chat → JSON stylist plan with linkable products.
@@ -372,6 +373,17 @@ function pick<T>(arr: T[], seed: number): T {
   return arr[seed % arr.length];
 }
 
+function parseBudgetMax(input: unknown): number {
+  if (typeof input === "number" && Number.isFinite(input)) return Math.max(50, input);
+  if (typeof input !== "string") return 400;
+  const nums = Array.from(input.matchAll(/\d+(?:[.,]\d+)?/g)).map((m) =>
+    Number(m[0].replace(",", "."))
+  );
+  if (!nums.length) return 400;
+  const max = Math.max(...nums);
+  return Number.isFinite(max) ? Math.max(50, max) : 400;
+}
+
 function aestheticRead(userText: string): string {
   const t = userText.toLowerCase();
   const seed = hashText(userText);
@@ -490,6 +502,68 @@ function ensureNarrative(plan: PlanJson, userText: string): PlanJson {
     tips,
     why,
   };
+}
+
+function catalogCandidates(query: string, prefs: Prefs): Cand[] {
+  const budgetMax = parseBudgetMax(prefs.budget) * 1.15;
+  const keywords = query
+    .split(/[,\s]+/)
+    .map((k) => k.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  const gender = (prefs.gender as "female" | "male" | "unisex") || "unisex";
+  const items = searchCatalog({
+    q: query,
+    gender,
+    budgetMax,
+    keywords,
+  });
+
+  return items.map((item) => ({
+    title: item.title,
+    url: item.url,
+    affiliate_url: item.url,
+    brand: item.brand,
+    category: normalizeCategory(item.categories[0], item.title),
+    price: item.price,
+    currency: item.currency,
+    image: item.image,
+    retailer: item.retailer,
+    availability: item.availability,
+  }));
+}
+
+function catalogProductFromItem(item: Cand, currency: string): UiProduct {
+  return {
+    id: item.url,
+    title: item.title,
+    url: item.url,
+    brand: item.brand ?? "—",
+    affiliate_url: item.affiliate_url ?? item.url,
+    retailer: item.retailer ?? null,
+    availability: item.availability ?? null,
+    category: item.category ?? "Accessory",
+    price: item.price ?? null,
+    currency: item.currency ?? currency,
+    image: item.image ?? null,
+  };
+}
+
+function ensureOutfit(products: UiProduct[], prefs: Prefs, userText: string): UiProduct[] {
+  const needed = ["Outerwear", "Top", "Bottom", "Shoes"] as const;
+  const existing = new Set(products.map((p) => p.category));
+  if (needed.every((c) => existing.has(c))) return products;
+
+  const candidates = catalogCandidates(userText, prefs);
+  const additions: UiProduct[] = [];
+  for (const cat of needed) {
+    if (existing.has(cat)) continue;
+    const match = candidates.find((c) => c.category === cat);
+    if (match) additions.push(catalogProductFromItem(match, currencyFor(prefs)));
+  }
+  const accent = candidates.find((c) => c.category === "Bag" || c.category === "Accessory");
+  if (accent && additions.length < 6) additions.push(catalogProductFromItem(accent, currencyFor(prefs)));
+  return [...products, ...additions];
 }
 
 function timeout<T>(ms: number, fallback: T) {
@@ -646,6 +720,10 @@ export async function POST(req: NextRequest) {
       if (merged.length >= 20) break;
     }
 
+    if (merged.length === 0) {
+      merged.push(...catalogCandidates(queryString, preferences).slice(0, 12));
+    }
+
     const sys = [
       "You are an editorial-level fashion stylist with a decisive point of view.",
       "Return ONLY a single JSON object with this exact TypeScript shape:",
@@ -701,6 +779,7 @@ export async function POST(req: NextRequest) {
 
     // Backfill missing urls/images/prices using providers (strict validation may still remove items)
     plan.products = await enrichMissingLinks(req.url, preferences, plan.products);
+    plan.products = ensureOutfit(plan.products, preferences, userText);
     plan.products = plan.products.filter((p) => validateUiProduct(p));
     plan = ensureNarrative(plan, userText);
 
