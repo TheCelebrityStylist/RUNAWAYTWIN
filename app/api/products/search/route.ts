@@ -9,6 +9,7 @@ import { webProvider } from "@/lib/affiliates/providers/web";
 import { wrapProducts } from "@/lib/affiliates/linkWrapper";
 import { rankProducts } from "@/lib/affiliates/ranker";
 import { toStrictProduct, type StrictProduct } from "@/lib/affiliates/validate";
+import { webProductSearch } from "@/lib/scrape/webProductSearch";
 import type { Product, ProviderKey } from "@/lib/affiliates/types";
 import type { Prefs } from "@/lib/types";
 
@@ -105,9 +106,30 @@ export async function POST(req: Request) {
 
   // Rank with query + prefs
   const ranked = rankProducts({ products: merged, query: q, prefs }).slice(0, overall);
-  const strictItems: StrictProduct[] = ranked
+  let strictItems: StrictProduct[] = ranked
     .map((p) => toStrictProduct(p))
     .filter((p): p is StrictProduct => Boolean(p));
+
+  if (strictItems.length < 4 && selected.includes("web")) {
+    const preferEU = (country || "").toUpperCase() !== "US";
+    const scraped = await webProductSearch({ query: q, limit: 16, preferEU });
+    const allowedDomains = regionAllowlist(country);
+    const filtered = allowedDomains.length
+      ? scraped.filter((p) => hostAllowed(p.url, allowedDomains))
+      : scraped;
+
+    const normalized = filtered.map((p) => ({
+      ...p,
+      affiliate_url: p.affiliate_url ?? p.url,
+      availability: p.availability ?? "unknown",
+      category: p.category ?? p.fit?.category,
+    }));
+
+    const strictFromScrape = normalized
+      .map((p) => toStrictProduct(p))
+      .filter((p): p is StrictProduct => Boolean(p));
+    strictItems = [...strictItems, ...strictFromScrape].slice(0, overall);
+  }
 
   if (!strictItems.length) {
     return NextResponse.json(
