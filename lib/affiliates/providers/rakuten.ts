@@ -1,39 +1,52 @@
 // FILE: lib/affiliates/providers/rakuten.ts
 // Mock-safe Rakuten provider (plug real API later).
 
-import type { Provider, ProviderResult, Product, Currency } from "@/lib/affiliates/types";
+import type { Provider, ProviderResult, Currency, Product, Category } from "@/lib/affiliates/types";
+import { searchCatalog } from "@/lib/catalog/mock";
 
-const MOCK: Product[] = [
-  {
-    id: "rkt-knit",
-    title: "Merino Crew Knit",
-    brand: "UNIQLO",
-    retailer: "rakuten",
-    url: "https://www.uniqlo.com/",
-    image: "",
-    price: 39,
-    currency: "EUR",
-    fit: { category: "Top", gender: "unisex" },
-  },
-  {
-    id: "rkt-trouser",
-    title: "Wide Wool Trousers",
-    brand: "ARKET",
-    retailer: "rakuten",
-    url: "https://www.arket.com/",
-    image: "",
-    price: 129,
-    currency: "EUR",
-    fit: { category: "Bottom", gender: "unisex" },
-  },
-];
+function mapCategory(cat: string): Category {
+  switch (cat) {
+    case "top":
+      return "Top";
+    case "bottom":
+      return "Bottom";
+    case "outerwear":
+      return "Outerwear";
+    case "dress":
+      return "Dress";
+    case "shoes":
+      return "Shoes";
+    case "bag":
+      return "Bag";
+    default:
+      return "Accessory";
+  }
+}
 
 export const rakutenProvider: Provider = {
   async search(q: string, opts?: { limit?: number; currency?: Currency }): Promise<ProviderResult> {
     const limit = Math.min(Math.max(opts?.limit ?? 6, 1), 20);
-    const currency = (opts?.currency || "EUR") as Currency;
-    const out = MOCK.slice(0, limit).map((p, idx) => ({ ...p, id: `${p.id}-${idx}`, currency }));
-    return { provider: "rakuten", items: out };
+    const items = searchCatalog({
+      q,
+      gender: "unisex",
+      budgetMax: 500,
+      keywords: q.split(/\s+/).filter(Boolean).slice(0, 6),
+    }).slice(0, limit);
+
+    const mapped: Product[] = items.map((item) => ({
+      id: `${item.id}-rkt`,
+      title: item.title,
+      brand: item.brand,
+      retailer: item.retailer,
+      url: item.url,
+      affiliate_url: item.url,
+      image: item.image,
+      price: item.price,
+      currency: item.currency,
+      availability: item.availability,
+      category: mapCategory(item.categories[0] || "accessory"),
+      source: "rakuten",
+    }));
+    return { provider: "rakuten", items: mapped };
   },
 };
-

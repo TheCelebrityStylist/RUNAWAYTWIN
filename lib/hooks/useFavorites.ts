@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import type { Product } from "@/lib/affiliates/types";
+import type { Product, Category } from "@/lib/affiliates/types";
 
 /** ----------------------------------------------------------------
  * Backwards-compatible favorites store.
@@ -47,6 +47,23 @@ function isProduct(x: unknown): x is Product {
   );
 }
 
+function normalizeCategory(value: unknown): Category | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const raw = value.toLowerCase();
+  if (raw.includes("shoe") || raw.includes("sneaker") || raw.includes("boot") || raw.includes("heel"))
+    return "Shoes";
+  if (raw.includes("dress")) return "Dress";
+  if (raw.includes("trouser") || raw.includes("pants") || raw.includes("jean") || raw.includes("skirt"))
+    return "Bottom";
+  if (raw.includes("coat") || raw.includes("jacket") || raw.includes("trench") || raw.includes("blazer"))
+    return "Outerwear";
+  if (raw.includes("bag") || raw.includes("handbag")) return "Bag";
+  if (raw.includes("shirt") || raw.includes("tee") || raw.includes("top") || raw.includes("blouse") || raw.includes("knit"))
+    return "Top";
+  if (raw.includes("accessory")) return "Accessory";
+  return undefined;
+}
+
 /** Normalize either a Product or legacy shape into a Product */
 function normalize(p: Product | LegacyFavProduct): Product | null {
   if (!p || typeof p !== "object") return null;
@@ -58,6 +75,8 @@ function normalize(p: Product | LegacyFavProduct): Product | null {
     return {
       ...np,
       brand: typeof np.brand === "string" ? np.brand : undefined,
+      affiliate_url:
+        typeof np.affiliate_url === "string" ? np.affiliate_url : undefined,
       retailer: typeof np.retailer === "string" ? np.retailer : undefined,
       image: typeof np.image === "string" ? np.image : undefined,
       price:
@@ -81,6 +100,7 @@ function normalize(p: Product | LegacyFavProduct): Product | null {
     title,
     url,
     brand: typeof lp.brand === "string" ? lp.brand || undefined : undefined,
+    affiliate_url: url,
     retailer:
       typeof lp.retailer === "string" ? lp.retailer || undefined : undefined,
     image: typeof lp.image === "string" ? lp.image || undefined : undefined,
@@ -89,7 +109,7 @@ function normalize(p: Product | LegacyFavProduct): Product | null {
         ? lp.price
         : undefined,
     currency: typeof lp.currency === "string" ? lp.currency || undefined : undefined,
-    fit: lp.category ? { category: lp.category || undefined } : undefined,
+    fit: normalizeCategory(lp.category) ? { category: normalizeCategory(lp.category) } : undefined,
     attrs: undefined,
   };
   return prod;
@@ -189,4 +209,3 @@ export function useFavorites() {
 
   return { list, add, remove, toggle, has, clear };
 }
-
