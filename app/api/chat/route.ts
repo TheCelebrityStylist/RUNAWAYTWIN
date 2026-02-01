@@ -435,10 +435,6 @@ function formatMoney(currency: string, price: number): string {
   }
 }
 
-function lineFor(role: string, p: UiProduct): string {
-  return `${role} — ${p.brand} — ${p.title} — ${formatMoney(p.currency, p.price ?? 0)}`;
-}
-
 function roleReason(role: keyof typeof roleReasons, userText: string): string {
   const seed = hashText(`${role}:${userText}`);
   return pick(roleReasons[role], seed);
@@ -446,26 +442,58 @@ function roleReason(role: keyof typeof roleReasons, userText: string): string {
 
 const roleReasons = {
   Anchor: [
-    "Sets the line and carries the visual authority.",
-    "Defines the silhouette and the level of formality.",
-    "Controls the proportion; everything else follows.",
+    "This is doing the heavy lifting for proportion and presence.",
+    "It sets the line so everything else reads intentional.",
+    "This anchors the look without shouting.",
   ],
   Support: [
-    "Keeps the proportions balanced and the look disciplined.",
-    "Supports the anchor without competing for attention.",
-    "Adds structure without hardening the silhouette.",
+    "Keeps the silhouette clean and the proportions steady.",
+    "Supports the main piece without competing.",
+    "Adds structure while staying soft on the body.",
   ],
   Footwear: [
-    "Grounds the look with weather-aware practicality.",
-    "Handles the environment while staying sharp.",
-    "Keeps the silhouette clean under real conditions.",
+    "Grounds the outfit and keeps it practical.",
+    "Handles real-life movement without losing polish.",
+    "Keeps the line crisp from the hem down.",
   ],
   Accent: [
-    "Adds a precise texture note without noise.",
-    "A restrained finish that reinforces the palette.",
-    "Small detail, high impact.",
+    "Adds a small, controlled texture note.",
+    "Finishes the look without noise.",
+    "Quiet detail, real impact.",
   ],
 } satisfies Record<string, string[]>;
+
+function sentenceCase(input: string): string {
+  if (!input) return input;
+  return input.charAt(0).toUpperCase() + input.slice(1);
+}
+
+function stripTrailingPeriod(input: string): string {
+  return input.replace(/\.*$/, "");
+}
+
+function buildBrief(userText: string): string {
+  const clean = userText.trim().replace(/\s+/g, " ");
+  const opening = clean ? `Okay — ${clean}.` : "Okay — I’m with you.";
+  const direction = `We’re going for ${stripTrailingPeriod(aestheticRead(userText)).toLowerCase()}.`;
+  const wearability = "This stays sharp once you’re inside, and nothing feels fussy.";
+  return [opening, sentenceCase(direction), wearability].join(" ");
+}
+
+function lineFor(role: keyof typeof roleReasons, p: UiProduct, userText: string): string {
+  const price = p.price != null ? formatMoney(p.currency, p.price) : "price at retailer";
+  const itemLine = `${p.brand} — ${p.title} — ${price}`;
+  const reason = roleReason(role, userText);
+  const intro =
+    role === "Anchor"
+      ? "Let’s start with the backbone —"
+      : role === "Support"
+        ? "Underneath, I’m keeping it clean —"
+      : role === "Footwear"
+        ? "For shoes —"
+        : "Optional finishing touch —";
+  return `${intro} ${itemLine}. ${sentenceCase(reason)}`;
+}
 
 function mapRoleProducts(products: UiProduct[]) {
   const anchor =
@@ -485,20 +513,20 @@ function ensureNarrative(plan: PlanJson, userText: string): PlanJson {
   if (!plan.products.length) return plan;
   const { anchor, support, footwear, accent } = mapRoleProducts(plan.products);
   const tips: string[] = [];
-  if (anchor) tips.push(lineFor("Anchor", anchor));
-  if (support) tips.push(lineFor("Support Piece", support));
-  if (footwear) tips.push(lineFor("Footwear", footwear));
-  if (accent) tips.push(lineFor("Optional Accent", accent));
+  if (anchor) tips.push(lineFor("Anchor", anchor, userText));
+  if (support) tips.push(lineFor("Support", support, userText));
+  if (footwear) tips.push(lineFor("Footwear", footwear, userText));
+  if (accent) tips.push(lineFor("Accent", accent, userText));
 
   const why: string[] = [];
-  if (anchor) why.push(roleReason("Anchor", userText));
-  if (support) why.push(roleReason("Support", userText));
-  if (footwear) why.push(roleReason("Footwear", userText));
-  if (accent) why.push(roleReason("Accent", userText));
+  why.push("This reads intentional even if you take layers off indoors.");
+  why.push(
+    "If you want it sharper, tighten the palette by one step; if you want it softer, add a touch of texture."
+  );
 
   return {
     ...plan,
-    brief: aestheticRead(userText),
+    brief: buildBrief(userText),
     tips,
     why,
   };
@@ -725,13 +753,18 @@ export async function POST(req: NextRequest) {
     }
 
     const sys = [
-      "You are an editorial-level fashion stylist with a decisive point of view.",
+      "You are RunwayTwin, a professional personal stylist.",
+      "Never describe yourself as an AI, shopping assistant, or product recommender.",
+      "Speak like a human stylist in a fitting room: warm, confident, opinionated, conversational.",
       "Return ONLY a single JSON object with this exact TypeScript shape:",
       "type Product = { id: string; title: string; brand: string; category: \"Top\" | \"Bottom\" | \"Dress\" | \"Outerwear\" | \"Shoes\" | \"Bag\" | \"Accessory\"; price: number; currency: string; image: string; url: string; affiliate_url: string; retailer: string; availability: string };",
       "type Plan = { brief: string; tips: string[]; why: string[]; products: Product[]; total: { value: number | null; currency: string } };",
       "",
       "HARD RULES:",
       "- Your `brief` MUST explicitly mention the user's last message and the key preferences (body type, budget, country/weather if provided).",
+      "- `brief` must be 2–4 sentences: interpret the brief, then state the aesthetic direction in plain language.",
+      "- `tips` must talk through the outfit decisions one item at a time (why each piece, not just a list).",
+      "- `why` must include a wearability check and, if natural, one gentle adjustment suggestion.",
       "- Choose links ONLY from CANDIDATE_LINKS (copy URL exactly). If nothing fits, return an empty products array.",
       "- If a candidate provides category/brand/price/currency/image/retailer/availability, reuse those values. Do NOT invent them.",
       "- Do NOT invent products. If nothing meets the standard, return an empty products array.",
@@ -769,7 +802,7 @@ export async function POST(req: NextRequest) {
     if (!plan) {
       const seeded = productsFromCandidates(merged, currency);
       plan = {
-        brief: aestheticRead(userText),
+        brief: buildBrief(userText),
         tips: [],
         why: [],
         products: seeded,
@@ -790,14 +823,14 @@ export async function POST(req: NextRequest) {
     if (!plan.products.length) {
       return new Response(
         JSON.stringify({
-          brief: "Inventory is thin for this brief.",
+          brief: "I couldn’t lock in verified pieces for this brief yet.",
           tips: [
-            "Increase the budget by ~10–15% to access stronger tailoring and footwear.",
-            "If staying strict, pivot the aesthetic toward clean utility rather than sculptural tailoring.",
+            "If you can stretch the budget by ~10–15%, the tailoring and shoes get materially stronger.",
+            "If you want to stay strict, shift the mood toward clean utility instead of sculptural tailoring.",
           ],
           why: [
-            "The current price band limits structural fabrics and weather-ready shoes.",
-            "A small budget shift unlocks significantly better silhouettes.",
+            "This price band narrows the options for structured fabrics and weather-ready footwear.",
+            "A small budget shift opens up better silhouettes without changing the vibe.",
           ],
           products: [],
           total: { value: null, currency },
@@ -810,14 +843,14 @@ export async function POST(req: NextRequest) {
   } catch {
     const currency = "EUR";
     const fallback: PlanJson = {
-      brief: "Inventory is thin for this brief.",
+      brief: "I couldn’t lock in verified pieces for this brief yet.",
       tips: [
-        "Increase the budget by ~10–15% to access stronger tailoring and footwear.",
-        "If staying strict, pivot the aesthetic toward clean utility rather than sculptural tailoring.",
+        "If you can stretch the budget by ~10–15%, the tailoring and shoes get materially stronger.",
+        "If you want to stay strict, shift the mood toward clean utility instead of sculptural tailoring.",
       ],
       why: [
-        "The current price band limits structural fabrics and weather-ready shoes.",
-        "A small budget shift unlocks significantly better silhouettes.",
+        "This price band narrows the options for structured fabrics and weather-ready footwear.",
+        "A small budget shift opens up better silhouettes without changing the vibe.",
       ],
       products: [],
       total: { value: null, currency },

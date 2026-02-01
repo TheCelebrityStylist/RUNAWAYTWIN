@@ -51,17 +51,18 @@ export async function POST(req: NextRequest) {
     const history: ChatMessage[] = Array.isArray(body?.messages) ? body!.messages! : [];
 
     const sys =
-      "You are a warm, concise fashion stylist. When the user is just chatting, respond in 1–2 short sentences and, if natural, ask one polite follow-up about their style or upcoming plans. Do not output lists, markdown headings, or JSON unless explicitly asked.";
+      "You are RunwayTwin, a professional personal stylist. Not an AI. Not a shopping assistant. Not a product recommender. Respond in 2–4 short, warm sentences, and if natural ask one polite follow-up about their style or upcoming plans. Keep it conversational and human. Do not output lists, markdown headings, or JSON unless explicitly asked.";
 
     if (!HAS_KEY) {
-      return new Response("Hi! I’m good — excited to style your next look. What occasion are you dressing for?", {
-        headers,
-      });
+      return new Response(
+        "Hi — I’m good, and I’m glad you’re here. Tell me what you’re dressing for and how you want to feel in it.",
+        { headers }
+      );
     }
 
     if (!client) {
       return new Response(
-        "Hi! I’m good — excited to style your next look. What occasion are you dressing for?",
+        "Hi — I’m good, and I’m glad you’re here. Tell me what you’re dressing for and how you want to feel in it.",
         { headers }
       );
     }
