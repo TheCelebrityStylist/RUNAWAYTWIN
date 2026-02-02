@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
 
   if (!HAS_KEY || !client) {
     const plan = defaultPlan(prompt, prefs);
-    return new Response(JSON.stringify({ ok: true, plan }), { headers });
+    return new Response(JSON.stringify({ ok: true, stylePlan: plan, stylist_script: plan.stylist_script }), { headers });
   }
 
   const sys = [
@@ -187,9 +187,9 @@ export async function POST(req: NextRequest) {
       preferences: { ...fallback.preferences, prompt },
     };
 
-    return new Response(JSON.stringify({ ok: true, plan }), { headers });
+    return new Response(JSON.stringify({ ok: true, stylePlan: plan, stylist_script: plan.stylist_script }), { headers });
   } catch {
     const plan = defaultPlan(prompt, prefs);
-    return new Response(JSON.stringify({ ok: true, plan }), { headers });
+    return new Response(JSON.stringify({ ok: true, stylePlan: plan, stylist_script: plan.stylist_script }), { headers });
   }
 }

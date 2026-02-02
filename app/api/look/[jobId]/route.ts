@@ -25,10 +25,20 @@ export async function GET(_req: NextRequest, ctx: { params: { jobId: string } })
     void runLookJob(job.plan);
   }
 
+  const productsBySlot = (job.result?.slots || []).reduce((acc, p) => {
+    acc[p.slot] = acc[p.slot] ? [...acc[p.slot], p] : [p];
+    return acc;
+  }, {} as Record<string, typeof job.result.slots>);
+
   return new Response(
     JSON.stringify({
       ok: true,
       status: job.status,
+      progress: job.progress,
+      productsBySlot,
+      stylist_text_final: job.result?.message ?? null,
+      startedAt: job.createdAt,
+      updatedAt: job.updatedAt,
       result: job.result,
     }),
     { headers }

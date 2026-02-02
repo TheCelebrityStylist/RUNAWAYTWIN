@@ -1,6 +1,7 @@
 // FILE: lib/style/worker.ts
 import type { LookResponse, Product, SlotName, StylePlan } from "@/lib/style/types";
 import { searchCatalog } from "@/lib/catalog/mock";
+import { searchSeedCatalog } from "@/lib/seedCatalog";
 import {
   addJobError,
   addJobLog,
@@ -11,6 +12,7 @@ import {
   updateJobProgress,
 } from "@/lib/style/store";
 import { webProductSearch } from "@/lib/scrape/webProductSearch";
+import { renderStylistText } from "@/lib/stylistCopy";
 
 type RetailerAdapter = {
   name: string;
@@ -142,57 +144,12 @@ function estimateTotal(products: Product[]): number | null {
   return Math.round(total);
 }
 
-function buildMessage(plan: StylePlan, products: Product[], missing: SlotName[]): string {
-  const opening = [
-    `Okay — ${plan.preferences.prompt || "I’ve got you."}`,
-    "This needs to feel intentional and composed, not overworked.",
-    "I’m keeping the line sharp so you feel confident the moment you walk in.",
-  ].join(" ");
-  const direction = `We’re going for ${plan.aesthetic_read.toLowerCase()}.`;
-  const lines: string[] = ["Let’s build it."];
-  const slotOrder: SlotName[] = ["anchor", "top", "bottom", "dress", "shoe", "accessory"];
-  for (const slot of slotOrder) {
-    const item = products.find((p) => p.slot === slot);
-    if (!item) continue;
-    const label =
-      slot === "anchor"
-        ? "Anchor"
-        : slot === "shoe"
-          ? "Footwear"
-          : slot === "accessory"
-            ? "Optional accent"
-            : slot.charAt(0).toUpperCase() + slot.slice(1);
-    const commentary = plan.stylist_script?.item_commentary_templates?.[slot] || "This keeps the line clean.";
-    lines.push(`${label}: ${item.brand} — ${item.title} — ${item.currency} ${item.price} — ${item.retailer}. ${commentary}`);
-  }
-  if (missing.length) {
-    lines.push("I’m widening the net slightly so the silhouette stays intact.");
-  }
-  const total = estimateTotal(products);
-  const totalLine = total ? `Estimated total: ${plan.currency} ${total}.` : "Estimated total: —.";
-  const note = "Keep the accessories restrained and let the cut do the talking.";
-  return [opening, direction, ...lines, totalLine, note].join("\n");
+function buildMessage(plan: StylePlan, products: Product[]): string {
+  return renderStylistText({ mode: "final", plan, products });
 }
 
 function buildEmptyMessage(plan: StylePlan): string {
-  const opening = [
-    `Okay — ${plan.preferences.prompt || "I’ve got you."}`,
-    "I’m going to give you a clean blueprint so you can shop with confidence.",
-  ].join(" ");
-  const direction = `We’re going for ${plan.aesthetic_read.toLowerCase()}.`;
-  const blueprint = [
-    "Let’s build it.",
-    "Anchor: structured coat or sharp blazer with clean shoulders.",
-    "Core: straight-leg trouser or a sleek dress in matte fabric.",
-    "Footwear: pointed boot or sharp slingback with a stable heel.",
-  ].join(" ");
-  const searches = [
-    "Try searching:",
-    "COS structured coat black",
-    "Zara tailored trouser high waist",
-    "& Other Stories pointed slingback",
-  ].join(" ");
-  return [opening, direction, blueprint, searches].join("\n");
+  return renderStylistText({ mode: "blueprint", plan });
 }
 
 function isMVL(products: Product[]): boolean {
@@ -240,27 +197,40 @@ function catalogFallback(plan: StylePlan, slotPlan: StylePlan["per_slot"][number
     budgetMax,
     keywords,
   });
-  const pool = items.length
-    ? items
-    : searchCatalog({
-        q: "",
-        gender: (plan.preferences.gender as "female" | "male" | "unisex") || "unisex",
-        budgetMax: Math.max(budgetMax, plan.budget_total),
-        keywords: [],
-      });
-  return pool.map((item) => ({
-    id: item.id,
-    retailer: item.retailer,
-    brand: item.brand,
-    title: item.title,
-    price: item.price,
-    currency: item.currency,
-    image_url: item.image,
-    product_url: item.url,
-    availability: item.availability,
+  const seed = searchSeedCatalog({
     slot,
-    category: slotPlan.category,
-  }));
+    region: (plan.preferences.country || "EU").toUpperCase(),
+    maxPrice: budgetMax * 1.1,
+    tags: keywords,
+  });
+  const pool = items.length
+    ? items.map((item) => ({
+        id: item.id,
+        retailer: item.retailer,
+        brand: item.brand,
+        title: item.title,
+        price: item.price,
+        currency: item.currency,
+        image_url: item.image,
+        product_url: item.url,
+        availability: item.availability,
+        slot,
+        category: slotPlan.category,
+      }))
+    : seed.map((item) => ({
+        id: item.id,
+        retailer: item.brand,
+        brand: item.brand,
+        title: item.title,
+        price: item.price,
+        currency: item.currency,
+        image_url: item.image,
+        product_url: item.url,
+        availability: "unknown",
+        slot,
+        category: slotPlan.category,
+      }));
+  return pool;
 }
 
 async function searchRetailerSlot(
@@ -405,7 +375,7 @@ export async function runLookJob(plan: StylePlan) {
   const result: LookResponse = {
     look_id: plan.look_id,
     status,
-    message: products.length ? buildMessage(plan, products, missing) : buildEmptyMessage(plan),
+    message: products.length ? buildMessage(plan, products) : buildEmptyMessage(plan),
     slots: products,
     total_price: estimateTotal(products),
     currency: plan.currency,

@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { useFavorites } from "@/lib/hooks/useFavorites";
+import { renderMissingTile, renderStylistText } from "@/lib/stylistCopy";
 
 /* ========================= Types ========================= */
 
@@ -156,9 +157,8 @@ function normalizeCategory(raw: string): UiCategory {
   return "Accessory";
 }
 
-function buildPhaseOneMessage(prompt: string, plan: StylePlan): string {
-  const opening = plan.stylist_script.opening_lines.join(" ");
-  return [opening, plan.stylist_script.direction_line].join(" ");
+function buildPhaseOneMessage(plan: StylePlan): string {
+  return renderStylistText({ mode: "opening", plan });
 }
 
 function toUiProduct(item: LookProduct): UiProduct {
@@ -177,23 +177,34 @@ function toUiProduct(item: LookProduct): UiProduct {
   };
 }
 
-function slotSuggestion(slot: SlotName): string {
-  switch (slot) {
-    case "anchor":
-      return "Swap: structured coat or sharp blazer.";
-    case "top":
-      return "Swap: clean knit or crisp shirt.";
-    case "bottom":
-      return "Swap: straight-leg trouser.";
-    case "dress":
-      return "Swap: slip dress in matte fabric.";
-    case "shoe":
-      return "Swap: pointed slingback or sleek boot.";
-    case "accessory":
-      return "Swap: minimal shoulder bag.";
-    default:
-      return "Swap: clean, tailored staple.";
-  }
+function fallbackPlan(): StylePlan {
+  return {
+    look_id: "local",
+    aesthetic_read: "clean structure",
+    vibe_keywords: [],
+    required_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
+    per_slot: [],
+    budget_split: [],
+    retailer_priority: [],
+    search_queries: [],
+    stylist_script: {
+      opening_lines: ["I’m staying focused on clean structure."],
+      direction_line: "We’re going for quiet structure.",
+      loading_lines: ["I’m starting with the anchor first."],
+      item_commentary_templates: {
+        anchor: "",
+        top: "",
+        bottom: "",
+        dress: "",
+        shoe: "",
+        accessory: "",
+      },
+    },
+    budget_total: 0,
+    currency: "EUR",
+    allow_stretch: false,
+    preferences: {},
+  };
 }
 
 /* ========================= Page ========================= */
@@ -241,7 +252,7 @@ export default function StylistPage() {
   const [look, setLook] = React.useState<LookResponse | null>(null);
   const [jobId, setJobId] = React.useState<string | null>(null);
   const [polling, setPolling] = React.useState(false);
-  const [searchingCopy, setSearchingCopy] = React.useState("Pulling pieces that fit the plan — stay with me.");
+  const [searchingCopy, setSearchingCopy] = React.useState(renderStylistText({ mode: "loading", plan: fallbackPlan(), tick: 0 }));
   const jobStartedAt = React.useRef<number | null>(null);
 
   const send = React.useCallback(
@@ -281,24 +292,23 @@ export default function StylistPage() {
           }),
         });
 
-        const data = (await res.json()) as { ok?: boolean; plan?: StylePlan };
-        if (!data.ok || !data.plan) {
+        const data = (await res.json()) as { ok?: boolean; stylePlan?: StylePlan };
+        if (!data.ok || !data.stylePlan) {
           setMessages((curr) => [
             ...curr,
             {
               role: "assistant",
-              content:
-                "I hit a snag building the plan. Try tweaking the budget or adding a clearer occasion.",
+              content: renderStylistText({ mode: "error", plan: fallbackPlan() }),
             },
           ]);
           return;
         }
 
-        const plan = data.plan;
+        const plan = data.stylePlan;
         setPlan(plan);
         setMessages((curr) => [
           ...curr,
-          { role: "assistant", content: buildPhaseOneMessage(trimmed, plan) },
+          { role: "assistant", content: buildPhaseOneMessage(plan) },
         ]);
 
         const jobRes = await fetch("/api/look", {
@@ -312,15 +322,14 @@ export default function StylistPage() {
           setJobId(jobData.job_id);
           setPolling(true);
           jobStartedAt.current = Date.now();
-          setSearchingCopy(plan.stylist_script.loading_lines[0] || "Pulling the anchor first.");
+          setSearchingCopy(renderStylistText({ mode: "loading", plan, tick: 0 }));
         }
       } catch {
         setMessages((curr) => [
           ...curr,
           {
             role: "assistant",
-            content:
-              "I hit a connectivity issue. Try again in a moment and I’ll build the plan cleanly.",
+              content: renderStylistText({ mode: "error", plan: fallbackPlan() }),
           },
         ]);
       } finally {
@@ -365,23 +374,22 @@ export default function StylistPage() {
 
   React.useEffect(() => {
     if (!polling || !jobStartedAt.current) return;
-      const timer = setInterval(() => {
-        const elapsed = Date.now() - (jobStartedAt.current ?? Date.now());
-        if (elapsed > 2000 && (!look || look.slots.length === 0)) {
-          setSearchingCopy("I’m widening the net slightly so you still get the silhouette.");
-        }
-        if (elapsed > 8000) {
-          setPolling(false);
-          if (!look) {
-            setLook({
-              look_id: jobId || "local",
-              status: "partial",
-              message:
-                "I pulled the strongest pieces available right now and kept the line clean.",
-              slots: [],
-              total_price: null,
-              currency: "EUR",
-              missing_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - (jobStartedAt.current ?? Date.now());
+      if (elapsed > 2000 && (!look || look.slots.length === 0)) {
+        setSearchingCopy(renderStylistText({ mode: "loading", plan: plan ?? fallbackPlan(), tick: 3 }));
+      }
+      if (elapsed > 8000) {
+        setPolling(false);
+        if (!look) {
+          setLook({
+            look_id: jobId || "local",
+            status: "partial",
+            message: renderStylistText({ mode: "opening", plan: plan ?? fallbackPlan() }),
+            slots: [],
+            total_price: null,
+            currency: "EUR",
+            missing_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
           });
         }
       }
@@ -396,7 +404,7 @@ export default function StylistPage() {
     if (!lines.length) return;
     const interval = setInterval(() => {
       idx = (idx + 1) % lines.length;
-      setSearchingCopy(lines[idx]);
+      setSearchingCopy(renderStylistText({ mode: "loading", plan, tick: idx }));
     }, 900);
     return () => clearInterval(interval);
   }, [polling, plan]);
@@ -603,8 +611,8 @@ export default function StylistPage() {
                         className="flex flex-col gap-2 rounded-2xl border border-dashed p-3 text-[11px] text-gray-600"
                       >
                         <div className="aspect-[4/5] w-full rounded-xl bg-gray-50" />
-                        <p className="font-semibold text-gray-800">No match found</p>
-                        <p>{slotSuggestion(card.slot)}</p>
+                        <p className="font-semibold text-gray-800">{renderMissingTile(card.slot).title}</p>
+                        <p>{renderMissingTile(card.slot).suggestion}</p>
                       </div>
                     );
                   }
