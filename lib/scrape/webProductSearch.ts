@@ -1,7 +1,7 @@
 // FILE: lib/scrape/webProductSearch.ts
 export const runtime = "edge";
 
-import type { Product } from "@/lib/affiliates/types";
+import type { Product, Category } from "@/lib/affiliates/types";
 
 type WebSearchOptions = {
   query: string;
@@ -42,6 +42,23 @@ function uniqBy<T>(arr: T[], key: (t: T) => string): T[] {
     out.push(x);
   }
   return out;
+}
+
+function normalizeCategory(value: unknown): Category | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const raw = value.toLowerCase();
+  if (raw.includes("shoe") || raw.includes("sneaker") || raw.includes("boot") || raw.includes("heel"))
+    return "Shoes";
+  if (raw.includes("dress")) return "Dress";
+  if (raw.includes("trouser") || raw.includes("pants") || raw.includes("jean") || raw.includes("skirt"))
+    return "Bottom";
+  if (raw.includes("coat") || raw.includes("jacket") || raw.includes("trench") || raw.includes("blazer"))
+    return "Outerwear";
+  if (raw.includes("bag") || raw.includes("handbag")) return "Bag";
+  if (raw.includes("shirt") || raw.includes("tee") || raw.includes("top") || raw.includes("blouse") || raw.includes("knit"))
+    return "Top";
+  if (raw.includes("accessory")) return "Accessory";
+  return undefined;
 }
 
 const EU_HOST_HINTS = [
@@ -309,7 +326,7 @@ function fromJsonLd(url: string, node: unknown): Product | null {
     price,
     currency,
     availability: offer ? availability(offer["availability"]) : undefined,
-    fit: { category: str(productNode["category"]) },
+    fit: { category: normalizeCategory(productNode["category"]) },
   };
 }
 
@@ -377,4 +394,3 @@ export async function webProductSearch(opts: WebSearchOptions): Promise<Product[
 
   return uniqBy(out, (p) => p.url).slice(0, limit);
 }
-

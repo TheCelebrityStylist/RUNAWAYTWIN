@@ -1,7 +1,7 @@
 // FILE: lib/affiliates/providers/web.ts
 import type { Product, ProviderResult } from "@/lib/affiliates/types";
 
-type SearchOpts = { limit: number };
+type SearchOpts = { limit: number; country?: string };
 
 // Put category under fit.category (since Product has `fit?: { category?: ... }`)
 type FitCategory = NonNullable<Product["fit"]>["category"];

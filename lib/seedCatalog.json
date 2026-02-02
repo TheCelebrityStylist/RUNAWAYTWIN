@@ -1,0 +1,3402 @@
+[
+  {
+    "id": "seed-001",
+    "title": "COS Anchor 1",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 220,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%201",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-002",
+    "title": "Zara Top 2",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 89,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%202",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-003",
+    "title": "& Other Stories Bottom 3",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 130,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%203",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-004",
+    "title": "Arket Dress 4",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 190,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%204",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-005",
+    "title": "COS Shoe 5",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 185,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%205",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-006",
+    "title": "Zara Accessory 6",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 60,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%206",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-007",
+    "title": "& Other Stories Anchor 7",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 230,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%207",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-008",
+    "title": "Arket Top 8",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 99,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%208",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-009",
+    "title": "COS Bottom 9",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 140,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%209",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-010",
+    "title": "Zara Dress 10",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 200,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2010",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-011",
+    "title": "& Other Stories Shoe 11",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 145,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2011",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-012",
+    "title": "Arket Accessory 12",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 70,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2012",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-013",
+    "title": "COS Anchor 13",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 240,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2013",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-014",
+    "title": "Zara Top 14",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 109,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2014",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-015",
+    "title": "& Other Stories Bottom 15",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 150,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2015",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-016",
+    "title": "Arket Dress 16",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 160,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%2016",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-017",
+    "title": "COS Shoe 17",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 155,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%2017",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-018",
+    "title": "Zara Accessory 18",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 80,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%2018",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-019",
+    "title": "& Other Stories Anchor 19",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 250,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%2019",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-020",
+    "title": "Arket Top 20",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 119,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%2020",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-021",
+    "title": "COS Bottom 21",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 110,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%2021",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-022",
+    "title": "Zara Dress 22",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 170,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2022",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-023",
+    "title": "& Other Stories Shoe 23",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 165,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2023",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-024",
+    "title": "Arket Accessory 24",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 90,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2024",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-025",
+    "title": "COS Anchor 25",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 260,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2025",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-026",
+    "title": "Zara Top 26",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 79,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2026",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-027",
+    "title": "& Other Stories Bottom 27",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 120,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2027",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-028",
+    "title": "Arket Dress 28",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 180,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%2028",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-029",
+    "title": "COS Shoe 29",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 175,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%2029",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-030",
+    "title": "Zara Accessory 30",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 100,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%2030",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-031",
+    "title": "& Other Stories Anchor 31",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 220,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%2031",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-032",
+    "title": "Arket Top 32",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 89,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%2032",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-033",
+    "title": "COS Bottom 33",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 130,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%2033",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-034",
+    "title": "Zara Dress 34",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 190,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2034",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-035",
+    "title": "& Other Stories Shoe 35",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 185,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2035",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-036",
+    "title": "Arket Accessory 36",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 60,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2036",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-037",
+    "title": "COS Anchor 37",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 230,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2037",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-038",
+    "title": "Zara Top 38",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 99,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2038",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-039",
+    "title": "& Other Stories Bottom 39",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 140,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2039",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-040",
+    "title": "Arket Dress 40",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 200,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%2040",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-041",
+    "title": "COS Shoe 41",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 145,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%2041",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-042",
+    "title": "Zara Accessory 42",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 70,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%2042",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-043",
+    "title": "& Other Stories Anchor 43",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 240,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%2043",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-044",
+    "title": "Arket Top 44",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 109,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%2044",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-045",
+    "title": "COS Bottom 45",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 150,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%2045",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-046",
+    "title": "Zara Dress 46",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 160,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2046",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-047",
+    "title": "& Other Stories Shoe 47",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 155,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2047",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-048",
+    "title": "Arket Accessory 48",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 80,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2048",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-049",
+    "title": "COS Anchor 49",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 250,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2049",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-050",
+    "title": "Zara Top 50",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 119,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2050",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-051",
+    "title": "& Other Stories Bottom 51",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 110,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2051",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-052",
+    "title": "Arket Dress 52",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 170,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%2052",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-053",
+    "title": "COS Shoe 53",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 165,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%2053",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-054",
+    "title": "Zara Accessory 54",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 90,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%2054",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-055",
+    "title": "& Other Stories Anchor 55",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 260,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%2055",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-056",
+    "title": "Arket Top 56",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 79,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%2056",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-057",
+    "title": "COS Bottom 57",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 120,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%2057",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-058",
+    "title": "Zara Dress 58",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 180,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2058",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-059",
+    "title": "& Other Stories Shoe 59",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 175,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2059",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-060",
+    "title": "Arket Accessory 60",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 100,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2060",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-061",
+    "title": "COS Anchor 61",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 220,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2061",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-062",
+    "title": "Zara Top 62",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 89,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2062",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-063",
+    "title": "& Other Stories Bottom 63",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 130,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2063",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-064",
+    "title": "Arket Dress 64",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 190,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%2064",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-065",
+    "title": "COS Shoe 65",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 185,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%2065",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-066",
+    "title": "Zara Accessory 66",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 60,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%2066",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-067",
+    "title": "& Other Stories Anchor 67",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 230,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%2067",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-068",
+    "title": "Arket Top 68",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 99,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%2068",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-069",
+    "title": "COS Bottom 69",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 140,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%2069",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-070",
+    "title": "Zara Dress 70",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 200,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2070",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-071",
+    "title": "& Other Stories Shoe 71",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 145,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2071",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-072",
+    "title": "Arket Accessory 72",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 70,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2072",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-073",
+    "title": "COS Anchor 73",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 240,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2073",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-074",
+    "title": "Zara Top 74",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 109,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2074",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-075",
+    "title": "& Other Stories Bottom 75",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 150,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2075",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-076",
+    "title": "Arket Dress 76",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 160,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%2076",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-077",
+    "title": "COS Shoe 77",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 155,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%2077",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-078",
+    "title": "Zara Accessory 78",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 80,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%2078",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-079",
+    "title": "& Other Stories Anchor 79",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 250,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%2079",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-080",
+    "title": "Arket Top 80",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 119,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%2080",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-081",
+    "title": "COS Bottom 81",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 110,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%2081",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-082",
+    "title": "Zara Dress 82",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 170,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2082",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-083",
+    "title": "& Other Stories Shoe 83",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 165,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2083",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-084",
+    "title": "Arket Accessory 84",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 90,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2084",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-085",
+    "title": "COS Anchor 85",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 260,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2085",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-086",
+    "title": "Zara Top 86",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 79,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2086",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-087",
+    "title": "& Other Stories Bottom 87",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 120,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2087",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-088",
+    "title": "Arket Dress 88",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 180,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%2088",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-089",
+    "title": "COS Shoe 89",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 175,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%2089",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-090",
+    "title": "Zara Accessory 90",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 100,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%2090",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-091",
+    "title": "& Other Stories Anchor 91",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 220,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%2091",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-092",
+    "title": "Arket Top 92",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 89,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%2092",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-093",
+    "title": "COS Bottom 93",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 130,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%2093",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-094",
+    "title": "Zara Dress 94",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 190,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%2094",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-095",
+    "title": "& Other Stories Shoe 95",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 185,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%2095",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-096",
+    "title": "Arket Accessory 96",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 60,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%2096",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-097",
+    "title": "COS Anchor 97",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 230,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%2097",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-098",
+    "title": "Zara Top 98",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 99,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%2098",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-099",
+    "title": "& Other Stories Bottom 99",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 140,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%2099",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-100",
+    "title": "Arket Dress 100",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 200,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20100",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-101",
+    "title": "COS Shoe 101",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 145,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20101",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-102",
+    "title": "Zara Accessory 102",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 70,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20102",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-103",
+    "title": "& Other Stories Anchor 103",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 240,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20103",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-104",
+    "title": "Arket Top 104",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 109,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20104",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-105",
+    "title": "COS Bottom 105",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 150,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20105",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-106",
+    "title": "Zara Dress 106",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 160,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20106",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-107",
+    "title": "& Other Stories Shoe 107",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 155,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20107",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-108",
+    "title": "Arket Accessory 108",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 80,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20108",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-109",
+    "title": "COS Anchor 109",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 250,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20109",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-110",
+    "title": "Zara Top 110",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 119,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20110",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-111",
+    "title": "& Other Stories Bottom 111",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 110,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20111",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-112",
+    "title": "Arket Dress 112",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 170,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20112",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-113",
+    "title": "COS Shoe 113",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 165,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20113",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-114",
+    "title": "Zara Accessory 114",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 90,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20114",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-115",
+    "title": "& Other Stories Anchor 115",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 260,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20115",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-116",
+    "title": "Arket Top 116",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 79,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20116",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-117",
+    "title": "COS Bottom 117",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 120,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20117",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-118",
+    "title": "Zara Dress 118",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 180,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20118",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-119",
+    "title": "& Other Stories Shoe 119",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 175,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20119",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-120",
+    "title": "Arket Accessory 120",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 100,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20120",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-121",
+    "title": "COS Anchor 121",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 220,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20121",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-122",
+    "title": "Zara Top 122",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 89,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20122",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-123",
+    "title": "& Other Stories Bottom 123",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 130,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20123",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-124",
+    "title": "Arket Dress 124",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 190,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20124",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-125",
+    "title": "COS Shoe 125",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 185,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20125",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-126",
+    "title": "Zara Accessory 126",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 60,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20126",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-127",
+    "title": "& Other Stories Anchor 127",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 230,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20127",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-128",
+    "title": "Arket Top 128",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 99,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20128",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-129",
+    "title": "COS Bottom 129",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 140,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20129",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-130",
+    "title": "Zara Dress 130",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 200,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20130",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-131",
+    "title": "& Other Stories Shoe 131",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 145,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20131",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-132",
+    "title": "Arket Accessory 132",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 70,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20132",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-133",
+    "title": "COS Anchor 133",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 240,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20133",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-134",
+    "title": "Zara Top 134",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 109,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20134",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-135",
+    "title": "& Other Stories Bottom 135",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 150,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20135",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-136",
+    "title": "Arket Dress 136",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 160,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20136",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-137",
+    "title": "COS Shoe 137",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 155,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20137",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-138",
+    "title": "Zara Accessory 138",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 80,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20138",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-139",
+    "title": "& Other Stories Anchor 139",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 250,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20139",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-140",
+    "title": "Arket Top 140",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 119,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20140",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-141",
+    "title": "COS Bottom 141",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 110,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20141",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-142",
+    "title": "Zara Dress 142",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 170,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20142",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-143",
+    "title": "& Other Stories Shoe 143",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 165,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20143",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-144",
+    "title": "Arket Accessory 144",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 90,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20144",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-145",
+    "title": "COS Anchor 145",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 260,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20145",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-146",
+    "title": "Zara Top 146",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 79,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20146",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-147",
+    "title": "& Other Stories Bottom 147",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 120,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20147",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-148",
+    "title": "Arket Dress 148",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 180,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20148",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-149",
+    "title": "COS Shoe 149",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 175,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20149",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-150",
+    "title": "Zara Accessory 150",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 100,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20150",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-151",
+    "title": "& Other Stories Anchor 151",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 220,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20151",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-152",
+    "title": "Arket Top 152",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 89,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20152",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-153",
+    "title": "COS Bottom 153",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 130,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20153",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-154",
+    "title": "Zara Dress 154",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 190,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20154",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-155",
+    "title": "& Other Stories Shoe 155",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 185,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20155",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-156",
+    "title": "Arket Accessory 156",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 60,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20156",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-157",
+    "title": "COS Anchor 157",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 230,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20157",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-158",
+    "title": "Zara Top 158",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 99,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20158",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-159",
+    "title": "& Other Stories Bottom 159",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 140,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20159",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-160",
+    "title": "Arket Dress 160",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 200,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20160",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-161",
+    "title": "COS Shoe 161",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 145,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20161",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-162",
+    "title": "Zara Accessory 162",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 70,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20162",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-163",
+    "title": "& Other Stories Anchor 163",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 240,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20163",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-164",
+    "title": "Arket Top 164",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 109,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20164",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-165",
+    "title": "COS Bottom 165",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 150,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20165",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-166",
+    "title": "Zara Dress 166",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 160,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20166",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-167",
+    "title": "& Other Stories Shoe 167",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 155,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20167",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-168",
+    "title": "Arket Accessory 168",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 80,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20168",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-169",
+    "title": "COS Anchor 169",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 250,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20169",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-170",
+    "title": "Zara Top 170",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 119,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20170",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-171",
+    "title": "& Other Stories Bottom 171",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 110,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20171",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-172",
+    "title": "Arket Dress 172",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 170,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20172",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-173",
+    "title": "COS Shoe 173",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 165,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20173",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-174",
+    "title": "Zara Accessory 174",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 90,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20174",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-175",
+    "title": "& Other Stories Anchor 175",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 260,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20175",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-176",
+    "title": "Arket Top 176",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 79,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20176",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-177",
+    "title": "COS Bottom 177",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 120,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20177",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-178",
+    "title": "Zara Dress 178",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 180,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20178",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-179",
+    "title": "& Other Stories Shoe 179",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 175,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20179",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-180",
+    "title": "Arket Accessory 180",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 100,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20180",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-181",
+    "title": "COS Anchor 181",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 220,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20181",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-182",
+    "title": "Zara Top 182",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 89,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20182",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-183",
+    "title": "& Other Stories Bottom 183",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 130,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20183",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-184",
+    "title": "Arket Dress 184",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 190,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20184",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-185",
+    "title": "COS Shoe 185",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 185,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20185",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-186",
+    "title": "Zara Accessory 186",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 60,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20186",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-187",
+    "title": "& Other Stories Anchor 187",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 230,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20187",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-188",
+    "title": "Arket Top 188",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 99,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20188",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-189",
+    "title": "COS Bottom 189",
+    "brand": "COS",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 140,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Bottom%20189",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-190",
+    "title": "Zara Dress 190",
+    "brand": "Zara",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 200,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Dress%20190",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-191",
+    "title": "& Other Stories Shoe 191",
+    "brand": "& Other Stories",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 145,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Shoe%20191",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-192",
+    "title": "Arket Accessory 192",
+    "brand": "Arket",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 70,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Accessory%20192",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-193",
+    "title": "COS Anchor 193",
+    "brand": "COS",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 240,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Anchor%20193",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-194",
+    "title": "Zara Top 194",
+    "brand": "Zara",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 109,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Top%20194",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-195",
+    "title": "& Other Stories Bottom 195",
+    "brand": "& Other Stories",
+    "slot": "bottom",
+    "category": "bottom",
+    "region": "EU",
+    "price": 150,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Bottom%20195",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-196",
+    "title": "Arket Dress 196",
+    "brand": "Arket",
+    "slot": "dress",
+    "category": "dress",
+    "region": "EU",
+    "price": 160,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Dress%20196",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-197",
+    "title": "COS Shoe 197",
+    "brand": "COS",
+    "slot": "shoe",
+    "category": "shoe",
+    "region": "EU",
+    "price": 155,
+    "currency": "EUR",
+    "url": "https://www.cos.com/en_eur/search?q=COS%20Shoe%20197",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-198",
+    "title": "Zara Accessory 198",
+    "brand": "Zara",
+    "slot": "accessory",
+    "category": "accessory",
+    "region": "EU",
+    "price": 80,
+    "currency": "EUR",
+    "url": "https://www.zara.com/nl/en/search?searchTerm=Zara%20Accessory%20198",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-199",
+    "title": "& Other Stories Anchor 199",
+    "brand": "& Other Stories",
+    "slot": "anchor",
+    "category": "anchor",
+    "region": "EU",
+    "price": 250,
+    "currency": "EUR",
+    "url": "https://www.stories.com/en_eur/search?q=&%20Other%20Stories%20Anchor%20199",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  },
+  {
+    "id": "seed-200",
+    "title": "Arket Top 200",
+    "brand": "Arket",
+    "slot": "top",
+    "category": "top",
+    "region": "EU",
+    "price": 119,
+    "currency": "EUR",
+    "url": "https://www.arket.com/en_eur/search?q=Arket%20Top%20200",
+    "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&h=1000&q=80&sat=-20&blend=ffffff&bm=normal&ixid=seed",
+    "tags": [
+      "sleek",
+      "modern",
+      "minimalist"
+    ]
+  }
+]

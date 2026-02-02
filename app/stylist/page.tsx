@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { useFavorites } from "@/lib/hooks/useFavorites";
+import { renderMissingTile, renderStylistText } from "@/lib/stylistCopy";
 
 /* ========================= Types ========================= */
 
@@ -33,18 +34,77 @@ type UiProduct = {
   title: string;
   url: string | null;
   brand: string | null;
+  affiliate_url: string | null;
+  retailer: string | null;
+  availability: string | null;
   category: UiCategory;
   price: number | null;
   currency: string;
   image: string | null;
 };
 
-type AiJson = {
-  brief: string;
-  tips: string[];
-  why: string[];
-  products: UiProduct[];
-  total: { value: number | null; currency: string };
+type SlotName = "anchor" | "top" | "bottom" | "dress" | "shoe" | "accessory";
+
+type StylePlan = {
+  look_id: string;
+  aesthetic_read: string;
+  vibe_keywords: string[];
+  required_slots: SlotName[];
+  per_slot: Array<{
+    slot: SlotName;
+    category: string;
+    keywords: string[];
+    allowed_colors: string[];
+    banned_materials: string[];
+    min_price: number;
+    max_price: number;
+  }>;
+  budget_split: Array<{ slot: SlotName; min: number; max: number }>;
+  retailer_priority: string[];
+  search_queries: Array<{ slot: SlotName; query: string }>;
+  stylist_script: {
+    opening_lines: string[];
+    direction_line: string;
+    loading_lines: string[];
+    item_commentary_templates: Record<SlotName, string>;
+  };
+  budget_total: number;
+  currency: string;
+  allow_stretch: boolean;
+  preferences: {
+    gender?: string;
+    body_type?: string;
+    budget?: string;
+    country?: string;
+    keywords?: string[];
+    sizes?: { top?: string; bottom?: string; dress?: string; shoe?: string };
+    prompt?: string;
+  };
+};
+
+type LookProduct = {
+  id: string;
+  retailer: string;
+  brand: string;
+  title: string;
+  price: number;
+  currency: string;
+  image_url: string;
+  product_url: string;
+  availability: "in_stock" | "out_of_stock" | "unknown";
+  slot: SlotName;
+  category: string;
+};
+
+type LookResponse = {
+  look_id: string;
+  status: "queued" | "running" | "partial" | "complete" | "failed";
+  message: string;
+  slots: LookProduct[];
+  total_price: number | null;
+  currency: string;
+  missing_slots: SlotName[];
+  note?: string;
 };
 
 /* ===================== UI atoms/helpers ===================== */
@@ -80,22 +140,10 @@ function proxyImage(src: string | null): string | null {
   }
 }
 
-/* ================== JSON coercion (matches /api/chat) ================== */
+/* ================== Style helpers ================== */
 
-function isObj(x: unknown): x is Record<string, unknown> {
-  return typeof x === "object" && x !== null;
-}
-
-function asString(x: unknown, def = ""): string {
-  return typeof x === "string" ? x : def;
-}
-
-function asNumberOrNull(x: unknown): number | null {
-  return typeof x === "number" && Number.isFinite(x) ? x : null;
-}
-
-function normalizeCategory(raw: unknown): UiCategory {
-  const v = typeof raw === "string" ? raw.toLowerCase() : "";
+function normalizeCategory(raw: string): UiCategory {
+  const v = raw.toLowerCase();
   if (v.includes("dress")) return "Dress";
   if (v.includes("coat") || v.includes("jacket") || v.includes("trench"))
     return "Outerwear";
@@ -109,95 +157,53 @@ function normalizeCategory(raw: unknown): UiCategory {
   return "Accessory";
 }
 
-function asProduct(x: unknown, fallbackCurrency: string): UiProduct | null {
-  if (!isObj(x)) return null;
+function buildPhaseOneMessage(plan: StylePlan): string {
+  return renderStylistText({ mode: "opening", plan });
+}
 
-  const id = asString(x["id"], "");
-  const title = asString(x["title"], "");
-  if (!title) return null;
-
-  const url =
-    typeof x["url"] === "string" && x["url"].trim().length
-      ? (x["url"] as string)
-      : null;
-
-  const brand =
-    typeof x["brand"] === "string" && x["brand"].trim().length
-      ? (x["brand"] as string)
-      : null;
-
-  const cat = normalizeCategory(x["category"]);
-  const price = asNumberOrNull(x["price"]);
-
-  const currency =
-    typeof x["currency"] === "string" && x["currency"].trim().length
-      ? (x["currency"] as string)
-      : fallbackCurrency;
-
-  const image =
-    typeof x["image"] === "string" && x["image"].trim().length
-      ? (x["image"] as string)
-      : null;
-
+function toUiProduct(item: LookProduct): UiProduct {
   return {
-    id: id || (url ?? title),
-    title,
-    url,
-    brand,
-    category: cat,
-    price,
-    currency,
-    image,
+    id: item.id,
+    title: item.title,
+    url: item.product_url,
+    brand: item.brand,
+    affiliate_url: item.product_url,
+    retailer: item.retailer,
+    availability: item.availability,
+    category: normalizeCategory(item.category),
+    price: item.price,
+    currency: item.currency,
+    image: item.image_url,
   };
 }
 
-function coerceAiJson(content: string): AiJson | null {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(content);
-  } catch {
-    return null;
-  }
-  if (!isObj(raw)) return null;
-
-  const brief = asString(raw["brief"], "");
-  const tips = Array.isArray(raw["tips"])
-    ? ((raw["tips"] as unknown[]).filter((s) => typeof s === "string") as string[])
-    : [];
-  const why = Array.isArray(raw["why"])
-    ? ((raw["why"] as unknown[]).filter((s) => typeof s === "string") as string[])
-    : [];
-
-  const productsRaw = Array.isArray(raw["products"])
-    ? (raw["products"] as unknown[])
-    : [];
-  const fallbackCurrency =
-    (isObj(raw["total"]) &&
-      typeof raw["total"]["currency"] === "string" &&
-      raw["total"]["currency"]) ||
-    "EUR";
-
-  const products: UiProduct[] = productsRaw
-    .map((p) => asProduct(p, fallbackCurrency))
-    .filter((p): p is UiProduct => !!p);
-
-  const totalObj = isObj(raw["total"])
-    ? (raw["total"] as Record<string, unknown>)
-    : {};
-  const totalCurrency =
-    typeof totalObj["currency"] === "string"
-      ? (totalObj["currency"] as string)
-      : fallbackCurrency;
-  const totalValue = asNumberOrNull(totalObj["value"]);
-
-  if (!brief && !tips.length && !why.length && !products.length) return null;
-
+function fallbackPlan(): StylePlan {
   return {
-    brief,
-    tips,
-    why,
-    products,
-    total: { value: totalValue, currency: totalCurrency },
+    look_id: "local",
+    aesthetic_read: "clean structure",
+    vibe_keywords: [],
+    required_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
+    per_slot: [],
+    budget_split: [],
+    retailer_priority: [],
+    search_queries: [],
+    stylist_script: {
+      opening_lines: ["I’m staying focused on clean structure."],
+      direction_line: "We’re going for quiet structure.",
+      loading_lines: ["I’m starting with the anchor first."],
+      item_commentary_templates: {
+        anchor: "",
+        top: "",
+        bottom: "",
+        dress: "",
+        shoe: "",
+        accessory: "",
+      },
+    },
+    budget_total: 0,
+    currency: "EUR",
+    allow_stretch: false,
+    preferences: {},
   };
 }
 
@@ -209,16 +215,6 @@ const DEMOS = [
   `Timothée Chalamet smart-casual date, soft tailoring + boots`,
   `Hailey Bieber off-duty street, under €300, neutrals + leather`,
 ];
-
-type Resolved = {
-  url: string;
-  image?: string;
-  price?: number;
-  currency?: string;
-  retailer?: string;
-  title?: string;
-  brand?: string;
-};
 
 export default function StylistPage() {
   const [prefs, setPrefs] = React.useState<Prefs>(() => {
@@ -252,43 +248,12 @@ export default function StylistPage() {
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
-
-  // Resolver cache: productId -> resolved real product
-  const [resolved, setResolved] = React.useState<Record<string, Resolved>>({});
-
-  const resolveProduct = React.useCallback(async (p: UiProduct) => {
-    const key = p.id;
-    if (resolved[key]) return;
-
-    const q = `${p.brand ?? ""} ${p.title}`.trim();
-    if (!q) return;
-
-    try {
-      const res = await fetch("/api/products/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, limit: 1 }),
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { ok?: boolean; items?: Array<Record<string, unknown>> };
-      const first = Array.isArray(data.items) ? data.items[0] : null;
-      if (!first || typeof first.url !== "string" || !first.url) return;
-
-      const next: Resolved = {
-        url: first.url as string,
-        image: typeof first.image === "string" ? (first.image as string) : undefined,
-        price: typeof first.price === "number" ? (first.price as number) : undefined,
-        currency: typeof first.currency === "string" ? (first.currency as string) : undefined,
-        retailer: typeof first.retailer === "string" ? (first.retailer as string) : undefined,
-        title: typeof first.title === "string" ? (first.title as string) : undefined,
-        brand: typeof first.brand === "string" ? (first.brand as string) : undefined,
-      };
-
-      setResolved((cur) => ({ ...cur, [key]: next }));
-    } catch {
-      // ignore
-    }
-  }, [resolved]);
+  const [plan, setPlan] = React.useState<StylePlan | null>(null);
+  const [look, setLook] = React.useState<LookResponse | null>(null);
+  const [jobId, setJobId] = React.useState<string | null>(null);
+  const [polling, setPolling] = React.useState(false);
+  const [searchingCopy, setSearchingCopy] = React.useState(renderStylistText({ mode: "loading", plan: fallbackPlan(), tick: 0 }));
+  const jobStartedAt = React.useRef<number | null>(null);
 
   const send = React.useCallback(
     async (text: string) => {
@@ -301,43 +266,72 @@ export default function StylistPage() {
       setSending(true);
 
       try {
-        const res = await fetch("/api/chat", {
+        setLook(null);
+        setPlan(null);
+        setJobId(null);
+        setPolling(false);
+
+        const res = await fetch("/api/styleplan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            messages: nextMsgs,
-            preferences: {
+            prompt: trimmed,
+            prefs: {
               gender: prefs.gender,
               bodyType: prefs.bodyType,
               budget: prefs.budget,
               country: prefs.country,
-              styleKeywords: (prefs.keywords || []).join(", "),
-              sizeTop: sizes.top,
-              sizeBottom: sizes.bottom,
-              sizeDress: sizes.dress,
-              sizeShoe: sizes.shoe,
+              keywords: prefs.keywords,
+              sizes: {
+                top: sizes.top,
+                bottom: sizes.bottom,
+                dress: sizes.dress,
+                shoe: sizes.shoe,
+              },
             },
           }),
         });
 
-        const replyText = await res.text();
-        setMessages((curr) => [...curr, { role: "assistant", content: replyText }]);
+        const data = (await res.json()) as { ok?: boolean; stylePlan?: StylePlan };
+        if (!data.ok || !data.stylePlan) {
+          setMessages((curr) => [
+            ...curr,
+            {
+              role: "assistant",
+              content: renderStylistText({ mode: "error", plan: fallbackPlan() }),
+            },
+          ]);
+          return;
+        }
+
+        const plan = data.stylePlan;
+        setPlan(plan);
+        setMessages((curr) => [
+          ...curr,
+          { role: "assistant", content: buildPhaseOneMessage(plan) },
+        ]);
+
+        const jobRes = await fetch("/api/look", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan }),
+        });
+
+        const jobData = (await jobRes.json()) as { ok?: boolean; job_id?: string };
+        if (jobData.ok && jobData.job_id) {
+          setJobId(jobData.job_id);
+          setPolling(true);
+          jobStartedAt.current = Date.now();
+          setSearchingCopy(renderStylistText({ mode: "loading", plan, tick: 0 }));
+        }
       } catch {
-        const fallback: AiJson = {
-          brief:
-            "I hit a connectivity issue. Here is a capsule-based fallback look while we recover.",
-          tips: [
-            "Keep to one or two base colors for high remix value.",
-            "Use one structured piece to sharpen the silhouette.",
-          ],
-          why: [
-            "These cuts flatter varied body types.",
-            "Each item can rotate across multiple outfits.",
-          ],
-          products: [],
-          total: { value: null, currency: "EUR" },
-        };
-        setMessages((curr) => [...curr, { role: "assistant", content: JSON.stringify(fallback) }]);
+        setMessages((curr) => [
+          ...curr,
+          {
+            role: "assistant",
+              content: renderStylistText({ mode: "error", plan: fallbackPlan() }),
+          },
+        ]);
       } finally {
         setSending(false);
       }
@@ -350,20 +344,70 @@ export default function StylistPage() {
     void send(input);
   };
 
-  // When a new assistant message arrives, trigger resolution for any weak products.
   React.useEffect(() => {
-    const last = messages[messages.length - 1];
-    if (!last || last.role !== "assistant") return;
-    const ai = coerceAiJson(last.content);
-    if (!ai) return;
+    if (!polling || !jobId) return;
+    let cancelled = false;
 
-    for (const p of ai.products) {
-      // resolve if missing url OR missing image OR missing price
-      if (!p.url || !p.image || p.price == null) {
-        void resolveProduct(p);
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/look/${jobId}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { ok?: boolean; status?: LookResponse["status"]; result?: LookResponse };
+        if (!data.ok || !data.result) return;
+        if (cancelled) return;
+        setLook(data.result);
+        if (data.status === "complete" || data.status === "failed" || data.status === "partial") {
+          setPolling(false);
+        }
+      } catch {
+        // ignore
       }
-    }
-  }, [messages, resolveProduct]);
+    };
+
+    const interval = setInterval(poll, 600);
+    void poll();
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [polling, jobId]);
+
+  React.useEffect(() => {
+    if (!polling || !jobStartedAt.current) return;
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - (jobStartedAt.current ?? Date.now());
+      if (elapsed > 2000 && (!look || look.slots.length === 0)) {
+        setSearchingCopy(renderStylistText({ mode: "loading", plan: plan ?? fallbackPlan(), tick: 3 }));
+      }
+      if (elapsed > 8000) {
+        setPolling(false);
+        if (!look) {
+          setLook({
+            look_id: jobId || "local",
+            status: "partial",
+            message: renderStylistText({ mode: "opening", plan: plan ?? fallbackPlan() }),
+            slots: [],
+            total_price: null,
+            currency: "EUR",
+            missing_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
+          });
+        }
+      }
+    }, 400);
+    return () => clearInterval(timer);
+  }, [polling, look, jobId]);
+
+  React.useEffect(() => {
+    if (!polling || !plan) return;
+    let idx = 0;
+    const lines = plan.stylist_script.loading_lines;
+    if (!lines.length) return;
+    const interval = setInterval(() => {
+      idx = (idx + 1) % lines.length;
+      setSearchingCopy(renderStylistText({ mode: "loading", plan, tick: idx }));
+    }, 900);
+    return () => clearInterval(interval);
+  }, [polling, plan]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
@@ -490,8 +534,6 @@ export default function StylistPage() {
 
         <div className="grid gap-3">
           {messages.map((m, i) => {
-            const ai = m.role === "assistant" ? coerceAiJson(m.content) : null;
-
             return (
               <div
                 key={i}
@@ -500,131 +542,157 @@ export default function StylistPage() {
                 <p className="mb-1 text-[10px] uppercase tracking-wide text-gray-500">
                   {m.role === "user" ? "You" : "RunwayTwin Stylist"}
                 </p>
-
-                {ai ? (
-                  <div className="grid gap-3">
-                    <p className="text-gray-900">{ai.brief}</p>
-
-                    <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-[10px] text-gray-700">
-                      <span>Est. total (if priced):</span>
-                      <span className="font-semibold">
-                        {ai.total.value != null ? `${ai.total.currency} ${ai.total.value}` : "—"}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                      {ai.products.map((p) => {
-                        const r = resolved[p.id];
-                        const url = r?.url ?? p.url;
-                        const img = proxyImage(r?.image ?? p.image);
-                        const title = r?.title ?? p.title;
-                        const brand = r?.brand ?? p.brand;
-                        const price = r?.price ?? p.price;
-                        const currency = r?.currency ?? p.currency;
-
-                        const favPayload = {
-                          id: p.id,
-                          title,
-                          url: url ?? undefined,
-                          image: img ?? undefined,
-                          brand: brand ?? undefined,
-                          category: p.category,
-                          price: price ?? undefined,
-                          currency: currency ?? undefined,
-                        };
-
-                        const saved = fav.has(favPayload);
-
-                        return (
-                          <article key={p.id} className="group flex flex-col rounded-2xl border p-3">
-                            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
-                              {img ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={img}
-                                  alt={title}
-                                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                                  loading="lazy"
-                                />
-                              ) : null}
-                              <button
-                                type="button"
-                                onClick={() => fav.toggle(favPayload)}
-                                className={`absolute right-2 top-2 rounded-full px-2 py-1 text-[9px] font-semibold shadow-sm ${
-                                  saved
-                                    ? "bg-black text-white"
-                                    : "bg-white/90 text-black border border-gray-200"
-                                }`}
-                              >
-                                {saved ? "Saved" : "Save"}
-                              </button>
-                            </div>
-
-                            <h3 className="mt-2 line-clamp-2 text-xs font-semibold text-gray-900">
-                              {title}
-                            </h3>
-                            <p className="text-[10px] text-gray-500">
-                              {brand ?? "—"} • {p.category}
-                            </p>
-
-                            <div className="mt-1 text-[10px] text-gray-800">
-                              {price != null ? `${currency} ${price}` : "Price at retailer"}
-                            </div>
-
-                            <div className="mt-2 flex gap-2">
-                              {url ? (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[10px] font-medium hover:bg-gray-50"
-                                >
-                                  View
-                                </a>
-                              ) : (
-                                <span className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[9px] text-gray-500">
-                                  Resolving…
-                                </span>
-                              )}
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-
-                    {(ai.why.length > 0 || ai.tips.length > 0) && (
-                      <div className="grid gap-2 pt-2">
-                        {ai.why.length > 0 ? (
-                          <div>
-                            <p className="text-xs font-semibold">Why this fits you</p>
-                            <ul className="list-disc pl-5 text-xs text-gray-700">
-                              {ai.why.map((x) => (
-                                <li key={x}>{x}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-
-                        {ai.tips.length > 0 ? (
-                          <div>
-                            <p className="text-xs font-semibold">Styling tips</p>
-                            <ul className="list-disc pl-5 text-xs text-gray-700">
-                              {ai.tips.map((x) => (
-                                <li key={x}>{x}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap text-gray-800">{m.content}</p>
-                )}
+                <p className="whitespace-pre-wrap text-gray-800">{m.content}</p>
               </div>
             );
           })}
         </div>
+
+        {(look || polling) && (
+          <div className="grid gap-3 rounded-2xl border bg-white p-3 text-sm">
+            <p className="mb-1 text-[10px] uppercase tracking-wide text-gray-500">
+              RunwayTwin Stylist
+            </p>
+            <p className="whitespace-pre-wrap text-gray-900">
+              {look?.message || searchingCopy}
+            </p>
+
+            <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-[10px] text-gray-700">
+              <span>Est. total (if priced):</span>
+              <span className="font-semibold">
+                {look?.total_price != null ? `${look.currency} ${look.total_price}` : "—"}
+              </span>
+            </div>
+
+            {look?.missing_slots?.length ? (
+              <p className="text-[11px] text-gray-600">
+                I’m refining the remaining pieces in the background so the silhouette stays intact.
+              </p>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {(() => {
+                const products = look?.slots?.length ? look.slots.map(toUiProduct) : [];
+                const missingSlots = !polling ? look?.missing_slots ?? [] : [];
+                const productCards = products.map((p) => ({ type: "product" as const, p }));
+                const missingCards = (!polling && missingSlots.length)
+                  ? missingSlots.map((slot) => ({
+                      type: "missing" as const,
+                      id: `missing-${slot}`,
+                      slot,
+                    }))
+                  : [];
+                const skeletonCards = polling
+                  ? Array.from({ length: 4 }).map((_, idx) => ({
+                      type: "skeleton" as const,
+                      id: `skeleton-${idx}`,
+                    }))
+                  : [];
+                const cards = productCards.length ? [...productCards, ...missingCards] : polling ? skeletonCards : missingCards;
+
+                return cards.map((card) => {
+                  if (card.type === "skeleton") {
+                    return (
+                      <div
+                        key={card.id}
+                        className="flex flex-col gap-2 rounded-2xl border p-3"
+                      >
+                        <div className="aspect-[4/5] w-full rounded-xl bg-gray-100 animate-pulse" />
+                        <div className="h-3 rounded bg-gray-100 animate-pulse" />
+                        <div className="h-3 w-2/3 rounded bg-gray-100 animate-pulse" />
+                      </div>
+                    );
+                  }
+
+                  if (card.type === "missing") {
+                    return (
+                      <div
+                        key={card.id}
+                        className="flex flex-col gap-2 rounded-2xl border border-dashed p-3 text-[11px] text-gray-600"
+                      >
+                        <div className="aspect-[4/5] w-full rounded-xl bg-gray-50" />
+                        <p className="font-semibold text-gray-800">{renderMissingTile(card.slot).title}</p>
+                        <p>{renderMissingTile(card.slot).suggestion}</p>
+                      </div>
+                    );
+                  }
+
+                  const p = card.p;
+                  const img = proxyImage(p.image);
+                  const url = p.affiliate_url ?? p.url;
+                  const favPayload = {
+                    id: p.id,
+                    title: p.title,
+                    url: url ?? undefined,
+                    image: img ?? undefined,
+                    brand: p.brand ?? undefined,
+                    category: p.category,
+                    price: p.price ?? undefined,
+                    currency: p.currency ?? undefined,
+                    retailer: p.retailer ?? undefined,
+                  };
+
+                  const saved = fav.has(favPayload);
+
+                  return (
+                    <article key={p.id} className="group flex flex-col rounded-2xl border p-3">
+                      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-gray-100">
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={img}
+                            alt={p.title}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                            loading="lazy"
+                          />
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => fav.toggle(favPayload)}
+                          className={`absolute right-2 top-2 rounded-full px-2 py-1 text-[9px] font-semibold shadow-sm ${
+                            saved
+                              ? "bg-black text-white"
+                              : "bg-white/90 text-black border border-gray-200"
+                          }`}
+                        >
+                          {saved ? "Saved" : "Save"}
+                        </button>
+                      </div>
+
+                      <h3 className="mt-2 line-clamp-2 text-xs font-semibold text-gray-900">
+                        {p.title}
+                      </h3>
+                      <p className="text-[10px] text-gray-500">
+                        {p.brand ?? "—"} • {p.category}
+                      </p>
+
+                      <div className="mt-1 text-[10px] text-gray-800">
+                        {p.price != null ? `${p.currency} ${p.price}` : "Price at retailer"}
+                      </div>
+
+                      <div className="mt-2 flex gap-2">
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[10px] font-medium hover:bg-gray-50"
+                          >
+                            View
+                          </a>
+                        ) : (
+                          <span className="inline-flex flex-1 items-center justify-center rounded-lg border px-2 py-1 text-[9px] text-gray-500">
+                            Resolving…
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="mt-2 flex gap-2">
           <input
@@ -646,4 +714,3 @@ export default function StylistPage() {
     </main>
   );
 }
-

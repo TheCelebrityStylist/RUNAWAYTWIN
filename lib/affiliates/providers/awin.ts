@@ -1,5 +1,5 @@
 // FILE: lib/affiliates/providers/awin.ts
-import type { Provider, ProviderResult, Product, Currency } from "@/lib/affiliates/types";
+import type { Provider, ProviderResult, Product, Currency, Category } from "@/lib/affiliates/types";
 
 /**
  * AWIN Product Search provider
@@ -83,8 +83,26 @@ function pickImage(p: AwinApiProduct): string | undefined {
   return str(p.largeImage) || str(p.imageUrl);
 }
 
-function pickCategory(p: AwinApiProduct): string | undefined {
-  return str(p.categoryName) || str(p.primaryCategory);
+function pickCategory(p: AwinApiProduct): Category | undefined {
+  const raw = (str(p.categoryName) || str(p.primaryCategory) || "").toLowerCase();
+  if (!raw) return undefined;
+  if (raw.includes("shoe") || raw.includes("sneaker") || raw.includes("boot") || raw.includes("heel"))
+    return "Shoes";
+  if (raw.includes("dress")) return "Dress";
+  if (raw.includes("trouser") || raw.includes("pants") || raw.includes("jean") || raw.includes("skirt"))
+    return "Bottom";
+  if (raw.includes("coat") || raw.includes("jacket") || raw.includes("trench") || raw.includes("blazer"))
+    return "Outerwear";
+  if (raw.includes("bag") || raw.includes("handbag")) return "Bag";
+  if (
+    raw.includes("shirt") ||
+    raw.includes("tee") ||
+    raw.includes("top") ||
+    raw.includes("blouse") ||
+    raw.includes("knit")
+  )
+    return "Top";
+  return "Accessory";
 }
 
 function mapOne(raw: AwinApiProduct): Product | null {
@@ -209,4 +227,3 @@ export const awinProvider: Provider = {
     return { provider: "awin", items };
   },
 };
-
