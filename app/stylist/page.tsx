@@ -61,6 +61,12 @@ type StylePlan = {
   budget_split: Array<{ slot: SlotName; min: number; max: number }>;
   retailer_priority: string[];
   search_queries: Array<{ slot: SlotName; query: string }>;
+  stylist_script: {
+    opening_lines: string[];
+    direction_line: string;
+    loading_lines: string[];
+    item_commentary_templates: Record<SlotName, string>;
+  };
   budget_total: number;
   currency: string;
   allow_stretch: boolean;
@@ -151,12 +157,8 @@ function normalizeCategory(raw: string): UiCategory {
 }
 
 function buildPhaseOneMessage(prompt: string, plan: StylePlan): string {
-  const opening = `Okay — ${prompt}. I’m taking your budget and constraints seriously, but I still want this to feel intentional.`;
-  const direction = `We’re going for ${plan.aesthetic_read.toLowerCase()}.`;
-  const keywords = plan.vibe_keywords.length
-    ? `Think ${plan.vibe_keywords.slice(0, 4).join(", ")}.`
-    : "Think clean lines and quiet structure.";
-  return [opening, direction, keywords].join(" ");
+  const opening = plan.stylist_script.opening_lines.join(" ");
+  return [opening, plan.stylist_script.direction_line].join(" ");
 }
 
 function toUiProduct(item: LookProduct): UiProduct {
@@ -173,6 +175,25 @@ function toUiProduct(item: LookProduct): UiProduct {
     currency: item.currency,
     image: item.image_url,
   };
+}
+
+function slotSuggestion(slot: SlotName): string {
+  switch (slot) {
+    case "anchor":
+      return "Swap: structured coat or sharp blazer.";
+    case "top":
+      return "Swap: clean knit or crisp shirt.";
+    case "bottom":
+      return "Swap: straight-leg trouser.";
+    case "dress":
+      return "Swap: slip dress in matte fabric.";
+    case "shoe":
+      return "Swap: pointed slingback or sleek boot.";
+    case "accessory":
+      return "Swap: minimal shoulder bag.";
+    default:
+      return "Swap: clean, tailored staple.";
+  }
 }
 
 /* ========================= Page ========================= */
@@ -216,6 +237,7 @@ export default function StylistPage() {
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [sending, setSending] = React.useState(false);
+  const [plan, setPlan] = React.useState<StylePlan | null>(null);
   const [look, setLook] = React.useState<LookResponse | null>(null);
   const [jobId, setJobId] = React.useState<string | null>(null);
   const [polling, setPolling] = React.useState(false);
@@ -234,6 +256,7 @@ export default function StylistPage() {
 
       try {
         setLook(null);
+        setPlan(null);
         setJobId(null);
         setPolling(false);
 
@@ -272,6 +295,7 @@ export default function StylistPage() {
         }
 
         const plan = data.plan;
+        setPlan(plan);
         setMessages((curr) => [
           ...curr,
           { role: "assistant", content: buildPhaseOneMessage(trimmed, plan) },
@@ -288,7 +312,7 @@ export default function StylistPage() {
           setJobId(jobData.job_id);
           setPolling(true);
           jobStartedAt.current = Date.now();
-          setSearchingCopy("Pulling pieces that fit the plan — stay with me.");
+          setSearchingCopy(plan.stylist_script.loading_lines[0] || "Pulling the anchor first.");
         }
       } catch {
         setMessages((curr) => [
@@ -341,29 +365,41 @@ export default function StylistPage() {
 
   React.useEffect(() => {
     if (!polling || !jobStartedAt.current) return;
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - (jobStartedAt.current ?? Date.now());
-      if (elapsed > 2000 && (!look || look.slots.length === 0)) {
-        setSearchingCopy("I’m widening the search to get you a strong option within budget.");
-      }
-      if (elapsed > 8000) {
-        setPolling(false);
-        if (!look) {
-          setLook({
-            look_id: jobId || "local",
-            status: "partial",
-            message:
-              "I pulled what I could within the time cap — if you want me to keep digging, loosen the budget or colors.",
-            slots: [],
-            total_price: null,
-            currency: "EUR",
-            missing_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
+      const timer = setInterval(() => {
+        const elapsed = Date.now() - (jobStartedAt.current ?? Date.now());
+        if (elapsed > 2000 && (!look || look.slots.length === 0)) {
+          setSearchingCopy("I’m widening the net slightly so you still get the silhouette.");
+        }
+        if (elapsed > 8000) {
+          setPolling(false);
+          if (!look) {
+            setLook({
+              look_id: jobId || "local",
+              status: "partial",
+              message:
+                "I pulled the strongest pieces available right now and kept the line clean.",
+              slots: [],
+              total_price: null,
+              currency: "EUR",
+              missing_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
           });
         }
       }
     }, 400);
     return () => clearInterval(timer);
   }, [polling, look, jobId]);
+
+  React.useEffect(() => {
+    if (!polling || !plan) return;
+    let idx = 0;
+    const lines = plan.stylist_script.loading_lines;
+    if (!lines.length) return;
+    const interval = setInterval(() => {
+      idx = (idx + 1) % lines.length;
+      setSearchingCopy(lines[idx]);
+    }, 900);
+    return () => clearInterval(interval);
+  }, [polling, plan]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
@@ -522,19 +558,29 @@ export default function StylistPage() {
 
             {look?.missing_slots?.length ? (
               <p className="text-[11px] text-gray-600">
-                Still searching for: {look.missing_slots.join(", ")}. Want me to loosen budget or colors?
+                I’m refining the remaining pieces in the background so the silhouette stays intact.
               </p>
             ) : null}
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {(() => {
                 const products = look?.slots?.length ? look.slots.map(toUiProduct) : [];
-                const cards = products.length
-                  ? products.map((p) => ({ type: "product" as const, p }))
-                  : Array.from({ length: 4 }).map((_, idx) => ({
+                const missingSlots = !polling ? look?.missing_slots ?? [] : [];
+                const productCards = products.map((p) => ({ type: "product" as const, p }));
+                const missingCards = (!polling && missingSlots.length)
+                  ? missingSlots.map((slot) => ({
+                      type: "missing" as const,
+                      id: `missing-${slot}`,
+                      slot,
+                    }))
+                  : [];
+                const skeletonCards = polling
+                  ? Array.from({ length: 4 }).map((_, idx) => ({
                       type: "skeleton" as const,
                       id: `skeleton-${idx}`,
-                    }));
+                    }))
+                  : [];
+                const cards = productCards.length ? [...productCards, ...missingCards] : polling ? skeletonCards : missingCards;
 
                 return cards.map((card) => {
                   if (card.type === "skeleton") {
@@ -546,6 +592,19 @@ export default function StylistPage() {
                         <div className="aspect-[4/5] w-full rounded-xl bg-gray-100 animate-pulse" />
                         <div className="h-3 rounded bg-gray-100 animate-pulse" />
                         <div className="h-3 w-2/3 rounded bg-gray-100 animate-pulse" />
+                      </div>
+                    );
+                  }
+
+                  if (card.type === "missing") {
+                    return (
+                      <div
+                        key={card.id}
+                        className="flex flex-col gap-2 rounded-2xl border border-dashed p-3 text-[11px] text-gray-600"
+                      >
+                        <div className="aspect-[4/5] w-full rounded-xl bg-gray-50" />
+                        <p className="font-semibold text-gray-800">No match found</p>
+                        <p>{slotSuggestion(card.slot)}</p>
                       </div>
                     );
                   }

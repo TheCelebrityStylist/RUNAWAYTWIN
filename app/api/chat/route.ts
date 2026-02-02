@@ -767,7 +767,7 @@ export async function POST(req: NextRequest) {
       "- `why` must include a wearability check and, if natural, one gentle adjustment suggestion.",
       "- Choose links ONLY from CANDIDATE_LINKS (copy URL exactly). If nothing fits, return an empty products array.",
       "- If a candidate provides category/brand/price/currency/image/retailer/availability, reuse those values. Do NOT invent them.",
-      "- Do NOT invent products. If nothing meets the standard, return an empty products array.",
+      "- Do NOT invent products. If nothing fits, return an empty products array.",
       "- Do NOT invent exact prices. If missing, omit the product entirely.",
       "- Never include markdown, commentary, or extra keys.",
       "- Avoid generic filler phrases. Write with fashion intelligence and restraint.",

@@ -143,9 +143,13 @@ function estimateTotal(products: Product[]): number | null {
 }
 
 function buildMessage(plan: StylePlan, products: Product[], missing: SlotName[]): string {
-  const opening = `Okay — ${plan.preferences.prompt || "I’ve got you."} I’m balancing your budget with the silhouette you asked for.`;
+  const opening = [
+    `Okay — ${plan.preferences.prompt || "I’ve got you."}`,
+    "This needs to feel intentional and composed, not overworked.",
+    "I’m keeping the line sharp so you feel confident the moment you walk in.",
+  ].join(" ");
   const direction = `We’re going for ${plan.aesthetic_read.toLowerCase()}.`;
-  const lines: string[] = [];
+  const lines: string[] = ["Let’s build it."];
   const slotOrder: SlotName[] = ["anchor", "top", "bottom", "dress", "shoe", "accessory"];
   for (const slot of slotOrder) {
     const item = products.find((p) => p.slot === slot);
@@ -158,14 +162,37 @@ function buildMessage(plan: StylePlan, products: Product[], missing: SlotName[])
           : slot === "accessory"
             ? "Optional accent"
             : slot.charAt(0).toUpperCase() + slot.slice(1);
-    lines.push(`${label}: ${item.brand} — ${item.title} — ${item.currency} ${item.price} — ${item.retailer}`);
+    const commentary = plan.stylist_script?.item_commentary_templates?.[slot] || "This keeps the line clean.";
+    lines.push(`${label}: ${item.brand} — ${item.title} — ${item.currency} ${item.price} — ${item.retailer}. ${commentary}`);
+  }
+  if (missing.length) {
+    lines.push("I’m widening the net slightly so the silhouette stays intact.");
   }
   const total = estimateTotal(products);
   const totalLine = total ? `Estimated total: ${plan.currency} ${total}.` : "Estimated total: —.";
-  const note = missing.length
-    ? `I’m still missing ${missing.join(", ")} — I’ll widen the search to fill those.`
-    : "If you want this sharper, tighten the palette by one shade; if softer, add texture.";
-  return [opening, direction, "The look:", ...lines, totalLine, note].join("\n");
+  const note = "Keep the accessories restrained and let the cut do the talking.";
+  return [opening, direction, ...lines, totalLine, note].join("\n");
+}
+
+function buildEmptyMessage(plan: StylePlan): string {
+  const opening = [
+    `Okay — ${plan.preferences.prompt || "I’ve got you."}`,
+    "I’m going to give you a clean blueprint so you can shop with confidence.",
+  ].join(" ");
+  const direction = `We’re going for ${plan.aesthetic_read.toLowerCase()}.`;
+  const blueprint = [
+    "Let’s build it.",
+    "Anchor: structured coat or sharp blazer with clean shoulders.",
+    "Core: straight-leg trouser or a sleek dress in matte fabric.",
+    "Footwear: pointed boot or sharp slingback with a stable heel.",
+  ].join(" ");
+  const searches = [
+    "Try searching:",
+    "COS structured coat black",
+    "Zara tailored trouser high waist",
+    "& Other Stories pointed slingback",
+  ].join(" ");
+  return [opening, direction, blueprint, searches].join("\n");
 }
 
 function isMVL(products: Product[]): boolean {
@@ -364,20 +391,26 @@ export async function runLookJob(plan: StylePlan) {
     required = plan.required_slots;
     missing = required.filter((slot) => !products.find((p) => p.slot === slot));
   }
+  const timedOut = Date.now() - started >= GLOBAL_TIMEOUT_MS;
+  const coreRequired = required.filter((slot) => slot !== "accessory");
+  const coreMissing = coreRequired.filter((slot) => !products.find((p) => p.slot === slot));
+  const hasMVL = isMVL(products);
   const status: LookResponse["status"] =
-    missing.length > 0 ? (products.length ? "partial" : "failed") : "complete";
+    products.length === 0
+      ? "failed"
+      : hasMVL || coreMissing.length === 0 || timedOut
+        ? "complete"
+        : "partial";
 
   const result: LookResponse = {
     look_id: plan.look_id,
     status,
-    message: buildMessage(plan, products, missing),
+    message: products.length ? buildMessage(plan, products, missing) : buildEmptyMessage(plan),
     slots: products,
     total_price: estimateTotal(products),
     currency: plan.currency,
     missing_slots: missing,
-    note: missing.length
-      ? "I couldn’t fill every slot yet. Want me to loosen budget or color constraints?"
-      : "If you want it sharper, tighten the palette by one step.",
+    note: missing.length ? "I kept the line clean and focused on the strongest pieces." : "Keep the palette tight for the cleanest read.",
   };
 
   setCached(key, result);

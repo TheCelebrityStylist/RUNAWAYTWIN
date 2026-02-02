@@ -15,6 +15,13 @@ export type BudgetSplit = { slot: SlotName; min: number; max: number };
 
 export type SearchQuery = { slot: SlotName; query: string };
 
+export type StylistScript = {
+  opening_lines: string[];
+  direction_line: string;
+  loading_lines: string[];
+  item_commentary_templates: Record<SlotName, string>;
+};
+
 export type StylePlan = {
   look_id: string;
   aesthetic_read: string;
@@ -24,6 +31,7 @@ export type StylePlan = {
   budget_split: BudgetSplit[];
   retailer_priority: string[];
   search_queries: SearchQuery[];
+  stylist_script: StylistScript;
   budget_total: number;
   currency: string;
   allow_stretch: boolean;
