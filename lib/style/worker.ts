@@ -1,6 +1,15 @@
 // FILE: lib/style/worker.ts
 import type { LookResponse, Product, SlotName, StylePlan } from "@/lib/style/types";
-import { cacheKey, getCached, setCached, updateJob } from "@/lib/style/store";
+import { searchCatalog } from "@/lib/catalog/mock";
+import {
+  addJobError,
+  addJobLog,
+  cacheKey,
+  getCached,
+  setCached,
+  updateJob,
+  updateJobProgress,
+} from "@/lib/style/store";
 import { webProductSearch } from "@/lib/scrape/webProductSearch";
 
 type RetailerAdapter = {
@@ -15,6 +24,7 @@ const RETAILERS: RetailerAdapter[] = [
 ];
 
 const PER_RETAILER_TIMEOUT_MS = 1500;
+const PER_SLOT_TIMEOUT_MS = 2500;
 const GLOBAL_TIMEOUT_MS = 8000;
 
 function normalizeAvailability(raw?: string | null): Product["availability"] {
@@ -153,32 +163,110 @@ function buildMessage(plan: StylePlan, products: Product[], missing: SlotName[])
   const total = estimateTotal(products);
   const totalLine = total ? `Estimated total: ${plan.currency} ${total}.` : "Estimated total: —.";
   const note = missing.length
-    ? `I’m still missing ${missing.join(", ")} — if you want, I can loosen the budget or colors to fill those.`
+    ? `I’m still missing ${missing.join(", ")} — I’ll widen the search to fill those.`
     : "If you want this sharper, tighten the palette by one shade; if softer, add texture.";
   return [opening, direction, "The look:", ...lines, totalLine, note].join("\n");
+}
+
+function isMVL(products: Product[]): boolean {
+  const anchor = products.find((p) => p.slot === "anchor");
+  const footwear = products.find((p) => p.slot === "shoe");
+  const core = products.find((p) => p.slot === "top" || p.slot === "bottom" || p.slot === "dress");
+  return Boolean(anchor && footwear && core);
+}
+
+function relaxedSlotPlan(slotPlan: StylePlan["per_slot"][number]): StylePlan["per_slot"][number] {
+  const min = Math.round(slotPlan.min_price * 0.9);
+  const max = Math.round(slotPlan.max_price * 1.1);
+  const baseColors = ["black", "white", "cream", "charcoal"];
+  return {
+    ...slotPlan,
+    min_price: Math.max(10, min),
+    max_price: Math.max(min + 20, max),
+    allowed_colors: Array.from(new Set([...slotPlan.allowed_colors, ...baseColors])),
+    keywords: Array.from(new Set([...slotPlan.keywords, slotPlan.category, "tailored", "clean"])),
+  };
+}
+
+function expandCategories(slotPlan: StylePlan["per_slot"][number]): StylePlan["per_slot"][number] {
+  if (slotPlan.slot === "dress") {
+    return {
+      ...slotPlan,
+      keywords: Array.from(new Set([...slotPlan.keywords, "slip dress", "tailored set"])),
+    };
+  }
+  if (slotPlan.slot === "shoe") {
+    return {
+      ...slotPlan,
+      keywords: Array.from(new Set([...slotPlan.keywords, "boot", "pointed flat", "heel"])),
+    };
+  }
+  return slotPlan;
+}
+
+function catalogFallback(plan: StylePlan, slotPlan: StylePlan["per_slot"][number], slot: SlotName): Product[] {
+  const budgetMax = slotPlan.max_price || plan.budget_total;
+  const keywords = slotPlan.keywords.slice(0, 6);
+  const items = searchCatalog({
+    q: keywords.join(" "),
+    gender: (plan.preferences.gender as "female" | "male" | "unisex") || "unisex",
+    budgetMax,
+    keywords,
+  });
+  const pool = items.length
+    ? items
+    : searchCatalog({
+        q: "",
+        gender: (plan.preferences.gender as "female" | "male" | "unisex") || "unisex",
+        budgetMax: Math.max(budgetMax, plan.budget_total),
+        keywords: [],
+      });
+  return pool.map((item) => ({
+    id: item.id,
+    retailer: item.retailer,
+    brand: item.brand,
+    title: item.title,
+    price: item.price,
+    currency: item.currency,
+    image_url: item.image,
+    product_url: item.url,
+    availability: item.availability,
+    slot,
+    category: slotPlan.category,
+  }));
 }
 
 async function searchRetailerSlot(
   retailer: RetailerAdapter,
   slot: SlotName,
   slotPlan: StylePlan["per_slot"][number],
-  query: string
+  query: string,
+  jobId: string
 ): Promise<Product[]> {
-  const siteQuery = `${query} site:${retailer.domain}`;
-  const results = await webProductSearch({ query: siteQuery, limit: 8, preferEU: true });
-  return results
-    .map((r) =>
-      productFromScrape(slot, slotPlan.category, retailer, {
-        title: r.title,
-        brand: r.brand ?? undefined,
-        price: r.price ?? undefined,
-        currency: r.currency ?? undefined,
-        image: r.image ?? undefined,
-        url: r.url,
-        availability: r.availability ?? undefined,
-      })
-    )
-    .filter((p): p is Product => Boolean(p));
+  try {
+    const siteQuery = `${query} site:${retailer.domain}`;
+    const results = await webProductSearch({ query: siteQuery, limit: 8, preferEU: true });
+    return results
+      .map((r) =>
+        productFromScrape(slot, slotPlan.category, retailer, {
+          title: r.title,
+          brand: r.brand ?? undefined,
+          price: r.price ?? undefined,
+          currency: r.currency ?? undefined,
+          image: r.image ?? undefined,
+          url: r.url,
+          availability: r.availability ?? undefined,
+        })
+      )
+      .filter((p): p is Product => Boolean(p));
+  } catch (err) {
+    addJobError(jobId, {
+      retailer: retailer.name,
+      slot,
+      message: err instanceof Error ? err.message : "search failed",
+    });
+    return [];
+  }
 }
 
 export async function runLookJob(plan: StylePlan) {
@@ -190,8 +278,14 @@ export async function runLookJob(plan: StylePlan) {
   }
 
   updateJob(plan.look_id, { status: "running" });
+  addJobLog(plan.look_id, "job started");
   const started = Date.now();
   const products: Product[] = [];
+  let lastProgressAt = Date.now();
+
+  const keepAlive = setInterval(() => {
+    updateJob(plan.look_id, { status: "running" });
+  }, 500);
 
   const slotPlans = plan.per_slot;
   const slotQueries = new Map(plan.search_queries.map((s) => [s.slot, s.query]));
@@ -201,23 +295,75 @@ export async function runLookJob(plan: StylePlan) {
     const slot = slotPlan.slot;
     const query = slotQueries.get(slot) || slotPlan.keywords.join(" ");
 
-    const retailerTasks = RETAILERS.map((retailer) =>
-      withTimeout(searchRetailerSlot(retailer, slot, slotPlan, query), PER_RETAILER_TIMEOUT_MS, [])
+    const slotTimeout = withTimeout(
+      Promise.all(
+        RETAILERS.map((retailer) =>
+          withTimeout(searchRetailerSlot(retailer, slot, slotPlan, query, plan.look_id), PER_RETAILER_TIMEOUT_MS, [])
+        )
+      ),
+      PER_SLOT_TIMEOUT_MS,
+      []
     );
 
-    const batches = await Promise.all(retailerTasks);
-    const candidates = batches.flat();
+    const batches = await slotTimeout;
+    const candidates = Array.isArray(batches) ? batches.flat() : [];
 
     const scored = candidates
       .map((p) => ({ p, score: scoreProduct(p, slotPlan) }))
       .sort((a, b) => b.score - a.score)
       .map((x) => x.p);
 
-    if (scored.length) products.push(scored[0]);
+    if (scored.length) {
+      products.push(scored[0]);
+      updateJobProgress(plan.look_id, slot, scored.length);
+      lastProgressAt = Date.now();
+    }
+
+    if (Date.now() - lastProgressAt > 2000) {
+      addJobLog(plan.look_id, "no progress, relaxing constraints");
+    }
+
+    if (isMVL(products)) {
+      const interimMissing = plan.required_slots.filter((s) => !products.find((p) => p.slot === s));
+      updateJob(plan.look_id, {
+        status: "partial",
+        result: {
+          look_id: plan.look_id,
+          status: "partial",
+          message: buildMessage(plan, products, interimMissing),
+          slots: products,
+          total_price: estimateTotal(products),
+          currency: plan.currency,
+          missing_slots: interimMissing,
+        },
+      });
+    }
   }
 
-  const required = plan.required_slots;
-  const missing = required.filter((slot) => !products.find((p) => p.slot === slot));
+  let required = plan.required_slots;
+  let missing = required.filter((slot) => !products.find((p) => p.slot === slot));
+
+  if (products.length < 2 || missing.length) {
+    for (const slotPlan of slotPlans) {
+      if (Date.now() - started > GLOBAL_TIMEOUT_MS) break;
+      const slot = slotPlan.slot;
+      if (products.find((p) => p.slot === slot)) continue;
+      const relaxed = expandCategories(relaxedSlotPlan(slotPlan));
+      const fallbackCandidates = catalogFallback(plan, relaxed, slot);
+      if (fallbackCandidates.length) {
+        const scored = fallbackCandidates
+          .map((p) => ({ p, score: scoreProduct(p, relaxed) }))
+          .sort((a, b) => b.score - a.score)
+          .map((x) => x.p);
+        if (scored.length) {
+          products.push(scored[0]);
+          updateJobProgress(plan.look_id, slot, scored.length);
+        }
+      }
+    }
+    required = plan.required_slots;
+    missing = required.filter((slot) => !products.find((p) => p.slot === slot));
+  }
   const status: LookResponse["status"] =
     missing.length > 0 ? (products.length ? "partial" : "failed") : "complete";
 
@@ -236,4 +382,5 @@ export async function runLookJob(plan: StylePlan) {
 
   setCached(key, result);
   updateJob(plan.look_id, { status, result });
+  clearInterval(keepAlive);
 }

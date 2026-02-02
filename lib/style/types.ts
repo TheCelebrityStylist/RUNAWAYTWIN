@@ -54,7 +54,7 @@ export type Product = {
 
 export type LookResponse = {
   look_id: string;
-  status: "pending" | "running" | "partial" | "complete" | "failed";
+  status: "queued" | "running" | "partial" | "complete" | "failed";
   message: string;
   slots: Product[];
   total_price: number | null;

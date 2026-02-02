@@ -4,7 +4,11 @@ import type { LookResponse, StylePlan } from "@/lib/style/types";
 type Job = {
   id: string;
   createdAt: number;
+  updatedAt: number;
   status: LookResponse["status"];
+  progress: Record<string, number>;
+  errors: Array<{ retailer: string; slot: string; message: string }>;
+  logs: string[];
   plan: StylePlan;
   result: LookResponse | null;
 };
@@ -22,7 +26,11 @@ export function makeJob(plan: StylePlan): Job {
   const job: Job = {
     id: plan.look_id,
     createdAt: Date.now(),
-    status: "pending",
+    updatedAt: Date.now(),
+    status: "queued",
+    progress: {},
+    errors: [],
+    logs: [],
     plan,
     result: null,
   };
@@ -37,12 +45,30 @@ export function getJob(id: string): Job | null {
 export function updateJob(id: string, next: Partial<Job>) {
   const job = JOBS.get(id);
   if (!job) return;
-  const updated: Job = { ...job, ...next };
+  const updated: Job = { ...job, ...next, updatedAt: Date.now() };
   JOBS.set(id, updated);
 }
 
 export function dropJob(id: string) {
   JOBS.delete(id);
+}
+
+export function addJobLog(id: string, line: string) {
+  const job = JOBS.get(id);
+  if (!job) return;
+  updateJob(id, { logs: [...job.logs, line].slice(-200) });
+}
+
+export function addJobError(id: string, error: { retailer: string; slot: string; message: string }) {
+  const job = JOBS.get(id);
+  if (!job) return;
+  updateJob(id, { errors: [...job.errors, error].slice(-200) });
+}
+
+export function updateJobProgress(id: string, slot: string, count: number) {
+  const job = JOBS.get(id);
+  if (!job) return;
+  updateJob(id, { progress: { ...job.progress, [slot]: count } });
 }
 
 export function cacheKey(plan: StylePlan): string {

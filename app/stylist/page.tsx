@@ -91,7 +91,7 @@ type LookProduct = {
 
 type LookResponse = {
   look_id: string;
-  status: "pending" | "running" | "partial" | "complete" | "failed";
+  status: "queued" | "running" | "partial" | "complete" | "failed";
   message: string;
   slots: LookProduct[];
   total_price: number | null;
@@ -219,6 +219,8 @@ export default function StylistPage() {
   const [look, setLook] = React.useState<LookResponse | null>(null);
   const [jobId, setJobId] = React.useState<string | null>(null);
   const [polling, setPolling] = React.useState(false);
+  const [searchingCopy, setSearchingCopy] = React.useState("Pulling pieces that fit the plan — stay with me.");
+  const jobStartedAt = React.useRef<number | null>(null);
 
   const send = React.useCallback(
     async (text: string) => {
@@ -285,6 +287,8 @@ export default function StylistPage() {
         if (jobData.ok && jobData.job_id) {
           setJobId(jobData.job_id);
           setPolling(true);
+          jobStartedAt.current = Date.now();
+          setSearchingCopy("Pulling pieces that fit the plan — stay with me.");
         }
       } catch {
         setMessages((curr) => [
@@ -327,13 +331,39 @@ export default function StylistPage() {
       }
     };
 
-    const interval = setInterval(poll, 1200);
+    const interval = setInterval(poll, 600);
     void poll();
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
   }, [polling, jobId]);
+
+  React.useEffect(() => {
+    if (!polling || !jobStartedAt.current) return;
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - (jobStartedAt.current ?? Date.now());
+      if (elapsed > 2000 && (!look || look.slots.length === 0)) {
+        setSearchingCopy("I’m widening the search to get you a strong option within budget.");
+      }
+      if (elapsed > 8000) {
+        setPolling(false);
+        if (!look) {
+          setLook({
+            look_id: jobId || "local",
+            status: "partial",
+            message:
+              "I pulled what I could within the time cap — if you want me to keep digging, loosen the budget or colors.",
+            slots: [],
+            total_price: null,
+            currency: "EUR",
+            missing_slots: ["anchor", "top", "bottom", "shoe", "accessory"],
+          });
+        }
+      }
+    }, 400);
+    return () => clearInterval(timer);
+  }, [polling, look, jobId]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
@@ -480,7 +510,7 @@ export default function StylistPage() {
               RunwayTwin Stylist
             </p>
             <p className="whitespace-pre-wrap text-gray-900">
-              {look?.message || "Pulling pieces that fit the plan — stay with me."}
+              {look?.message || searchingCopy}
             </p>
 
             <div className="inline-flex items-center gap-2 rounded-full border bg-gray-50 px-3 py-1 text-[10px] text-gray-700">

@@ -1,4 +1,4 @@
-// FILE: app/api/look/[jobId]/route.ts
+// FILE: app/api/look/[jobId]/debug/route.ts
 export const runtime = "nodejs";
 
 import { NextRequest } from "next/server";
@@ -29,6 +29,11 @@ export async function GET(_req: NextRequest, ctx: { params: { jobId: string } })
     JSON.stringify({
       ok: true,
       status: job.status,
+      progress: job.progress,
+      errors: job.errors,
+      logs: job.logs,
+      updated_at: job.updatedAt,
+      created_at: job.createdAt,
       result: job.result,
     }),
     { headers }
