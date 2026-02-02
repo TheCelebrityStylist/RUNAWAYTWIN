@@ -32,6 +32,28 @@ function isProviderKey(x: unknown): x is ProviderKey {
   return x === "web" || x === "amazon" || x === "rakuten" || x === "awin";
 }
 
+function regionAllowlist(country?: string): string[] {
+  const code = (country || "").trim().toUpperCase();
+  if (!code) return [];
+  if (code === "US") {
+    return ["amazon.com", "shopbop.com", "nordstrom.com", "ssense.com", "net-a-porter.com"];
+  }
+  if (code === "GB" || code === "UK") {
+    return ["net-a-porter.com", "mrporter.com", "selfridges.com", "matchesfashion.com"];
+  }
+  return [];
+}
+
+function hostAllowed(url: string, list: string[]): boolean {
+  if (!list.length) return true;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    return list.some((d) => host === d || host.endsWith(`.${d}`));
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   const ct = req.headers.get("content-type") || "";
   if (!ct.includes("application/json")) return bad("Expected application/json", 415);
