@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 
 // The RunwayTwin app (the tool, accounts, payments) runs on Base44.
-// Switch to "https://app.runwaytwin.com" once that DNS record is live.
-const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://chic-star-stylist.base44.app";
+// Base44 serves the app on app.runwaytwin.com (CNAME -> base44.onrender.com).
+const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "https://app.runwaytwin.com";
 
 const nextConfig = {
   reactStrictMode: true,
