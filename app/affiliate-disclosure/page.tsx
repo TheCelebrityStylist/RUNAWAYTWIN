@@ -14,12 +14,12 @@ export const metadata: Metadata = {
   title: "Affiliate Disclosure — RunwayTwin",
   description:
     "Some outbound retailer links on RunwayTwin are affiliate links. If you purchase through them, we may earn a small commission at no extra cost to you. Taste and curation remain independent.",
-  alternates: { canonical: "https://runwaytwin.vercel.app/affiliate-disclosure" },
+  alternates: { canonical: "https://runwaytwin.com/affiliate-disclosure" },
   openGraph: {
     title: "Affiliate Disclosure — RunwayTwin",
     description:
       "We may earn a small commission on some retailer links, at no extra cost to you. Our styling choices remain independent.",
-    url: "https://runwaytwin.vercel.app/affiliate-disclosure",
+    url: "https://runwaytwin.com/affiliate-disclosure",
     siteName: "RunwayTwin",
     type: "article",
   },
@@ -45,7 +45,7 @@ export default function AffiliateDisclosurePage() {
             "@context": "https://schema.org",
             "@type": "AboutPage",
             name: "Affiliate Disclosure",
-            url: "https://runwaytwin.vercel.app/affiliate-disclosure",
+            url: "https://runwaytwin.com/affiliate-disclosure",
             breadcrumb: {
               "@type": "BreadcrumbList",
               itemListElement: [
@@ -53,13 +53,13 @@ export default function AffiliateDisclosurePage() {
                   "@type": "ListItem",
                   position: 1,
                   name: "Home",
-                  item: "https://runwaytwin.vercel.app/",
+                  item: "https://runwaytwin.com/",
                 },
                 {
                   "@type": "ListItem",
                   position: 2,
                   name: "Affiliate Disclosure",
-                  item: "https://runwaytwin.vercel.app/affiliate-disclosure",
+                  item: "https://runwaytwin.com/affiliate-disclosure",
                 },
               ],
             },
@@ -122,7 +122,7 @@ export default function AffiliateDisclosurePage() {
           <article className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold tracking-tight">Retailer partners</h2>
             <p className="mt-2 text-sm leading-7 text-neutral-700">
-              We work with a rotating selection of EU/US retailers that align with our
+              We work with a rotating selection of European retailers that align with our
               quality, sizing, and delivery standards. Partner status can change over
               time as stock and programs evolve.
             </p>
@@ -172,15 +172,15 @@ export default function AffiliateDisclosurePage() {
             <div>
               <p className="text-lg font-semibold">Ready to get styled?</p>
               <p className="mt-1 text-sm text-neutral-700">
-                Try a one-off look for €5 or go Premium for €19/month. Cancel anytime.
+                3 free looks every month. Pro €9.99/month with 7 days free.
               </p>
             </div>
             <div className="flex gap-3">
               <Link
-                href="/stylist"
+                href="/shop-the-look"
                 className="inline-flex items-center rounded-full bg-black px-5 py-3 text-sm font-semibold text-white hover:opacity-90"
               >
-                Start Styling
+                Shop a look
               </Link>
               <Link
                 href="/pricing"

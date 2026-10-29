@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   description:
     "Translate Zendaya’s red-carpet signature into a repeatable evening outfit recipe. Palette, silhouette, finishing touches—tailored tips for every body type.",
   alternates: {
-    canonical: "https://runwaytwin.vercel.app/blog/zendaya-evening-glam",
+    canonical: "https://runwaytwin.com/blog/zendaya-evening-glam",
   },
   keywords: [
     "Zendaya outfits",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
       "Zendaya Evening Glam — the wearable formula | RunwayTwin Journal",
     description:
       "A precise, repeatable blueprint: palette, silhouette, and finishing touches that turn Zendaya’s glam into your go-to evening look.",
-    url: "https://runwaytwin.vercel.app/blog/zendaya-evening-glam",
+    url: "https://runwaytwin.com/blog/zendaya-evening-glam",
     siteName: "RunwayTwin",
     type: "article",
   },
@@ -108,7 +108,7 @@ function CTA({
 /* --------------------------------- Page ---------------------------------- */
 
 export default function Page() {
-  const url = "https://runwaytwin.vercel.app/blog/zendaya-evening-glam";
+  const url = "https://runwaytwin.com/blog/zendaya-evening-glam";
 
   return (
     <main className="bg-[#FAF9F6] text-neutral-900 antialiased">
@@ -124,13 +124,13 @@ export default function Page() {
                 "@type": "ListItem",
                 position: 1,
                 name: "Home",
-                item: "https://runwaytwin.vercel.app/",
+                item: "https://runwaytwin.com/",
               },
               {
                 "@type": "ListItem",
                 position: 2,
                 name: "Blog",
-                item: "https://runwaytwin.vercel.app/blog",
+                item: "https://runwaytwin.com/blog",
               },
               {
                 "@type": "ListItem",
@@ -157,7 +157,7 @@ export default function Page() {
               name: "RunwayTwin",
               logo: {
                 "@type": "ImageObject",
-                url: "https://runwaytwin.vercel.app/og-image.png",
+                url: "https://runwaytwin.com/og-image.png",
               },
             },
             mainEntityOfPage: url,
@@ -353,20 +353,19 @@ export default function Page() {
             </h3>
             <p className="mt-2 text-sm leading-7 text-neutral-700">
               Upload a muse, set your budget, and let our AI build your evening
-              formula in minutes—adjusted to your body-type and size with EU/US
-              stock awareness. No guesswork. Just outfits that look like you,
+              formula in minutes—adjusted to your body-type and size. No guesswork. Just outfits that look like you,
               only elevated.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <CTA href="/stylist" aria="Try the stylist now">
-                ✨ Try the Stylist
+              <CTA href="/shop-the-look?celebrity=Zendaya" aria="Try the stylist now">
+                Shop Zendaya's looks
               </CTA>
               <CTA href="/pricing" variant="light" aria="See pricing plans">
                 See Plans
               </CTA>
             </div>
             <p className="mt-2 text-xs text-neutral-500">
-              7-day money-back on Premium · Cancel anytime · EU/US coverage
+              Free to try · Pro €9.99/month with 7 days free · cancel anytime
             </p>
           </div>
         </section>
@@ -414,7 +413,7 @@ export default function Page() {
 
         {/* Final soft CTA */}
         <div className="flex flex-wrap gap-3 pb-6">
-          <CTA href="/stylist">Start Styling</CTA>
+          <CTA href="/shop-the-look?celebrity=Zendaya">Shop Zendaya's looks</CTA>
           <CTA href="/pricing" variant="light">
             Go Premium
           </CTA>

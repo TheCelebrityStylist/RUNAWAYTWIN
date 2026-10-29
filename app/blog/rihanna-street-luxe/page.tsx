@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   description:
     "Decode Rihanna’s streetwear signature into a wearable formula: oversized outerwear, crop + wide leg, bold accessories. Body-type notes and a copy-paste outfit recipe.",
   alternates: {
-    canonical: "https://runwaytwin.vercel.app/blog/rihanna-street-luxe",
+    canonical: "https://runwaytwin.com/blog/rihanna-street-luxe",
   },
   keywords: [
     "Rihanna style",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
       "Rihanna Street Luxe — volume, edge, easy drama | RunwayTwin Journal",
     description:
       "A clean, repeatable blueprint: palette, silhouette and finishing to channel Rihanna’s street luxe—fast.",
-    url: "https://runwaytwin.vercel.app/blog/rihanna-street-luxe",
+    url: "https://runwaytwin.com/blog/rihanna-street-luxe",
     siteName: "RunwayTwin",
     type: "article",
   },
@@ -105,7 +105,7 @@ function CTA({
 /* --------------------------------- Page ---------------------------------- */
 
 export default function Page() {
-  const url = "https://runwaytwin.vercel.app/blog/rihanna-street-luxe";
+  const url = "https://runwaytwin.com/blog/rihanna-street-luxe";
 
   return (
     <main className="bg-[#FAF9F6] text-neutral-900 antialiased">
@@ -121,13 +121,13 @@ export default function Page() {
                 "@type": "ListItem",
                 position: 1,
                 name: "Home",
-                item: "https://runwaytwin.vercel.app/",
+                item: "https://runwaytwin.com/",
               },
               {
                 "@type": "ListItem",
                 position: 2,
                 name: "Blog",
-                item: "https://runwaytwin.vercel.app/blog",
+                item: "https://runwaytwin.com/blog",
               },
               {
                 "@type": "ListItem",
@@ -154,7 +154,7 @@ export default function Page() {
               name: "RunwayTwin",
               logo: {
                 "@type": "ImageObject",
-                url: "https://runwaytwin.vercel.app/og-image.png",
+                url: "https://runwaytwin.com/og-image.png",
               },
             },
             mainEntityOfPage: url,
@@ -337,9 +337,8 @@ export default function Page() {
           </h2>
           <p className="mt-3 text-[15px] leading-7 text-neutral-700">
             Tell our stylist your brief—“Rihanna street luxe, everyday, mid
-            budget”—and get a complete outfit blueprint in minutes, adjusted to
-            your size, body type and EU/US availability. Fewer tabs, better
-            outfits.
+            budget”—and get a complete outfit blueprint in minutes, at
+            high-street, mid or luxury prices. Fewer tabs, better outfits.
           </p>
 
           <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -351,15 +350,15 @@ export default function Page() {
               feels like you—only sharper.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <CTA href="/stylist" aria="Try the stylist">
-                ✨ Try the Stylist
+              <CTA href="/shop-the-look?celebrity=Rihanna" aria="Try the stylist">
+                Shop Rihanna's looks
               </CTA>
               <CTA href="/pricing" variant="light" aria="See pricing">
                 See Plans
               </CTA>
             </div>
             <p className="mt-2 text-xs text-neutral-500">
-              7-day money-back on Premium · Cancel anytime · EU/US coverage
+              Free to try · Pro €9.99/month with 7 days free · cancel anytime
             </p>
           </div>
         </section>
@@ -408,7 +407,7 @@ export default function Page() {
 
         {/* Final soft CTA */}
         <div className="flex flex-wrap gap-3 pb-6">
-          <CTA href="/stylist">Start Styling</CTA>
+          <CTA href="/shop-the-look?celebrity=Rihanna">Shop Rihanna's looks</CTA>
           <CTA href="/pricing" variant="light">
             Go Premium
           </CTA>

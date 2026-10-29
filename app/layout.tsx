@@ -12,24 +12,15 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: {
-    default:
-      "RunwayTwin — AI Celebrity Stylist │ Editorial Looks, Body-Type Flattering, Budget-True",
+    default: "RunwayTwin — Shop Any Celebrity Look From a Photo",
     template: "%s | RunwayTwin",
   },
   description:
-    "Turn celebrity inspiration into outfits you actually wear. Upload a celeb photo or name, set budget & occasion, and get an editorial-grade look — tailored to your body type with EU/US stock.",
-  metadataBase: new URL("https://runwaytwin.vercel.app"),
-  alternates: { canonical: "https://runwaytwin.vercel.app" },
+    "Upload any outfit photo or name a celebrity. RunwayTwin spots every piece and shows where to buy it at high-street, mid-range or luxury prices.",
+  metadataBase: new URL("https://runwaytwin.com"),
+  openGraph: { siteName: "RunwayTwin", type: "website", locale: "en_GB" },
   icons: { icon: "/favicon.ico" },
 };
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-neutral-200/70 bg-white/70 px-3 py-1 text-[11px] font-medium text-neutral-700 shadow-sm">
-      {children}
-    </span>
-  );
-}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -44,10 +35,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
 
         {/* Trust bar */}
-        <div className="border-b border-emerald-200 bg-emerald-50">
-          <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-5 py-2 text-[13px] text-emerald-900">
-            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            7-day money-back on Premium · One-off look €5 · Cancel anytime
+        <div className="border-b border-neutral-200 bg-[#F3EFE7]">
+          <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 px-5 py-2 text-[13px] text-neutral-800">
+            <span className="inline-flex h-2 w-2 rounded-full bg-[hsl(27_65%_42%)]" />
+            3 free looks every month · Pro €9.99/month with 7 days free · Cancel anytime
           </div>
         </div>
 
@@ -63,56 +54,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               >
                 RunwayTwin
               </Link>
-              <div className="hidden items-center gap-2 sm:flex">
-                <Badge>Editorial Taste</Badge>
-                <Badge>Body-Type Flattering</Badge>
-                <Badge>Budget-True</Badge>
-              </div>
             </div>
 
             {/* Primary Nav */}
             <nav aria-label="Main" className="hidden md:block">
               <ul className="flex items-center gap-6 text-sm">
-                <li>
-                  <Link className="hover:underline underline-offset-4" href="/">
-                    Home
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline underline-offset-4" href="/stylist">
-                    Stylist
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline underline-offset-4" href="/pricing">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline underline-offset-4" href="/blog">
-                    Journal
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline underline-offset-4" href="/about">
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:underline underline-offset-4" href="/contact">
-                    Contact
-                  </Link>
-                </li>
+                <li><Link className="hover:underline underline-offset-4" href="/shop-the-look">Shop the Look</Link></li>
+                <li><Link className="hover:underline underline-offset-4" href="/blog">Style Guides</Link></li>
+                <li><Link className="hover:underline underline-offset-4" href="/pricing">Pricing</Link></li>
+                <li><Link className="hover:underline underline-offset-4" href="/about">About</Link></li>
               </ul>
             </nav>
 
             {/* CTA */}
             <div className="flex items-center gap-2">
               <Link
-                href="/stylist"
+                href="/shop-the-look"
                 className="inline-flex items-center justify-center rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
               >
-                ✨ Try the Stylist
+                Open RunwayTwin
               </Link>
             </div>
           </div>
@@ -128,7 +88,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div>
                 <p className="font-semibold">RunwayTwin</p>
                 <p className="mt-2 max-w-xs text-neutral-600">
-                  Celebrity stylist AI — editorial looks, budget-true picks, live EU/US stock.
+                  Upload any outfit photo. See every piece. Shop it at high-street, mid-range or luxury prices.
                 </p>
                 <p className="mt-3 text-[12px] leading-5 text-neutral-500">
                   Disclosure: some outbound links are affiliate; we may earn a commission at no extra cost to you.
@@ -138,9 +98,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <nav aria-label="Product">
                 <p className="font-semibold">Product</p>
                 <ul className="mt-2 space-y-2">
-                  <li><Link className="hover:underline" href="/stylist">Stylist</Link></li>
+                  <li><Link className="hover:underline" href="/shop-the-look">Shop the Look</Link></li>
+                  <li><Link className="hover:underline" href="/stylist">AI Stylist</Link></li>
                   <li><Link className="hover:underline" href="/pricing">Pricing</Link></li>
-                  <li><Link className="hover:underline" href="/blog">Journal</Link></li>
+                  <li><Link className="hover:underline" href="/blog">Style Guides</Link></li>
                 </ul>
               </nav>
 
@@ -158,12 +119,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <li><Link className="hover:underline" href="/affiliate-disclosure">Affiliate Disclosure</Link></li>
                   <li><Link className="hover:underline" href="/privacy">Privacy</Link></li>
                   <li><Link className="hover:underline" href="/terms">Terms</Link></li>
+                  <li><Link className="hover:underline" href="/withdraw">Withdraw from contract here</Link></li>
                 </ul>
               </nav>
             </div>
 
             <p className="mt-8 text-xs text-neutral-500">
-              © {new Date().getFullYear()} RunwayTwin — All rights reserved.
+              © {new Date().getFullYear()} RunwayTwin, a trade name of Adapthrive.
             </p>
           </div>
         </footer>

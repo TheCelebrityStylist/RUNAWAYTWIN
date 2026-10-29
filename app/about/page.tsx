@@ -15,13 +15,13 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "About — RunwayTwin │ Your AI Celebrity Stylist",
   description:
-    "RunwayTwin turns celebrity inspiration into outfits you actually wear. Editorial curation, body-type logic and budget-true sourcing with live EU/US stock.",
-  alternates: { canonical: "https://runwaytwin.vercel.app/about" },
+    "RunwayTwin turns celebrity inspiration into outfits you actually wear. Upload any outfit photo and shop every piece at high-street, mid-range or luxury prices.",
+  alternates: { canonical: "https://runwaytwin.com/about" },
   openGraph: {
     title: "About — RunwayTwin │ Your AI Celebrity Stylist",
     description:
       "Our mission is simple: make dressing well effortless. Celebrity-grade taste, body-type flattering advice and reliable shopping links.",
-    url: "https://runwaytwin.vercel.app/about",
+    url: "https://runwaytwin.com/about",
     siteName: "RunwayTwin",
     type: "website",
   },
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "About — RunwayTwin │ Your AI Celebrity Stylist",
     description:
-      "From muse to cart in minutes. Editor-level curation, capsule-friendly picks, EU/US availability.",
+      "From muse to cart in minutes. Every piece spotted, three price points, one tap to shop.",
   },
   icons: { icon: "/favicon.ico" },
 };
@@ -99,8 +99,8 @@ export default function AboutPage() {
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "RunwayTwin",
-            url: "https://runwaytwin.vercel.app/",
-            logo: "https://runwaytwin.vercel.app/icon.png",
+            url: "https://runwaytwin.com/",
+            logo: "https://runwaytwin.com/icon.png",
             sameAs: [
               "https://www.instagram.com/yourhandle",
               "https://www.tiktok.com/@yourhandle",
@@ -116,7 +116,7 @@ export default function AboutPage() {
             "@context": "https://schema.org",
             "@type": "AboutPage",
             name: "About RunwayTwin",
-            url: "https://runwaytwin.vercel.app/about",
+            url: "https://runwaytwin.com/about",
             breadcrumb: {
               "@type": "BreadcrumbList",
               itemListElement: [
@@ -124,19 +124,19 @@ export default function AboutPage() {
                   "@type": "ListItem",
                   position: 1,
                   name: "Home",
-                  item: "https://runwaytwin.vercel.app/",
+                  item: "https://runwaytwin.com/",
                 },
                 {
                   "@type": "ListItem",
                   position: 2,
                   name: "About",
-                  item: "https://runwaytwin.vercel.app/about",
+                  item: "https://runwaytwin.com/about",
                 },
               ],
             },
             primaryImageOfPage: {
               "@type": "ImageObject",
-              url: "https://runwaytwin.vercel.app/og-image.png",
+              url: "https://runwaytwin.com/og-image.png",
             },
             description:
               "RunwayTwin turns celebrity inspiration into wearable outfits through editor-level curation, body-type logic and budget-true sourcing.",
@@ -155,13 +155,13 @@ export default function AboutPage() {
                 "@type": "ListItem",
                 position: 1,
                 name: "Home",
-                item: "https://runwaytwin.vercel.app/",
+                item: "https://runwaytwin.com/",
               },
               {
                 "@type": "ListItem",
                 position: 2,
                 name: "About",
-                item: "https://runwaytwin.vercel.app/about",
+                item: "https://runwaytwin.com/about",
               },
             ],
           }),
@@ -178,7 +178,7 @@ export default function AboutPage() {
             <Badge>Editorial Taste</Badge>
             <Badge>Body-Type Logic</Badge>
             <Badge>Budget-True</Badge>
-            <Badge>EU/US Stock</Badge>
+            <Badge>Three Price Points</Badge>
           </div>
 
           <h1
@@ -191,13 +191,13 @@ export default function AboutPage() {
 
           <p className="mt-5 max-w-3xl text-[15px] leading-7 text-neutral-700">
             RunwayTwin turns celebrity inspiration into outfits you actually
-            wear. We blend editor-level curation with smart body-type rules and
-            live EU/US product feeds — so you can go from muse to cart in
-            minutes, always within budget.
+            wear. Upload any outfit photo or name a celebrity, and RunwayTwin shows every
+            piece with where to buy it — high street, mid-range or the luxury
+            original.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
-            <CTA href="/stylist">Try the Stylist</CTA>
+            <CTA href="/shop-the-look">Shop a look from a photo</CTA>
             <CTA href="/pricing" variant="light">
               See Pricing
             </CTA>
@@ -251,9 +251,9 @@ export default function AboutPage() {
             moves (e.g., strong shoulders, column lines, pointed shoes) and
             translate that into a cohesive, wearable formula.
           </Card>
-          <Card title="Live products that actually ship">
-            We surface in-stock EU/US pieces, mapped to your region and sizes —
-            then filter by your budget and fabric/cut preferences.
+          <Card title="Shops that deliver across Europe">
+            Every piece links to retailers such as Zalando, ASOS and Farfetch —
+            at high-street, mid-range and luxury price points.
           </Card>
           <Card title="Capsule-friendly by default">
             We fill the gaps around your staples, so new buys slot straight into
@@ -273,21 +273,9 @@ export default function AboutPage() {
           <p className="mt-3 text-sm leading-7 text-neutral-700">
             “Great style shouldn’t be a full-time job. I built RunwayTwin to
             deliver that editor finish — clear, wearable, flattering — in a few
-            minutes. If you’re unsure, start with a one-off look for €5.
-            I think you’ll feel the difference.”
+            minutes. Try it free — three looks every month are on us.”
           </p>
           <p className="mt-2 text-xs text-neutral-500">— Founder, RunwayTwin</p>
-        </div>
-      </section>
-
-      {/* ================================== Press ================================== */}
-      <section className="mx-auto max-w-6xl px-5 pb-10">
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-xl border border-neutral-200 bg-white/70 px-5 py-3 text-[12px] text-neutral-500 shadow-sm">
-          <span>As seen in</span>
-          <span className="font-medium text-neutral-700">Vogue Tech</span>
-          <span className="font-medium text-neutral-700">Harper’s Bazaar Lab</span>
-          <span className="font-medium text-neutral-700">Product Hunt</span>
-          <span className="font-medium text-neutral-700">Women in AI</span>
         </div>
       </section>
 
@@ -315,20 +303,20 @@ export default function AboutPage() {
         <h2 className="text-2xl font-semibold tracking-tight">FAQ</h2>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card title="Can I try it first?">
-            Yes — get a one-off curated look for €5. Upgrade to Premium (€19/mo)
-            anytime for unlimited stylings.
+            Yes — a free account includes 3 looks every month. RunwayTwin Pro
+            (€9.99/month) gives unlimited looks, with the first 7 days free.
           </Card>
           <Card title="Will it fit my body type & budget?">
-            Absolutely. Our logic balances pear/hourglass/apple/rectangle, and
-            we source strictly within your chosen band.
+            Every piece comes with high-street, mid-range and luxury options, and
+            you see the whole look's price at each level.
           </Card>
-          <Card title="Do you support EU/US?">
-            Yes. Toggle your region — sizes, currency and retailers adapt with
-            live availability.
+          <Card title="Which shops do you link to?">
+            Retailers that ship across Europe, such as Zalando, ASOS and
+            Farfetch.
           </Card>
           <Card title="Can I cancel any time?">
-            Premium includes a 7-day money-back guarantee and you can cancel
-            whenever you like.
+            Yes. Cancel in two clicks from your profile; Pro stays active until
+            the end of the month you paid for.
           </Card>
         </div>
       </section>
@@ -340,11 +328,11 @@ export default function AboutPage() {
             <div>
               <p className="text-lg font-semibold">Look expensive — spend smart.</p>
               <p className="mt-1 text-sm text-neutral-700">
-                Try a €5 one-off look or go Premium for €19/month. Cancel anytime.
+                3 free looks every month. Pro €9.99/month with 7 days free.
               </p>
             </div>
             <div className="flex gap-3">
-              <CTA href="/stylist">Start Styling</CTA>
+              <CTA href="/shop-the-look">Start free</CTA>
               <CTA href="/pricing" variant="light">
                 See Plans
               </CTA>

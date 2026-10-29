@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   description:
     "Decode Blake Lively’s celebration dressing: sculpted fit, confident color, sparkle in the right places. A body-type aware formula with a copy-paste outfit recipe.",
   alternates: {
-    canonical: "https://runwaytwin.vercel.app/blog/blake-lively-occasion-glam",
+    canonical: "https://runwaytwin.com/blog/blake-lively-occasion-glam",
   },
   keywords: [
     "Blake Lively style",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
       "Blake Lively Occasion Glam — color play, polish, joyful drama | RunwayTwin Journal",
     description:
       "A cheerful, polished blueprint for occasions: bright palettes, sculpted fit, and cinematic finishing. Body-type notes + quick recipe inside.",
-    url: "https://runwaytwin.vercel.app/blog/blake-lively-occasion-glam",
+    url: "https://runwaytwin.com/blog/blake-lively-occasion-glam",
     type: "article",
     siteName: "RunwayTwin",
   },
@@ -106,7 +106,7 @@ function CTA({
 /* --------------------------------- Page ---------------------------------- */
 
 export default function Page() {
-  const url = "https://runwaytwin.vercel.app/blog/blake-lively-occasion-glam";
+  const url = "https://runwaytwin.com/blog/blake-lively-occasion-glam";
 
   return (
     <main className="bg-[#FAF9F6] text-neutral-900 antialiased">
@@ -122,13 +122,13 @@ export default function Page() {
                 "@type": "ListItem",
                 position: 1,
                 name: "Home",
-                item: "https://runwaytwin.vercel.app/",
+                item: "https://runwaytwin.com/",
               },
               {
                 "@type": "ListItem",
                 position: 2,
                 name: "Blog",
-                item: "https://runwaytwin.vercel.app/blog",
+                item: "https://runwaytwin.com/blog",
               },
               {
                 "@type": "ListItem",
@@ -156,7 +156,7 @@ export default function Page() {
               name: "RunwayTwin",
               logo: {
                 "@type": "ImageObject",
-                url: "https://runwaytwin.vercel.app/og-image.png",
+                url: "https://runwaytwin.com/og-image.png",
               },
             },
             mainEntityOfPage: url,
@@ -328,7 +328,7 @@ export default function Page() {
           <p className="mt-3 text-[15px] leading-7 text-neutral-700">
             Give our stylist your brief—“Blake Lively occasion glam, wedding
             guest, mid budget”—and get a complete look in minutes, adapted to
-            your size, body type, and EU/US stock. Maximum entrance, minimum
+            your body type and your budget. Maximum entrance, minimum
             guesswork.
           </p>
 
@@ -341,15 +341,15 @@ export default function Page() {
               plan—color, silhouette, finishing—tailored to you.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <CTA href="/stylist" aria="Try the stylist">
-                ✨ Try the Stylist
+              <CTA href="/shop-the-look?celebrity=Blake%20Lively" aria="Try the stylist">
+                Shop Blake Lively's looks
               </CTA>
               <CTA href="/pricing" variant="light" aria="See pricing">
                 See Plans
               </CTA>
             </div>
             <p className="mt-2 text-xs text-neutral-500">
-              7-day money-back on Premium · Cancel anytime · EU/US coverage
+              Free to try · Pro €9.99/month with 7 days free · cancel anytime
             </p>
           </div>
         </section>
@@ -398,7 +398,7 @@ export default function Page() {
 
         {/* Final soft CTA */}
         <div className="flex flex-wrap gap-3 pb-6">
-          <CTA href="/stylist">Start Styling</CTA>
+          <CTA href="/shop-the-look?celebrity=Blake%20Lively">Shop Blake Lively's looks</CTA>
           <CTA href="/pricing" variant="light">
             Go Premium
           </CTA>

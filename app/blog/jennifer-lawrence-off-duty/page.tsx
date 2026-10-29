@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     "Decode Jennifer Lawrence’s minimal workwear capsule: neutral palette, clean tailoring, pointed shoes. Body-type notes and a copy-paste outfit recipe.",
   alternates: {
     canonical:
-      "https://runwaytwin.vercel.app/blog/jennifer-lawrence-off-duty",
+      "https://runwaytwin.com/blog/jennifer-lawrence-off-duty",
   },
   keywords: [
     "Jennifer Lawrence style",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
       "Jennifer Lawrence Off-Duty — sleek, pointed, effortless | RunwayTwin Journal",
     description:
       "A wearable capsule blueprint: palette, tailoring and finishing to channel Jennifer’s clean, modern minimalism—fast.",
-    url: "https://runwaytwin.vercel.app/blog/jennifer-lawrence-off-duty",
+    url: "https://runwaytwin.com/blog/jennifer-lawrence-off-duty",
     siteName: "RunwayTwin",
     type: "article",
   },
@@ -107,7 +107,7 @@ function CTA({
 
 export default function Page() {
   const url =
-    "https://runwaytwin.vercel.app/blog/jennifer-lawrence-off-duty";
+    "https://runwaytwin.com/blog/jennifer-lawrence-off-duty";
 
   return (
     <main className="bg-[#FAF9F6] text-neutral-900 antialiased">
@@ -123,13 +123,13 @@ export default function Page() {
                 "@type": "ListItem",
                 position: 1,
                 name: "Home",
-                item: "https://runwaytwin.vercel.app/",
+                item: "https://runwaytwin.com/",
               },
               {
                 "@type": "ListItem",
                 position: 2,
                 name: "Blog",
-                item: "https://runwaytwin.vercel.app/blog",
+                item: "https://runwaytwin.com/blog",
               },
               {
                 "@type": "ListItem",
@@ -156,7 +156,7 @@ export default function Page() {
               name: "RunwayTwin",
               logo: {
                 "@type": "ImageObject",
-                url: "https://runwaytwin.vercel.app/og-image.png",
+                url: "https://runwaytwin.com/og-image.png",
               },
             },
             mainEntityOfPage: url,
@@ -333,8 +333,7 @@ export default function Page() {
           <p className="mt-3 text-[15px] leading-7 text-neutral-700">
             Give our stylist your brief—“Jennifer Lawrence off-duty, work,
             high-street” or “minimal capsule, mid”—and get a complete outfit
-            blueprint in minutes, tuned to your size, body type and region
-            (EU/US). Less guesswork, more wearing.
+            blueprint in minutes, at the budget you choose. Less guesswork, more wearing.
           </p>
 
           <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -346,15 +345,15 @@ export default function Page() {
               on repeat.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <CTA href="/stylist" aria="Try the stylist">
-                ✨ Try the Stylist
+              <CTA href="/shop-the-look?celebrity=Jennifer%20Lawrence" aria="Try the stylist">
+                Shop Jennifer Lawrence's looks
               </CTA>
               <CTA href="/pricing" variant="light" aria="See pricing">
                 See Plans
               </CTA>
             </div>
             <p className="mt-2 text-xs text-neutral-500">
-              7-day money-back on Premium · Cancel anytime · EU/US coverage
+              Free to try · Pro €9.99/month with 7 days free · cancel anytime
             </p>
           </div>
         </section>
@@ -404,7 +403,7 @@ export default function Page() {
 
         {/* Final soft CTA */}
         <div className="flex flex-wrap gap-3 pb-6">
-          <CTA href="/stylist">Start Styling</CTA>
+          <CTA href="/shop-the-look?celebrity=Jennifer%20Lawrence">Shop Jennifer Lawrence's looks</CTA>
           <CTA href="/pricing" variant="light">
             Go Premium
           </CTA>

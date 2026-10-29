@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "RunwayTwin Journal — Celebrity Style Guides & Outfit Formulas",
   description:
     "Editorial, story-driven guides that decode celebrity signatures into wearable outfit formulas. Palettes, silhouettes, body-type notes, and copy-paste recipes.",
-  alternates: { canonical: "https://runwaytwin.vercel.app/blog" },
+  alternates: { canonical: "https://runwaytwin.com/blog" },
   keywords: [
     "celebrity style guide",
     "Zendaya evening glam",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: "RunwayTwin Journal — Celebrity Style Guides & Outfit Formulas",
     description:
       "From Zendaya evening glam to Rihanna street luxe: premium guides that translate runway energy into real-life outfits.",
-    url: "https://runwaytwin.vercel.app/blog",
+    url: "https://runwaytwin.com/blog",
     siteName: "RunwayTwin",
     type: "website",
   },
@@ -186,7 +186,7 @@ export default function Page({
 
   const featured = POSTS.filter((p) => p.featured);
 
-  const url = "https://runwaytwin.vercel.app/blog";
+  const url = "https://runwaytwin.com/blog";
 
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-neutral-900 antialiased">
@@ -198,7 +198,7 @@ export default function Page({
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
             itemListElement: [
-              { "@type": "ListItem", position: 1, name: "Home", item: "https://runwaytwin.vercel.app/" },
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://runwaytwin.com/" },
               { "@type": "ListItem", position: 2, name: "Blog", item: url },
             ],
           }),
@@ -226,7 +226,7 @@ export default function Page({
             itemListElement: POSTS.map((p, i) => ({
               "@type": "ListItem",
               position: i + 1,
-              url: `https://runwaytwin.vercel.app/blog/${p.slug}`,
+              url: `https://runwaytwin.com/blog/${p.slug}`,
               name: p.title,
             })),
           }),
@@ -252,15 +252,15 @@ export default function Page({
                 name: "Can I stick to my budget?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Absolutely. Our stylist curates within high-street, mid or luxury bands and keeps carts in-range.",
+                  text: "Absolutely. Our stylist curates within high-street, mid or luxury bands and shows each piece at all three price points.",
                 },
               },
               {
                 "@type": "Question",
-                name: "Is stock localized for EU/US?",
+                name: "Can I shop a look from a photo?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Yes. We account for region so sizes, currency, and retailers make sense for EU/US shoppers.",
+                  text: "Yes. Upload any outfit photo to RunwayTwin and it lists every visible piece with links to buy it at high-street, mid-range or luxury prices.",
                 },
               },
             ],
@@ -559,21 +559,21 @@ export default function Page({
             <div>
               <p className="text-lg font-semibold">Ready to turn inspo into outfits?</p>
               <p className="mt-1 text-sm text-neutral-700">
-                Tell our stylist your muse, budget and occasion—get a head-to-toe plan in minutes.
+                Drop in a photo or a name. Get every piece, at your budget, in seconds.
               </p>
             </div>
             <div className="flex gap-3">
               <Link
-                href="/stylist"
+                href="/shop-the-look"
                 className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:opacity-90"
               >
-                ✨ Try the Stylist
+                Shop a look from a photo
               </Link>
               <Link
                 href="/pricing"
                 className="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-50"
               >
-                See Plans
+                See pricing
               </Link>
             </div>
           </div>
