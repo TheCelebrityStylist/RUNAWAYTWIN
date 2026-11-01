@@ -12,6 +12,18 @@ const nextConfig = {
     return [
       // One canonical host: www -> apex
       { source: "/:path*", has: [{ type: "host", value: "www.runwaytwin.com" }], destination: "https://runwaytwin.com/:path*", permanent: true },
+      // Old Base44 URLs that were indexed on runwaytwin.com before the split
+      { source: "/Landing", destination: "/", permanent: true },
+      { source: "/AIStylistChat", destination: "/ai-stylist", permanent: true },
+      { source: "/OutfitGenerator", destination: "/ai-stylist", permanent: true },
+      { source: "/StyleQuiz", destination: "/ai-stylist", permanent: true },
+      { source: "/WardrobeAdvisor", destination: "/ai-stylist", permanent: true },
+      { source: "/OutfitBreakdown", destination: "/find-clothes-from-picture", permanent: true },
+      { source: "/CelebrityExplorer", destination: "/style", permanent: true },
+      ...["Pricing", "Terms", "Privacy", "Withdraw", "Profile", "SavedLooks", "Subscription", "VirtualCloset", "Lookbooks",
+          "WardrobeDashboard", "WardrobeAnalytics", "OutfitCalendar", "OutfitCollage", "DiscoveryFeed", "Community"].map((p) => (
+        { source: `/${p}`, destination: to(`/${p}`), permanent: true }
+      )),
       { source: "/shop-the-look", destination: to("/OutfitBreakdown"), permanent: false },
       { source: "/app", destination: to("/"), permanent: false },
       { source: "/stylist", destination: to("/AIStylistChat"), permanent: false },
