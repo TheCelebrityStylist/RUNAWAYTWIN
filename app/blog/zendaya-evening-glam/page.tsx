@@ -12,7 +12,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    "Zendaya Evening Glam — the wearable formula | RunwayTwin Journal",
+    { absolute: "Zendaya's Red Carpet Style: How to Get Her Evening Glam Look | RunwayTwin" },
   description:
     "Translate Zendaya’s red-carpet signature into a repeatable evening outfit recipe. Palette, silhouette, finishing touches—tailored tips for every body type.",
   alternates: {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Zendaya Evening Glam — the wearable formula | RunwayTwin Journal",
+      "Zendaya Evening Glam — the wearable formula",
     description:
       "A precise, repeatable blueprint: palette, silhouette, and finishing touches that turn Zendaya’s glam into your go-to evening look.",
     url: "https://runwaytwin.com/blog/zendaya-evening-glam",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "Zendaya Evening Glam — the wearable formula | RunwayTwin Journal",
+      "Zendaya Evening Glam — the wearable formula",
     description:
       "Turn a red-carpet signature into a wearable evening recipe—editorial, flattering, and easy to repeat.",
   },
@@ -369,6 +369,14 @@ export default function Page() {
             </p>
           </div>
         </section>
+
+        {/* Style hub link */}
+        <aside className="mb-12 rounded-2xl border border-neutral-200 bg-[#FAF9F6] p-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">More of her style</p>
+          <Link href="/style/zendaya" className="mt-2 block font-serif text-xl hover:underline">
+            Zendaya outfits: the full style formula and where to buy every piece
+          </Link>
+        </aside>
 
         {/* Next reads */}
         <section aria-labelledby="next-read" className="mb-12">

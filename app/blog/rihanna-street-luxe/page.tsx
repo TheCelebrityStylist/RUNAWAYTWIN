@@ -11,7 +11,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    "Rihanna Street Luxe — volume, edge, easy drama | RunwayTwin Journal",
+    { absolute: "Rihanna Outfits: How to Get Her Street Luxe Style | RunwayTwin" },
   description:
     "Decode Rihanna’s streetwear signature into a wearable formula: oversized outerwear, crop + wide leg, bold accessories. Body-type notes and a copy-paste outfit recipe.",
   alternates: {
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Rihanna Street Luxe — volume, edge, easy drama | RunwayTwin Journal",
+      "Rihanna Street Luxe — volume, edge, easy drama",
     description:
       "A clean, repeatable blueprint: palette, silhouette and finishing to channel Rihanna’s street luxe—fast.",
     url: "https://runwaytwin.com/blog/rihanna-street-luxe",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "Rihanna Street Luxe — volume, edge, easy drama | RunwayTwin Journal",
+      "Rihanna Street Luxe — volume, edge, easy drama",
     description:
       "Oversized outerwear, crop + wide leg, bold accessories—get Rihanna’s energy without drowning the frame.",
   },
@@ -362,6 +362,14 @@ export default function Page() {
             </p>
           </div>
         </section>
+
+        {/* Style hub link */}
+        <aside className="mb-12 rounded-2xl border border-neutral-200 bg-[#FAF9F6] p-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">More of her style</p>
+          <Link href="/style/rihanna" className="mt-2 block font-serif text-xl hover:underline">
+            Rihanna outfits: the full style formula and where to buy every piece
+          </Link>
+        </aside>
 
         {/* Next reads */}
         <section aria-labelledby="next-read" className="mb-12">

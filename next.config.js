@@ -10,6 +10,8 @@ const nextConfig = {
     // Temporary (307) while the app origin may still change; make permanent once app.runwaytwin.com is live.
     const to = (path) => `${APP_ORIGIN}${path}`;
     return [
+      // One canonical host: www -> apex
+      { source: "/:path*", has: [{ type: "host", value: "www.runwaytwin.com" }], destination: "https://runwaytwin.com/:path*", permanent: true },
       { source: "/shop-the-look", destination: to("/OutfitBreakdown"), permanent: false },
       { source: "/app", destination: to("/"), permanent: false },
       { source: "/stylist", destination: to("/AIStylistChat"), permanent: false },

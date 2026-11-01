@@ -60,7 +60,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav aria-label="Main" className="hidden md:block">
               <ul className="flex items-center gap-6 text-sm">
                 <li><Link className="hover:underline underline-offset-4" href="/shop-the-look">Shop the Look</Link></li>
-                <li><Link className="hover:underline underline-offset-4" href="/blog">Style Guides</Link></li>
+                <li><Link className="hover:underline underline-offset-4" href="/style">Celebrity Style</Link></li>
+                <li><Link className="hover:underline underline-offset-4" href="/blog">Guides</Link></li>
                 <li><Link className="hover:underline underline-offset-4" href="/pricing">Pricing</Link></li>
                 <li><Link className="hover:underline underline-offset-4" href="/about">About</Link></li>
               </ul>
@@ -84,7 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Global Footer */}
         <footer className="border-t border-neutral-200 bg-[#F6F5F2]">
           <div className="mx-auto max-w-6xl px-5 py-10">
-            <div className="grid grid-cols-1 gap-8 text-sm text-neutral-700 sm:grid-cols-2 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-8 text-sm text-neutral-700 sm:grid-cols-2 md:grid-cols-5">
               <div>
                 <p className="font-semibold">RunwayTwin</p>
                 <p className="mt-2 max-w-xs text-neutral-600">
@@ -101,7 +102,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <li><Link className="hover:underline" href="/shop-the-look">Shop the Look</Link></li>
                   <li><Link className="hover:underline" href="/stylist">AI Stylist</Link></li>
                   <li><Link className="hover:underline" href="/pricing">Pricing</Link></li>
-                  <li><Link className="hover:underline" href="/blog">Style Guides</Link></li>
+                  <li><Link className="hover:underline" href="/style">Celebrity style</Link></li>
+                  <li><Link className="hover:underline" href="/blog">Style guides</Link></li>
+                </ul>
+              </nav>
+
+              <nav aria-label="Tools">
+                <p className="font-semibold">Tools</p>
+                <ul className="mt-2 space-y-2">
+                  <li><Link className="hover:underline" href="/find-clothes-from-picture">Find clothes from a picture</Link></li>
+                  <li><Link className="hover:underline" href="/ai-outfit-finder">AI outfit finder</Link></li>
+                  <li><Link className="hover:underline" href="/celebrity-outfit-finder">Celebrity outfit finder</Link></li>
+                  <li><Link className="hover:underline" href="/find-dress-from-photo">Find a dress from a photo</Link></li>
+                  <li><Link className="hover:underline" href="/identify-clothing-brand-from-photo">Identify a clothing brand</Link></li>
                 </ul>
               </nav>
 

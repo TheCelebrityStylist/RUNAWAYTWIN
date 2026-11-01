@@ -12,7 +12,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    "Blake Lively Occasion Glam — color play, polish, joyful drama | RunwayTwin Journal",
+    { absolute: "Blake Lively's Dress Style: How to Get Her Occasion Glam | RunwayTwin" },
   description:
     "Decode Blake Lively’s celebration dressing: sculpted fit, confident color, sparkle in the right places. A body-type aware formula with a copy-paste outfit recipe.",
   alternates: {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Blake Lively Occasion Glam — color play, polish, joyful drama | RunwayTwin Journal",
+      "Blake Lively Occasion Glam — color play, polish, joyful drama",
     description:
       "A cheerful, polished blueprint for occasions: bright palettes, sculpted fit, and cinematic finishing. Body-type notes + quick recipe inside.",
     url: "https://runwaytwin.com/blog/blake-lively-occasion-glam",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "Blake Lively Occasion Glam — color play, polish, joyful drama | RunwayTwin Journal",
+      "Blake Lively Occasion Glam — color play, polish, joyful drama",
     description:
       "Make an entrance: color play, sculpted fit, and sparkle where it counts. A storytelling guide to Blake’s occasion glam.",
   },
@@ -353,6 +353,14 @@ export default function Page() {
             </p>
           </div>
         </section>
+
+        {/* Style hub link */}
+        <aside className="mb-12 rounded-2xl border border-neutral-200 bg-[#FAF9F6] p-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">More of her style</p>
+          <Link href="/style/blake-lively" className="mt-2 block font-serif text-xl hover:underline">
+            Blake Lively outfits: the full style formula and where to buy every piece
+          </Link>
+        </aside>
 
         {/* Next reads */}
         <section aria-labelledby="next-read" className="mb-12">

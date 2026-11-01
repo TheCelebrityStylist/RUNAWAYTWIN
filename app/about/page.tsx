@@ -13,7 +13,7 @@ import Link from "next/link";
    ============================================================================= */
 
 export const metadata: Metadata = {
-  title: "About — RunwayTwin │ Your AI Celebrity Stylist",
+  title: "About RunwayTwin — the AI Celebrity Stylist",
   description:
     "RunwayTwin turns celebrity inspiration into outfits you actually wear. Upload any outfit photo and shop every piece at high-street, mid-range or luxury prices.",
   alternates: { canonical: "https://runwaytwin.com/about" },

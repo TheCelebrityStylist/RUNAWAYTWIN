@@ -1,4 +1,11 @@
+import type { Metadata } from 'next';
 import ContactForm from '@/components/ContactForm';
+
+export const metadata: Metadata = {
+  title: 'Contact',
+  description: 'Questions, press or partnerships? Contact the RunwayTwin team.',
+  alternates: { canonical: 'https://runwaytwin.com/contact' },
+};
 
 export default function ContactPage() {
   return (

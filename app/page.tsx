@@ -22,10 +22,10 @@ export const metadata: Metadata = {
 };
 
 const GUIDES = [
-  { slug: "zendaya-evening-glam", name: "Zendaya", title: "Evening glam: sculpted shoulders, liquid shine" },
-  { slug: "rihanna-street-luxe", name: "Rihanna", title: "Street luxe: volume, edge, easy drama" },
-  { slug: "jennifer-lawrence-off-duty", name: "Jennifer Lawrence", title: "Off-duty: sleek, pointed, effortless" },
-  { slug: "blake-lively-occasion-glam", name: "Blake Lively", title: "Occasion glam: colour play and polish" },
+  { slug: "zendaya-evening-glam", hub: "zendaya", name: "Zendaya", title: "Evening glam: sculpted shoulders, liquid shine" },
+  { slug: "rihanna-street-luxe", hub: "rihanna", name: "Rihanna", title: "Street luxe: volume, edge, easy drama" },
+  { slug: "jennifer-lawrence-off-duty", hub: "jennifer-lawrence", name: "Jennifer Lawrence", title: "Off-duty: sleek, pointed, effortless" },
+  { slug: "blake-lively-occasion-glam", hub: "blake-lively", name: "Blake Lively", title: "Occasion glam: colour play and polish" },
 ];
 
 const FAQ = [
@@ -166,6 +166,13 @@ export default function HomePage() {
           <div className="mt-8">
             <CTA href="/shop-the-look">Try it with your own photo</CTA>
           </div>
+          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <li><Link href="/find-clothes-from-picture" className="underline underline-offset-4">Find clothes from a picture</Link></li>
+            <li><Link href="/celebrity-outfit-finder" className="underline underline-offset-4">Celebrity outfit finder</Link></li>
+            <li><Link href="/find-dress-from-photo" className="underline underline-offset-4">Find a dress from a photo</Link></li>
+            <li><Link href="/identify-clothing-brand-from-photo" className="underline underline-offset-4">Identify a clothing brand</Link></li>
+            <li><Link href="/ai-outfit-finder" className="underline underline-offset-4">AI outfit finder</Link></li>
+          </ul>
         </div>
       </section>
 
@@ -173,12 +180,12 @@ export default function HomePage() {
       <section aria-labelledby="guides-title" className="mx-auto max-w-6xl px-5 py-14">
         <div className="flex items-end justify-between gap-4">
           <h2 id="guides-title" className="font-serif text-3xl tracking-tight">Celebrity style, decoded</h2>
-          <Link href="/blog" className="text-sm font-medium underline underline-offset-4">All guides</Link>
+          <Link href="/style" className="text-sm font-medium underline underline-offset-4">All celebrity styles</Link>
         </div>
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {GUIDES.map((g) => (
             <article key={g.slug} className="flex flex-col rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{g.name}</p>
+              <Link href={`/style/${g.hub}`} className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 hover:underline">{g.name}</Link>
               <h3 className="mt-2 text-base font-semibold leading-snug">
                 <Link href={`/blog/${g.slug}`} className="hover:underline">{g.title}</Link>
               </h3>

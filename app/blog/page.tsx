@@ -11,7 +11,7 @@ import Link from "next/link";
    ========================================================================= */
 
 export const metadata: Metadata = {
-  title: "RunwayTwin Journal — Celebrity Style Guides & Outfit Formulas",
+  title: "Celebrity Style Guides & Outfit Formulas",
   description:
     "Editorial, story-driven guides that decode celebrity signatures into wearable outfit formulas. Palettes, silhouettes, body-type notes, and copy-paste recipes.",
   alternates: { canonical: "https://runwaytwin.com/blog" },

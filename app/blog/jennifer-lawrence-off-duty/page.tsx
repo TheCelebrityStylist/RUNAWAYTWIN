@@ -11,7 +11,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    "Jennifer Lawrence Off-Duty — sleek, pointed, effortless | RunwayTwin Journal",
+    { absolute: "The Jennifer Lawrence Outfit Formula: Her Off-Duty Style, Decoded | RunwayTwin" },
   description:
     "Decode Jennifer Lawrence’s minimal workwear capsule: neutral palette, clean tailoring, pointed shoes. Body-type notes and a copy-paste outfit recipe.",
   alternates: {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Jennifer Lawrence Off-Duty — sleek, pointed, effortless | RunwayTwin Journal",
+      "Jennifer Lawrence Off-Duty — sleek, pointed, effortless",
     description:
       "A wearable capsule blueprint: palette, tailoring and finishing to channel Jennifer’s clean, modern minimalism—fast.",
     url: "https://runwaytwin.com/blog/jennifer-lawrence-off-duty",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "Jennifer Lawrence Off-Duty — sleek, pointed, effortless | RunwayTwin Journal",
+      "Jennifer Lawrence Off-Duty — sleek, pointed, effortless",
     description:
       "Neutral palette, precise tailoring, pointed shoes—the everyday capsule you’ll actually wear.",
   },
@@ -357,6 +357,14 @@ export default function Page() {
             </p>
           </div>
         </section>
+
+        {/* Style hub link */}
+        <aside className="mb-12 rounded-2xl border border-neutral-200 bg-[#FAF9F6] p-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">More of her style</p>
+          <Link href="/style/jennifer-lawrence" className="mt-2 block font-serif text-xl hover:underline">
+            Jennifer Lawrence outfits: the full style formula and where to buy every piece
+          </Link>
+        </aside>
 
         {/* Next reads */}
         <section aria-labelledby="next-read" className="mb-12">
