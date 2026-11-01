@@ -11,9 +11,54 @@ export type ToolPage = {
   sections: { h2: string; body: string[] }[];
   faq: { q: string; a: string }[];
   cta: string;
+  ctaHref?: string;
 };
 
 export const TOOLS: ToolPage[] = [
+  {
+    slug: "ai-stylist",
+    title: "AI Stylist — Your Personal AI Fashion Stylist, Free to Try",
+    description:
+      "RunwayTwin is an AI personal stylist: tell it the occasion, your budget and whose style you love, and get complete outfits you can shop. Or upload any photo to shop the look. 3 free looks a month.",
+    eyebrow: "AI stylist",
+    h1: "Your personal AI stylist",
+    lede:
+      "A stylist who knows every celebrity's wardrobe, never judges your budget and answers at 2am. Tell it what you need — an outfit for Saturday, a capsule for a trip, Zendaya's look for less — and get pieces you can actually buy.",
+    steps: [
+      ["Say what you need", "\"Wedding guest in June, under €200, I love how Sofia Richie dresses.\" Plain language is fine."],
+      ["Get complete outfits", "Every piece chosen to work together: colour, proportion, fabric, shoes and bag — explained, not just listed."],
+      ["Shop, swap or save", "Buy at high-street, mid-range or luxury prices, swap any piece you don't like, and save the looks you love."],
+    ],
+    sections: [
+      {
+        h2: "What an AI stylist can do for you",
+        body: [
+          "Build an outfit for a specific day: a wedding, a first date, a job interview, a city break. Translate a celebrity's style into something that works on you and your budget. Find what to wear with the pieces you already own. And identify every item in any photo you upload.",
+          "A human stylist does all of this too — for a few hundred euros a session. RunwayTwin is the version you can ask every day.",
+        ],
+      },
+      {
+        h2: "Why it's different from asking a chatbot",
+        body: [
+          "General chatbots describe outfits. RunwayTwin builds them from real, shoppable pieces, shows each one at three price levels, and keeps the whole look coherent when you change something. It is trained on how stylists think — proportion, palette, fabric — not just on what's trending.",
+        ],
+      },
+      {
+        h2: "Built around celebrity style",
+        body: [
+          "Most people don't describe their taste in fashion terms. They say \"I want to dress like Hailey Bieber\". RunwayTwin is built for exactly that: name anyone, and it works from the formula behind their style rather than copying one outfit.",
+        ],
+      },
+    ],
+    faq: [
+      { q: "Is the AI stylist free?", a: "Yes, you can start free with 3 looks a month. RunwayTwin Pro is €9.99 a month for unlimited looks and styling, with the first 7 days free." },
+      { q: "Can an AI stylist really dress me well?", a: "It is very good at the parts of styling that follow rules — proportion, colour, fabric, occasion — and at finding pieces fast. It doesn't see you in the mirror, so tell it your size, fit preferences and what you feel good in." },
+      { q: "Does it work for men?", a: "Yes. The AI stylist builds menswear outfits the same way." },
+      { q: "Do I need to download an app?", a: "No. RunwayTwin runs in your browser on phone or desktop." },
+    ],
+    cta: "Talk to the AI stylist",
+    ctaHref: "/stylist",
+  },
   {
     slug: "find-clothes-from-picture",
     title: "Find Clothes From a Picture — Every Piece, Three Price Levels",

@@ -56,7 +56,7 @@ export default function ToolLanding({ t }: { t: ToolPage }) {
         <h1 className="font-serif text-[40px] leading-[1.05] tracking-tight md:text-[56px]">{t.h1}</h1>
         <p className="mt-5 max-w-2xl text-[16px] leading-7 text-neutral-700">{t.lede}</p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link href="/shop-the-look" className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg hover:opacity-90">
+          <Link href={t.ctaHref || "/shop-the-look"} className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-lg hover:opacity-90">
             {t.cta}
           </Link>
           <span className="text-xs text-neutral-500">3 free looks a month · no card needed</span>
@@ -113,7 +113,7 @@ export default function ToolLanding({ t }: { t: ToolPage }) {
 
         <div className="rounded-3xl bg-[#F3EFE7] p-8">
           <p className="font-serif text-2xl">Got the photo? You're ten seconds away.</p>
-          <Link href="/shop-the-look" className="mt-5 inline-flex rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:opacity-90">
+          <Link href={t.ctaHref || "/shop-the-look"} className="mt-5 inline-flex rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:opacity-90">
             {t.cta}
           </Link>
         </div>

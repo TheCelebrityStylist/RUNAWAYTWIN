@@ -8,7 +8,7 @@ import Image from "next/image";
    ========================================================================= */
 
 export const metadata: Metadata = {
-  title: { absolute: "RunwayTwin — Shop Any Celebrity Look From a Photo" },
+  title: { absolute: "RunwayTwin — AI Stylist: Shop Any Celebrity Look From a Photo" },
   description:
     "Upload any outfit photo or name a celebrity. RunwayTwin spots every piece — colour, fabric, cut — and shows where to buy it at high-street, mid-range or luxury prices. 3 free looks a month.",
   alternates: { canonical: "https://runwaytwin.com" },
@@ -105,7 +105,7 @@ export default function HomePage() {
       <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl items-center gap-10 px-5 pt-16 pb-14 md:grid-cols-[1.15fr_0.85fr]">
         <div>
         <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.3em] text-[hsl(27_65%_42%)]">
-          Shop the look · AI personal stylist
+          Shop the look · <Link href="/ai-stylist" className="hover:underline">AI personal stylist</Link>
         </p>
         <h1 id="hero-title" className="max-w-3xl font-serif text-[44px] leading-[1.02] tracking-tight md:text-[68px]">
           See it on them.{" "}
