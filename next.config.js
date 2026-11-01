@@ -12,6 +12,7 @@ const nextConfig = {
     return [
       // One canonical host: www -> apex
       { source: "/:path*", has: [{ type: "host", value: "www.runwaytwin.com" }], destination: "https://runwaytwin.com/:path*", permanent: true },
+      { source: "/:path*", has: [{ type: "host", value: "runawaytwin.vercel.app" }], destination: "https://runwaytwin.com/:path*", permanent: true },
       // Old Base44 URLs that were indexed on runwaytwin.com before the split
       { source: "/Landing", destination: "/", permanent: true },
       { source: "/AIStylistChat", destination: "/ai-stylist", permanent: true },
