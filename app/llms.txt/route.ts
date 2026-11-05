@@ -20,7 +20,7 @@ Key facts:
 - Made in the Netherlands; prices in euros; shops include Zalando, ASOS, Farfetch and Vestiaire Collective.
 
 ## Celebrity looks this week
-${drops.map((d) => `- [${d.celebrity} at ${d.event}](${BASE}/looks/${d.slug}): ${d.items.length} pieces${d.twin ? `; ${d.twin.score}% of the look for ${euro(d.twin.cost)} (originals ~${euro(d.twin.originals)})` : ""}`).join("\n") || "- Updated daily."}
+${drops.map((d) => `- [${d.celebrity} at ${d.event}](${BASE}/looks/${d.slug}): ${d.items.length} ${d.items.length === 1 ? "piece" : "pieces"}${d.twin ? `; ${d.twin.score}% of the look for ${euro(d.twin.cost)} (originals ~${euro(d.twin.originals)})` : ""}`).join("\n") || "- Updated daily."}
 
 ## Celebrity style guides
 ${CELEBS.map((c) => `- [${c.name} outfits](${BASE}/style/${c.slug}): ${c.tagline}`).join("\n")}
