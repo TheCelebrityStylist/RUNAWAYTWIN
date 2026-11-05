@@ -32,7 +32,6 @@ const nextConfig = {
       { source: "/terms", destination: to("/Terms"), permanent: false },
       { source: "/privacy", destination: to("/Privacy"), permanent: false },
       { source: "/withdraw", destination: to("/Withdraw"), permanent: false },
-      { source: "/looks", destination: to("/SavedLooks"), permanent: false },
       { source: "/lookshare/:code*", destination: to("/"), permanent: false },
       { source: "/products", destination: to("/OutfitBreakdown"), permanent: false },
       { source: "/settings", destination: to("/Profile"), permanent: false },
