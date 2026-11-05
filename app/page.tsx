@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { getDrops, euro } from "@/lib/drops";
+
+export const revalidate = 1800;
 
 /* =========================================================================
    RunwayTwin — Home (marketing). The tool itself runs at the app origin;
@@ -64,7 +67,8 @@ function CTA({ href, children, variant = "dark" }: { href: string; children: Rea
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const drops = (await getDrops(12)).slice(0, 4);
   return (
     <main>
       <script
@@ -175,6 +179,27 @@ export default function HomePage() {
           </ul>
         </div>
       </section>
+
+      {/* ============================ DROP RADAR ============================ */}
+      {drops.length > 0 && (
+        <section aria-labelledby="drops-title" className="mx-auto max-w-6xl px-5 pt-14">
+          <div className="flex items-end justify-between gap-4">
+            <h2 id="drops-title" className="font-serif text-3xl tracking-tight">Worn this week. Yours today.</h2>
+            <Link href="/looks" className="text-sm font-medium underline underline-offset-4">All looks this week</Link>
+          </div>
+          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {drops.map((d) => (
+              <li key={d.slug} className="rounded-3xl border border-neutral-200 bg-white p-5">
+                <Link href={`/looks/${d.slug}`} className="group block">
+                  <p className="font-serif text-xl leading-tight group-hover:underline">{d.celebrity}</p>
+                  <p className="mt-1 text-[13px] text-neutral-600">{d.event}</p>
+                  {d.twin && <p className="mt-3 text-[13px]"><b>{d.twin.score}%</b> of the look for <b>{euro(d.twin.cost)}</b></p>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* ============================ STYLE GUIDES ============================ */}
       <section aria-labelledby="guides-title" className="mx-auto max-w-6xl px-5 py-14">

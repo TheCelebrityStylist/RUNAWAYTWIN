@@ -61,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ul className="flex items-center gap-6 text-sm">
                 <li><Link className="hover:underline underline-offset-4" href="/shop-the-look">Shop the Look</Link></li>
                 <li><Link className="hover:underline underline-offset-4" href="/ai-stylist">AI Stylist</Link></li>
+                <li><Link className="hover:underline underline-offset-4" href="/looks">This Week</Link></li>
                 <li><Link className="hover:underline underline-offset-4" href="/style">Celebrity Style</Link></li>
                 <li><Link className="hover:underline underline-offset-4" href="/blog">Guides</Link></li>
                 <li><Link className="hover:underline underline-offset-4" href="/pricing">Pricing</Link></li>
@@ -103,6 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <li><Link className="hover:underline" href="/shop-the-look">Shop the Look</Link></li>
                   <li><Link className="hover:underline" href="/ai-stylist">AI Stylist</Link></li>
                   <li><Link className="hover:underline" href="/pricing">Pricing</Link></li>
+                  <li><Link className="hover:underline" href="/looks">Celebrity looks this week</Link></li>
                   <li><Link className="hover:underline" href="/style">Celebrity style</Link></li>
                   <li><Link className="hover:underline" href="/blog">Style guides</Link></li>
                 </ul>

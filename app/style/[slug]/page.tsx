@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CELEBS, getCeleb, shopHref } from "@/lib/celebs";
+import { getDrops, euro, fmtDate } from "@/lib/drops";
+
+export const revalidate = 3600;
 
 const BASE = "https://runwaytwin.com";
 
@@ -24,9 +27,10 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   };
 }
 
-export default function CelebPage({ params }: { params: { slug: string } }) {
+export default async function CelebPage({ params }: { params: { slug: string } }) {
   const c = getCeleb(params.slug);
   if (!c) notFound();
+  const latest = (await getDrops(200)).filter((d) => d.celebrity.toLowerCase().includes(c.name.toLowerCase().split(" ").slice(-1)[0]) && d.celebrity.toLowerCase().startsWith(c.short.toLowerCase())).slice(0, 6);
   const url = `${BASE}/style/${c.slug}`;
   const related = c.related.map(getCeleb).filter(Boolean) as NonNullable<ReturnType<typeof getCeleb>>[];
   const shop = shopHref(c.name);
@@ -85,6 +89,22 @@ export default function CelebPage({ params }: { params: { slug: string } }) {
       </header>
 
       <article className="mx-auto max-w-3xl px-5 pb-14">
+        {latest.length > 0 && (
+          <section className="mt-6 rounded-3xl bg-[#1A1A1A] p-7 text-white">
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#C9A96E]">Latest looks</p>
+            <ul className="mt-4 space-y-3">
+              {latest.map((d) => (
+                <li key={d.slug}>
+                  <Link href={`/looks/${d.slug}`} className="group block">
+                    <span className="text-[12px] text-neutral-400">{fmtDate(d.look_date)}</span>
+                    <span className="block font-serif text-xl group-hover:underline">{d.event}</span>
+                    {d.twin && <span className="text-[13px] text-neutral-300">{d.twin.score}% of the look for {euro(d.twin.cost)}</span>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <section className="mt-6 rounded-3xl border border-neutral-200 bg-white p-7">
           <h2 className="font-serif text-2xl tracking-tight md:text-3xl">The {c.short} formula</h2>
           <ol className="mt-5 space-y-3">
