@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDrop, getDrops, appLookHref, tierShopHref, euro, fmtDate, slugOfCeleb, type Drop, type DropItem } from "@/lib/drops";
+import { getDrop, getDrops, getEvents, appLookHref, tierShopHref, euro, fmtDate, slugOfCeleb, type Drop, type DropItem } from "@/lib/drops";
 import { getCeleb } from "@/lib/celebs";
 
 const BASE = "https://runwaytwin.com";
@@ -75,6 +75,7 @@ export default async function LookPage({ params }: { params: { slug: string } })
   const brands = credited(d).map((i) => `${i.brand} (${i.name})`);
   const others = (await getDrops(40)).filter((x) => x.slug !== d.slug).slice(0, 6);
   const lowTotal = d.totals?.high_street || 0;
+  const ev = (await getEvents()).find((e) => e.looks.some((x) => x.slug === d.slug));
 
   const faq = [
     {
@@ -182,6 +183,7 @@ export default async function LookPage({ params }: { params: { slug: string } })
         ) : null}
 
         <nav className="mt-12 border-t border-neutral-200 pt-6 text-sm" aria-label="More looks">
+          {ev && <p className="mb-4"><Link href={`/events/${ev.slug}`} className="font-semibold underline underline-offset-4">Everyone at {ev.name} {ev.year} →</Link></p>}
           {hub && <p className="mb-4"><Link href={`/style/${hub.slug}`} className="font-semibold underline underline-offset-4">{hub.name}&apos;s style formula →</Link></p>}
           {others.length > 0 && (
             <>

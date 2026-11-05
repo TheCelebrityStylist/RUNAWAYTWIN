@@ -92,3 +92,24 @@ export const fmtDate = (d: string) => {
   }
 };
 export const slugOfCeleb = (name: string) => name.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+/** Event hubs: looks grouped by occasion ("CFDA Fashion Awards, New York" + year). */
+export type EventHub = { slug: string; name: string; year: string; looks: Drop[]; latest: string };
+const eventKey = (d: Drop) => d.event.split(",")[0].replace(/\b(19|20)\d{2}\b/g, "").replace(/\s{2,}/g, " ").trim();
+export async function getEvents(minLooks = 2): Promise<EventHub[]> {
+  const all = await getDrops(500);
+  const map = new Map<string, EventHub>();
+  for (const d of all) {
+    const name = eventKey(d);
+    const year = (d.look_date || "").slice(0, 4);
+    const slug = slugOfCeleb(`${name} ${year}`);
+    const hub = map.get(slug) || { slug, name, year, looks: [], latest: d.published_at || "" };
+    hub.looks.push(d);
+    if ((d.published_at || "") > hub.latest) hub.latest = d.published_at || "";
+    map.set(slug, hub);
+  }
+  return [...map.values()].filter((e) => e.looks.length >= minLooks).sort((a, b) => b.latest.localeCompare(a.latest));
+}
+export async function getEvent(slug: string) {
+  return (await getEvents(1)).find((e) => e.slug === slug) || null;
+}

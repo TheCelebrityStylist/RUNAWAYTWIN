@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { TOOLS } from "@/lib/tools";
 import { CELEBS } from "@/lib/celebs";
-import { getDrops } from "@/lib/drops";
+import { getDrops, getEvents } from "@/lib/drops";
 
 export const revalidate = 3600;
 
@@ -16,8 +16,10 @@ const POSTS = [
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const drops = await getDrops(500);
+  const events = await getEvents();
   return [
     { url: `${BASE}/looks`, lastModified: drops[0]?.published_at ? new Date(drops[0].published_at) : now, changeFrequency: "daily", priority: 0.95 },
+    ...events.map((e) => ({ url: `${BASE}/events/${e.slug}`, lastModified: e.latest ? new Date(e.latest) : now, changeFrequency: "daily" as const, priority: 0.9 })),
     ...drops.map((d) => ({ url: `${BASE}/looks/${d.slug}`, lastModified: d.published_at ? new Date(d.published_at) : now, changeFrequency: "weekly" as const, priority: 0.85 })),
     { url: `${BASE}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
     ...TOOLS.map((t) => ({ url: `${BASE}/${t.slug}`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.9 })),
