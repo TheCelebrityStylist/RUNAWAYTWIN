@@ -16,6 +16,44 @@ export type ToolPage = {
 
 export const TOOLS: ToolPage[] = [
   {
+    slug: "what-celebrity-do-i-dress-like",
+    title: "What Celebrity Do I Dress Like? Find Your Style Twin From One Photo",
+    description:
+      "Upload a mirror selfie and find out which celebrity you dress like: Hailey Bieber, Zendaya, Sofia Richie or 37 others. Judged on your clothes, never your face. Free, no account needed.",
+    eyebrow: "Style Twin",
+    h1: "What celebrity do you dress like?",
+    lede:
+      "Upload one mirror selfie. RunwayTwin reads your outfit — the cut, the palette, the fabrics, the little signature moves — and matches it against the documented style of 40 icons. You get a percentage, the reason, and the one piece that would make it closer.",
+    steps: [
+      ["Upload a mirror selfie", "Full outfit in view works best. Your photo is uploaded privately and never stored."],
+      ["We read the clothes", "Silhouette, colours, fabrics, shoes, bag. Never your face, body or looks: we judge the outfit, not the person."],
+      ["Get your Style Twin", "\"You dress 74% like Hailey Bieber\" plus two runners-up, why, and the one piece that closes the gap. Share it as a story card."],
+    ],
+    sections: [
+      {
+        h2: "Not a personality quiz",
+        body: [
+          "Most \"which celebrity are you\" tests ask what you'd order for breakfast. This one looks at what you actually wear. The match is based on the styling habits each person is known for: Hailey Bieber's oversized tailoring over fitted basics, Sofia Richie's soft neutrals and no logos, Bella Hadid's low-slung archive pieces, Zendaya's sculpted shapes.",
+          "The 40 icons include women and men — Kendall Jenner, Rihanna, Dua Lipa, Matilda Djerf, Alexa Chung, Carolyn Bessette-Kennedy, Harry Styles, Jacob Elordi, Timothée Chalamet, A$AP Rocky and more — and the match ignores gender. A tailored coat is a tailored coat.",
+        ],
+      },
+      {
+        h2: "From one outfit to your whole closet",
+        body: [
+          "One photo shows one outfit. With a free account you can snap your closet once and get your Style Twin from everything you own, then see, for any celebrity look, how much you could already wear tonight for €0.",
+        ],
+      },
+    ],
+    faq: [
+      { q: "Is it free?", a: "Yes. Three photos a day without an account, more with a free account." },
+      { q: "Do you use face recognition?", a: "No. RunwayTwin never identifies people or compares faces or bodies. It only describes the clothes and accessories in the photo." },
+      { q: "Is my photo stored?", a: "No. It is uploaded to private storage only to be analysed and is not kept with your result." },
+      { q: "How accurate is the percentage?", a: "It's an AI stylist's estimate of how close your outfit's styling is to that person's typical style. Use it for fun and for shopping ideas, not as a verdict." },
+    ],
+    cta: "Find my Style Twin",
+    ctaHref: "https://app.runwaytwin.com/StyleTwin",
+  },
+  {
     slug: "ai-stylist",
     title: "AI Stylist — Your Personal AI Fashion Stylist, Free to Try",
     description:

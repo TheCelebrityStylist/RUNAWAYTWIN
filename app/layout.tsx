@@ -105,6 +105,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <li><Link className="hover:underline" href="/ai-stylist">AI Stylist</Link></li>
                   <li><Link className="hover:underline" href="/pricing">Pricing</Link></li>
                   <li><Link className="hover:underline" href="/looks">Celebrity looks this week</Link></li>
+                  <li><Link className="hover:underline" href="/dupe-index">The Dupe Index</Link></li>
+                  <li><Link className="hover:underline" href="/what-celebrity-do-i-dress-like">What celebrity do I dress like?</Link></li>
                   <li><Link className="hover:underline" href="/style">Celebrity style</Link></li>
                   <li><Link className="hover:underline" href="/blog">Style guides</Link></li>
                 </ul>

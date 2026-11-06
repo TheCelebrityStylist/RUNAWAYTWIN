@@ -19,6 +19,10 @@ Key facts:
 - Drop Radar: every morning, the most-covered celebrity looks of the last few days are broken down and published at ${BASE}/looks.
 - Made in the Netherlands; prices in euros; shops include Zalando, ASOS, Farfetch and Vestiaire Collective.
 
+## Data
+- [The Dupe Index](${BASE}/dupe-index): how cheaply this week's celebrity looks can be recreated; open JSON at ${BASE}/dupe-index.json (CC BY 4.0).
+- [What celebrity do I dress like?](${BASE}/what-celebrity-do-i-dress-like): Style Twin from one photo, judged on clothes only.
+
 ## Celebrity looks this week
 ${drops.map((d) => `- [${d.celebrity} at ${d.event}](${BASE}/looks/${d.slug}): ${d.items.length} ${d.items.length === 1 ? "piece" : "pieces"}${d.twin ? `; ${d.twin.score}% of the look for ${euro(d.twin.cost)} (originals ~${euro(d.twin.originals)})` : ""}`).join("\n") || "- Updated daily."}
 

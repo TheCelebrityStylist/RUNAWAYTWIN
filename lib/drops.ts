@@ -113,3 +113,41 @@ export async function getEvents(minLooks = 2): Promise<EventHub[]> {
 export async function getEvent(slug: string) {
   return (await getEvents(1)).find((e) => e.slug === slug) || null;
 }
+
+/** The Dupe Index: how cheaply this week's celebrity looks can be recreated. Computed from Drop Radar data. */
+export async function getDupeIndex() {
+  const drops = (await getDrops(500)).filter((d) => d.twin && d.twin.originals > 0 && d.twin.cost > 0);
+  const med = (xs: number[]) => {
+    if (!xs.length) return 0;
+    const a = [...xs].sort((x, y) => x - y);
+    const m = Math.floor(a.length / 2);
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  };
+  const rows = drops.map((d) => ({
+    slug: d.slug,
+    celebrity: d.celebrity,
+    event: d.event,
+    date: d.look_date,
+    score: d.twin!.score,
+    cost: d.twin!.cost,
+    originals: d.twin!.originals,
+    share: d.twin!.cost / d.twin!.originals, // fraction of the original price
+    pieces: d.items.length,
+  }));
+  const designers = new Map<string, number>();
+  for (const d of drops) for (const i of d.items) if (i.brand && i.brand_confidence === "high") designers.set(i.brand, (designers.get(i.brand) || 0) + 1);
+  // "Twin value": resemblance per % of price. Higher = easier to recreate for less.
+  const value = (r: (typeof rows)[number]) => r.score / Math.max(0.5, r.share * 100);
+  return {
+    updated: drops[0]?.published_at || null,
+    looks: rows.length,
+    medianScore: Math.round(med(rows.map((r) => r.score))),
+    medianShare: med(rows.map((r) => r.share)),
+    medianCost: Math.round(med(rows.map((r) => r.cost))),
+    medianOriginals: Math.round(med(rows.map((r) => r.originals))),
+    easiest: [...rows].sort((a, b) => value(b) - value(a)).slice(0, 10),
+    hardest: [...rows].sort((a, b) => a.score - b.score).slice(0, 5),
+    designers: [...designers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, n]) => ({ name, looks: n })),
+    rows,
+  };
+}

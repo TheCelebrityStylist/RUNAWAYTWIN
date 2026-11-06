@@ -148,6 +148,21 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ============================ STYLE TWIN ============================ */}
+      <section aria-labelledby="twin-title" className="mx-auto max-w-6xl px-5 pb-14">
+        <div className="grid items-center gap-6 rounded-3xl bg-[#1A1A1A] p-8 text-white md:grid-cols-[1.3fr_1fr] md:p-10">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#C9A96E]">New · Style Twin</p>
+            <h2 id="twin-title" className="mt-3 font-serif text-[34px] leading-[1.05] md:text-[46px]">What celebrity do you dress like?</h2>
+            <p className="mt-4 max-w-lg text-[15px] leading-7 text-neutral-300">One mirror selfie. We read the outfit, never the face, and match it against 40 style icons. Free, no account.</p>
+          </div>
+          <div className="flex flex-col gap-3 md:items-end">
+            <a href="https://app.runwaytwin.com/StyleTwin" className="inline-flex justify-center rounded-full bg-[#C9A96E] px-7 py-4 text-sm font-semibold text-[#1A1A1A] hover:opacity-90">Find my Style Twin</a>
+            <Link href="/dupe-index" className="text-sm text-neutral-300 underline underline-offset-4">Or see the Dupe Index →</Link>
+          </div>
+        </div>
+      </section>
+
       {/* ============================ HOW IT WORKS ============================ */}
       <section aria-labelledby="how-title" className="border-y border-neutral-200 bg-white">
         <div className="mx-auto max-w-6xl px-5 py-14">
