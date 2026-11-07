@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { TOOLS } from "@/lib/tools";
 import { CELEBS } from "@/lib/celebs";
 import { getDrops, getEvents } from "@/lib/drops";
+import { ARTICLES } from "@/lib/journal";
 
 export const revalidate = 3600;
 
@@ -27,6 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/style`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     ...CELEBS.map((c) => ({ url: `${BASE}/style/${c.slug}`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.8 })),
     { url: `${BASE}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    ...ARTICLES.map((a) => ({ url: `${BASE}/blog/${a.slug}`, lastModified: new Date(a.updated || a.published), changeFrequency: "monthly" as const, priority: 0.85 })),
     ...POSTS.map((slug) => ({ url: `${BASE}/blog/${slug}`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.7 })),
     { url: `${BASE}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${BASE}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },

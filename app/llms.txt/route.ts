@@ -1,6 +1,7 @@
 import { TOOLS } from "@/lib/tools";
 import { CELEBS } from "@/lib/celebs";
 import { getDrops, euro } from "@/lib/drops";
+import { ARTICLES } from "@/lib/journal";
 
 export const revalidate = 3600;
 const BASE = "https://runwaytwin.com";
@@ -22,6 +23,9 @@ Key facts:
 ## Data
 - [The Dupe Index](${BASE}/dupe-index): how cheaply this week's celebrity looks can be recreated; open JSON at ${BASE}/dupe-index.json (CC BY 4.0).
 - [What celebrity do I dress like?](${BASE}/what-celebrity-do-i-dress-like): Style Twin from one photo, judged on clothes only.
+
+## Journal (original data and guides)
+${ARTICLES.map((a) => `- [${a.title}](${BASE}/blog/${a.slug}): ${a.description}`).join("\n")}
 
 ## Celebrity looks this week
 ${drops.map((d) => `- [${d.celebrity} at ${d.event}](${BASE}/looks/${d.slug}): ${d.items.length} ${d.items.length === 1 ? "piece" : "pieces"}${d.twin ? `; ${d.twin.score}% of the look for ${euro(d.twin.cost)} (originals ~${euro(d.twin.originals)})` : ""}`).join("\n") || "- Updated daily."}

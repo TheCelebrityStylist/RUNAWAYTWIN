@@ -1,0 +1,112 @@
+import type { Article } from "./types";
+
+const APP = "https://app.runwaytwin.com";
+
+export const TOOL_ARTICLES: Article[] = [
+  {
+    slug: "how-to-find-clothes-from-a-photo",
+    title: "How to find clothes from a photo: every method, honestly compared",
+    seoTitle: "How to Find Clothes From a Photo in 2026: 6 Methods Compared",
+    description:
+      "Reverse image search, shopping lenses, AI stylists, fashion press credits, creator communities and asking the source. What each method is good at, where it fails, and the order to try them in.",
+    kicker: "Guide",
+    dek: "You saw the jacket. You have the screenshot. Here is how to go from photo to product, and why the right method depends on whether you want the exact piece or the look.",
+    published: "2026-11-07",
+    readMins: 8,
+    tags: ["Find clothes from photo", "Visual search", "Shopping guide"],
+    body: [
+      { t: "p", text: "There are two different questions hiding in \"find this outfit\": what exactly is it, and where can I get something like it? Exact identification needs a match in a database or a credit from someone who knows. A lookalike needs a description good enough to search with. Most tools are built for one, not both." },
+      { t: "h2", text: "1. Reverse image search and shopping lenses" },
+      { t: "p", text: "Google Lens, Pinterest's visual search and the camera search built into several large retailers compare your photo with images they've indexed. Best for: products that are photographed a lot, like popular trainers, well-known bags, items a big retailer sells right now. Weak at: anything worn on a person in a busy photo, anything sold out, and anything from a small brand. Results lean towards whatever is most indexed or sponsored." },
+      { t: "h2", text: "2. Fashion press credits" },
+      { t: "p", text: "For celebrities, the most reliable source is the credit. Red-carpet reports, stylists' and designers' own posts and the \"what she wore\" round-ups in fashion media often name the designer for every piece. Best for: red carpets, premieres, award shows. Weak at: off-duty and street-style looks, which are often uncredited or credited days later." },
+      { t: "h2", text: "3. Ask the source" },
+      { t: "p", text: "Creators often tag outfits or keep a link-in-bio shop; replying to a post or checking their pinned links is underrated. Best for: influencer outfits. Weak at: celebrities and anything older than a few weeks." },
+      { t: "h2", text: "4. Communities" },
+      { t: "p", text: "Fashion-identification communities on Reddit and TikTok are remarkably good at obscure and vintage pieces. Best for: vintage, archive, one-off items. Weak at: speed. It can take days, or never." },
+      { t: "h2", text: "5. Describe it and search" },
+      { t: "p", text: "The underused skill: describe the piece the way a shop's search box understands it. Colour, material, type, one key detail. \"Cream cable-knit wool jumper\", not \"cosy oversized knit\". Then search in two or three shops. Best for: lookalikes. Weak at: the exact item." },
+      { t: "h2", text: "6. AI outfit breakdown" },
+      { t: "p", text: "Tools like RunwayTwin do steps 2 and 5 for every piece in the photo at once: identify each item, name the brand when there's a visible logo, a signature design or a press credit, write the shop-ready description, and find it at several price levels. Best for: whole outfits, and getting the look at a set budget. Weak at: guaranteeing the exact item when nothing identifies it, which no method can do from a photo alone." },
+      { t: "table", head: ["Method", "Exact item", "Lookalikes", "Whole outfit", "Speed"], rows: [
+        ["Reverse image / shopping lens", "Good for popular products", "Mixed", "One item at a time", "Seconds"],
+        ["Fashion press credits", "Best for celebrities", "No", "Yes, when credited", "Minutes"],
+        ["Ask the source", "Best for creators", "No", "Sometimes", "Hours to days"],
+        ["Communities", "Best for vintage", "Sometimes", "Sometimes", "Days"],
+        ["Describe and search", "Rarely", "Good", "Slow", "Minutes per piece"],
+        ["AI outfit breakdown", "When identifiable", "Good", "Yes", "Seconds"],
+      ] },
+      { t: "h2", text: "The order to try them in" },
+      { t: "ol", items: [
+        "Celebrity on a red carpet: press credits first, then an AI breakdown for the alternatives.",
+        "A creator: check their tags and links, then ask.",
+        "A single popular product: a shopping lens.",
+        "A whole outfit you want at your budget: an AI breakdown.",
+        "Vintage or a one-off: communities.",
+      ] },
+      { t: "callout", title: "Get a better result from any tool", text: "Crop to the outfit, use the sharpest frame (pause the video on the clearest moment), make sure shoes are in frame if you want shoes, and if you know who's wearing it, say so: it unlocks press credits." },
+    ],
+    faq: [
+      { q: "How can I find clothes from a picture?", a: "For a single popular product, use a shopping lens such as Google Lens. For a celebrity look, check press credits. For a whole outfit or a lookalike at a set budget, use an AI outfit breakdown that identifies every piece and finds it at several price levels." },
+      { q: "Can AI identify the exact brand from a photo?", a: "Only when something identifies it: a visible logo, an unmistakable signature design, or a press credit. Otherwise the honest answer is a close match, not the exact item." },
+    ],
+    related: ["how-to-judge-a-dupe-twin-score", "celebrity-style-archetypes-guide"],
+    cta: { text: "Break down any outfit photo", href: `${APP}/OutfitBreakdown` },
+  },
+
+  {
+    slug: "clothing-size-conversion-eu-uk-us",
+    title: "EU, UK, US and Italian clothing sizes: the conversion chart that matches the shops",
+    seoTitle: "Women's Clothing Size Conversion Chart: EU, UK, US, IT (+ Shoes)",
+    description:
+      "UK 8 is EU 36, US 4 and IT 40. A clean women's size conversion chart for clothing and shoes, checked against ASOS and Primark's own size guides, plus why your size changes between brands.",
+    kicker: "Reference",
+    dek: "Shopping a look across Zalando, ASOS, Farfetch and a brand's own store means four size systems in one basket. Here is the chart, and the three reasons it won't always hold.",
+    published: "2026-11-07",
+    readMins: 4,
+    tags: ["Size guide", "Size conversion", "Reference"],
+    body: [
+      { t: "h2", text: "Women's clothing" },
+      { t: "table", head: ["UK", "EU (NL, DE, BE)", "US", "IT", "Letter (typical)"], rows: [
+        ["4", "32", "0", "36", "XXS"],
+        ["6", "34", "2", "38", "XS"],
+        ["8", "36", "4", "40", "S"],
+        ["10", "38", "6", "42", "M"],
+        ["12", "40", "8", "44", "M/L"],
+        ["14", "42", "10", "46", "L"],
+        ["16", "44", "12", "48", "XL"],
+        ["18", "46", "14", "50", "XL/XXL"],
+        ["20", "48", "16", "52", "XXL"],
+      ], caption: "Numeric conversions as published in ASOS's and Primark's women's size guides (November 2026). Letter sizes vary most between brands; treat them as a guide." },
+      { t: "p", text: "French sizing usually runs one step above EU sizing (EU 36 is often labelled FR 38), which is why French brands can feel a size small if you shop by the number alone." },
+      { t: "h2", text: "Women's shoes" },
+      { t: "table", head: ["UK", "EU", "US"], rows: [
+        ["2", "35", "4"],
+        ["3", "36", "5"],
+        ["4", "37", "6"],
+        ["5", "38", "7"],
+        ["6", "39", "8"],
+        ["7", "40/41", "9"],
+        ["8", "42", "10"],
+      ], caption: "As published in Primark's women's size guide. Shoe conversions vary by last and brand; half sizes are the most common source of returns." },
+      { t: "h2", text: "Why your size changes between brands" },
+      { t: "ol", items: [
+        "Different fit models. Every brand cuts to its own body measurements; the same label means different centimetres.",
+        "Vanity sizing. Some brands have drifted their sizes larger over time, so a 38 now measures what a 40 once did.",
+        "Fabric and cut. Rigid denim, tailored wool and bias-cut silk fit differently from jersey in the same size.",
+      ] },
+      { t: "callout", title: "The reliable method", text: "Measure bust, waist and hips in centimetres and compare with each brand's own chart. Then save your size per brand once, so you don't have to do it again. RunwayTwin's Size Passport does exactly that, and shows your size next to every piece you shop." },
+    ],
+    faq: [
+      { q: "What is UK 8 in EU size?", a: "UK 8 is usually EU 36, US 4 and IT 40 in women's clothing." },
+      { q: "What is EU 38 in UK size?", a: "EU 38 is usually UK 10, US 6 and IT 42." },
+      { q: "What is EU 38 in UK shoe size?", a: "In women's shoes, EU 38 is usually UK 5 and US 7, though brands vary." },
+    ],
+    sources: [
+      { name: "ASOS women's size guide", url: "https://www.asos.com/us/discover/size-charts/women/dresses" },
+      { name: "Primark women's size charts", url: "https://www.primark.com/en-gb/size-charts/women" },
+    ],
+    related: ["how-to-find-clothes-from-a-photo"],
+    cta: { text: "Save your sizes once with Size Passport", href: `${APP}/Passport` },
+  },
+];

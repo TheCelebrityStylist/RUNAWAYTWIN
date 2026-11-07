@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ARTICLES } from "@/lib/journal";
 
 /* =========================================================================
    RunwayTwin — Blog Index (Ultra-Premium • Storytelling • SEO & CRO tuned)
@@ -284,6 +285,20 @@ export default function Page({
           <span className="font-medium">wearable</span> formulas—palettes,
           silhouettes and finishing you can apply tomorrow.
         </p>
+      </section>
+
+      {/* ========================== Journal: data & guides ========================== */}
+      <section className="mx-auto max-w-6xl px-5 pb-10">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {ARTICLES.map((a, i) => (
+            <Link key={a.slug} href={`/blog/${a.slug}`} className={`group rounded-3xl border p-6 transition hover:border-neutral-500 ${i === 0 ? "border-transparent bg-[#1A1A1A] text-white md:col-span-2" : "border-neutral-200 bg-white"}`}>
+              <p className={`text-[11px] font-semibold uppercase tracking-[0.25em] ${i === 0 ? "text-[#C9A96E]" : "text-[hsl(27_65%_42%)]"}`}>{a.kicker}</p>
+              <h2 className={`mt-2 font-serif leading-tight group-hover:underline ${i === 0 ? "text-3xl md:text-4xl" : "text-2xl"}`}>{a.title}</h2>
+              <p className={`mt-3 text-[14px] leading-6 ${i === 0 ? "text-neutral-300" : "text-neutral-600"}`}>{a.dek}</p>
+              <p className={`mt-3 text-[12px] ${i === 0 ? "text-neutral-400" : "text-neutral-500"}`}>{a.readMins} min read</p>
+            </Link>
+          ))}
+        </div>
       </section>
 
       {/* ============================== Featured ============================== */}
