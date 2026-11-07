@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDrop, getDrops, getEvents, appLookHref, tierShopHref, euro, fmtDate, slugOfCeleb, type Drop, type DropItem } from "@/lib/drops";
+import { getDrop, getDrops, getEvents, appLookHref, tierShopHref, productHref, euro, fmtDate, slugOfCeleb, type Drop, type DropItem, type Product } from "@/lib/drops";
 import { getCeleb } from "@/lib/celebs";
 
 const BASE = "https://runwaytwin.com";
@@ -31,7 +31,35 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-function Piece({ it }: { it: DropItem }) {
+const TIER_LABEL: Record<string, string> = { high_street: "High street", mid: "Mid-range", luxury: "Luxury", preloved: "Pre-loved" };
+
+function Products({ list }: { list: Product[] }) {
+  return (
+    <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+      {list.map((p) => (
+        <a key={p.url} href={productHref(p)} rel="sponsored nofollow noopener" target="_blank" className="group w-[136px] flex-shrink-0 overflow-hidden rounded-xl border border-neutral-200 bg-white hover:border-neutral-500">
+          <div className="relative h-[150px] w-full bg-[#F5F0E8]">
+            {p.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.image} alt={p.title} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full items-center justify-center px-2 text-center text-[12px] font-semibold">{p.brand || p.shop}</div>
+            )}
+            {p.match ? <span className="absolute left-1.5 top-1.5 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold">{p.match}%</span> : null}
+          </div>
+          <div className="p-2">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-neutral-500">{TIER_LABEL[p.tier || ""] || ""}</p>
+            <p className="truncate text-[12px] font-semibold">{p.brand || p.shop}</p>
+            <p className="truncate text-[11px] text-neutral-600" title={p.title}>{p.title}</p>
+            <p className="mt-1 flex justify-between text-[12px]"><b>{euro(p.price_eur)}</b><span className="truncate pl-1 text-[10px] text-neutral-500">{p.shop}</span></p>
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function Piece({ it, products }: { it: DropItem; products?: Product[] }) {
   const exact = it.brand && it.brand_confidence === "high";
   const tiers = [
     { k: "high_street" as const, label: "High street" },
@@ -52,6 +80,7 @@ function Piece({ it }: { it: DropItem }) {
           {it.details && <p className="mt-1 text-[14px] leading-6 text-neutral-700">{it.details}</p>}
         </div>
       </div>
+      {products?.length ? <Products list={products} /> : null}
       <div className="mt-4 grid grid-cols-3 gap-2">
         {tiers.map(({ k, label }) =>
           it[k]?.price_eur ? (
@@ -153,7 +182,7 @@ export default async function LookPage({ params }: { params: { slug: string } })
 
       <article className="mx-auto max-w-3xl px-5 py-10">
         <h2 className="font-serif text-2xl tracking-tight md:text-3xl">Every piece, at three prices</h2>
-        <ul className="mt-5 space-y-3">{d.items.map((it, i) => <Piece key={i} it={it} />)}</ul>
+        <ul className="mt-5 space-y-3">{d.items.map((it, i) => <Piece key={i} it={it} products={d.products?.[String(i)]} />)}</ul>
 
         {d.styling_tips?.length ? (
           <section className="mt-10">

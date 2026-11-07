@@ -22,6 +22,7 @@ export type DropItem = {
   mid?: Tier;
   high_street?: Tier;
 };
+export type Product = { url: string; title: string; brand?: string; shop?: string; price_eur?: number | null; image?: string; tier?: string; match?: number; verified?: boolean };
 export type Drop = {
   id: string;
   slug: string;
@@ -40,6 +41,7 @@ export type Drop = {
   published_at?: string;
   heat?: number;
   status?: string;
+  products?: Record<string, Product[]>;
 };
 
 export async function getDrops(limit = 200): Promise<Drop[]> {
@@ -151,3 +153,5 @@ export async function getDupeIndex() {
     rows,
   };
 }
+
+export const productHref = (p: Product) => `/clk?u=${encodeURIComponent(p.url)}&rid=drop_product_${p.tier || "x"}`;
