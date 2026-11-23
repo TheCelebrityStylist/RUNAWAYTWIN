@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: { type: string } })
   const url = `${BASE}/pieces/${t.slug}`;
   const title = `Celebrity ${t.label}: Get the Look for Less`;
   const names = [...new Set(t.rows.map((r) => r.drop.celebrity))].slice(0, 3).join(", ");
-  const description = clip(`The ${t.plural} celebrities wore recently, from ${names} and more. Credited designers, plus close matches at high-street, mid-range and luxury prices.`);
+  const description = clip(`Celebrity ${t.plural} from ${names} and more: credited designers and close matches at high-street, mid-range and luxury prices.`);
   return {
     title: { absolute: fitTitle([title, `Celebrity ${t.label}: Get the Look`, `Celebrity ${t.label}`]) },
     description,

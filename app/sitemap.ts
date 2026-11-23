@@ -22,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pieces = await getPieceTypes();
   const editorial = new Set(CELEBS.map((c) => c.slug));
   const latestOf = (slug: string) => hubs.find((h) => h.slug === slug)?.latest.published_at;
-  const STATIC = new Date("2026-11-24"); // last edit of hand-written pages; bump when they change
+  const STATIC = new Date("2026-11-23"); // last edit of hand-written pages; bump when they change
   const d = (x?: string) => (x ? new Date(x) : now);
   return [
     { url: `${BASE}/dupe-index`, lastModified: d(drops[0]?.published_at), changeFrequency: "daily", priority: 0.9 },
