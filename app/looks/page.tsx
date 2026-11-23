@@ -7,13 +7,14 @@ export const revalidate = 1800;
 
 const title = "Celebrity Outfits This Week: Every Piece Identified";
 const description =
-  "What celebrities wore this week, broken down piece by piece: credited designers, close matches at high-street, mid-range and luxury prices, and the best-value way to get each look. Updated every morning.";
+  "What celebrities wore this week, piece by piece: credited designers and close matches at high-street, mid-range and luxury prices. Updated every morning.";
 
 export const metadata: Metadata = {
-  title: { absolute: `${title} | RunwayTwin` },
+  title: { absolute: title },
   description,
   alternates: { canonical: `${BASE}/looks` },
   openGraph: { title, description, url: `${BASE}/looks`, type: "website", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
+  twitter: { card: "summary_large_image", title, description },
 };
 
 export default async function LooksIndex() {
@@ -32,6 +33,9 @@ export default async function LooksIndex() {
       <h1 className="max-w-3xl font-serif text-[38px] leading-[1.05] tracking-tight md:text-[56px]">Worn this week. Broken down by morning.</h1>
       <p className="mt-5 max-w-2xl text-[16px] leading-7 text-neutral-700">
         Every day RunwayTwin reads the fashion press, picks the celebrity looks everyone is covering, and identifies every piece, with the credited designer where there is one and close matches at three prices.
+      </p>
+      <p className="mt-4 text-sm text-neutral-700">
+        Browse by <Link href="/style" className="underline underline-offset-4">celebrity</Link> or by <Link href="/pieces" className="underline underline-offset-4">piece</Link>, or see the <Link href="/dupe-index" className="underline underline-offset-4">Dupe Index</Link>.
       </p>
       {events.length > 0 && (
         <div className="mt-8 flex flex-wrap gap-2">

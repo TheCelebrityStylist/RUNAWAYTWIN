@@ -11,9 +11,9 @@ export const revalidate = 1800;
    ========================================================================= */
 
 export const metadata: Metadata = {
-  title: { absolute: "RunwayTwin — AI Stylist: Shop Any Celebrity Look From a Photo" },
+  title: { absolute: "RunwayTwin — AI Stylist: Shop Celebrity Looks From a Photo" },
   description:
-    "Upload any outfit photo or name a celebrity. RunwayTwin spots every piece — colour, fabric, cut — and shows where to buy it at high-street, mid-range or luxury prices. 3 free looks a month.",
+    "Upload an outfit photo or name a celebrity. RunwayTwin finds every piece at high-street, mid-range or luxury prices. 3 free looks a month.",
   alternates: { canonical: "https://runwaytwin.com" },
   openGraph: {
     title: "RunwayTwin — See it on them. Wear it tomorrow.",
@@ -21,6 +21,12 @@ export const metadata: Metadata = {
       "Upload any outfit photo. See every piece. Shop it at high-street, mid-range or luxury prices.",
     url: "https://runwaytwin.com",
     images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "RunwayTwin" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "RunwayTwin — See it on them. Wear it tomorrow.",
+    description: "Upload any outfit photo. See every piece. Shop it at high-street, mid-range or luxury prices.",
+    images: ["/og.jpg"],
   },
 };
 
@@ -77,9 +83,23 @@ export default async function HomePage() {
           __html: JSON.stringify([
             {
               "@context": "https://schema.org",
-              "@type": "WebSite",
+              "@type": "Organization",
+              "@id": "https://runwaytwin.com/#organization",
               name: "RunwayTwin",
               url: "https://runwaytwin.com",
+              legalName: "Adapthrive",
+              description: "RunwayTwin identifies every piece in a celebrity look or outfit photo and finds it at high-street, mid-range and luxury prices from shops that deliver across the EU.",
+              address: { "@type": "PostalAddress", addressCountry: "NL" },
+              areaServed: "EU",
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "@id": "https://runwaytwin.com/#website",
+              name: "RunwayTwin",
+              url: "https://runwaytwin.com",
+              inLanguage: "en",
+              publisher: { "@id": "https://runwaytwin.com/#organization" },
             },
             {
               "@context": "https://schema.org",
@@ -89,7 +109,7 @@ export default async function HomePage() {
               operatingSystem: "Web",
               offers: [
                 { "@type": "Offer", name: "Free", price: "0", priceCurrency: "EUR" },
-                { "@type": "Offer", name: "RunwayTwin Pro", price: "9.99", priceCurrency: "EUR" },
+                { "@type": "Offer", name: "RunwayTwin Pro", price: "9.99", priceCurrency: "EUR", description: "Per month, including VAT. First 7 days free." },
               ],
             },
             {

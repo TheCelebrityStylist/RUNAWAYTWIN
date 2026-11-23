@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { fitTitle, clip } from "@/lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ARTICLES, getArticle, type Block } from "@/lib/journal";
@@ -14,8 +15,8 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   if (!a) return {};
   const url = `${BASE}/blog/${a.slug}`;
   return {
-    title: { absolute: `${a.seoTitle} | RunwayTwin` },
-    description: a.description,
+    title: { absolute: fitTitle([a.seoTitle]) },
+    description: clip(a.description),
     alternates: { canonical: url },
     openGraph: { title: a.title, description: a.description, url, type: "article", publishedTime: a.published, modifiedTime: a.updated || a.published, tags: a.tags },
     twitter: { card: "summary_large_image", title: a.title, description: a.description },
@@ -162,6 +163,12 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
           <p className="font-semibold text-neutral-900">Cite this</p>
           <p className="mt-1">RunwayTwin Journal, &ldquo;{a.title}&rdquo;, {date(a.published)}. {url}</p>
         </section>
+
+        <nav className="mt-12 text-sm text-neutral-700" aria-label="Explore">
+          See it in practice: <Link href="/looks" className="underline underline-offset-4">this week&apos;s celebrity looks</Link> ·{" "}
+          <Link href="/style" className="underline underline-offset-4">celebrity outfits A–Z</Link> ·{" "}
+          <Link href="/pieces" className="underline underline-offset-4">shop by piece</Link>
+        </nav>
 
         {related.length > 0 && (
           <nav className="mt-12 border-t border-neutral-200 pt-6" aria-label="Related">

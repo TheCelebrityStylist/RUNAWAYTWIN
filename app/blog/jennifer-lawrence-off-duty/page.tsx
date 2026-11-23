@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { clip } from "@/lib/seo";
 import Link from "next/link";
 
 /* =========================================================================
@@ -11,9 +12,9 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    { absolute: "The Jennifer Lawrence Outfit Formula: Her Off-Duty Style, Decoded | RunwayTwin" },
+    { absolute: "Jennifer Lawrence Outfit Formula: Her Off-Duty Style" },
   description:
-    "Decode Jennifer Lawrence’s minimal workwear capsule: neutral palette, clean tailoring, pointed shoes. Body-type notes and a copy-paste outfit recipe.",
+    clip("Decode Jennifer Lawrence’s minimal workwear capsule: neutral palette, clean tailoring, pointed shoes. Body-type notes and a copy-paste outfit recipe."),
   alternates: {
     canonical:
       "https://runwaytwin.com/blog/jennifer-lawrence-off-duty",

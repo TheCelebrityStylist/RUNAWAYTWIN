@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getDupeIndex, euro, fmtDate } from "@/lib/drops";
+import { clip } from "@/lib/seo";
 
 const BASE = "https://runwaytwin.com";
 export const revalidate = 3600;
@@ -10,13 +11,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const pct = Math.max(1, Math.round(x.medianShare * 100));
   const title = "The Dupe Index: How Cheaply Celebrity Looks Can Be Recreated";
   const description = x.looks
-    ? `This week's celebrity looks can be recreated at ${x.medianScore}% resemblance for ${pct}% of the original price (median of ${x.looks} looks). Updated daily from RunwayTwin's Drop Radar.`
+    ? clip(`This week's celebrity looks can be recreated at ${x.medianScore}% resemblance for ${pct}% of the original price (median of ${x.looks} looks). Updated daily.`)
     : "How cheaply this week's celebrity looks can be recreated, updated daily.";
   return {
-    title: { absolute: `${title} | RunwayTwin` },
+    title: { absolute: title },
     description,
     alternates: { canonical: `${BASE}/dupe-index` },
-    openGraph: { title, description, url: `${BASE}/dupe-index`, type: "article" },
+    openGraph: { title, description, url: `${BASE}/dupe-index`, type: "article", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

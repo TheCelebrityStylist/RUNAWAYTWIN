@@ -17,7 +17,7 @@ export type ToolPage = {
 export const TOOLS: ToolPage[] = [
   {
     slug: "what-celebrity-do-i-dress-like",
-    title: "What Celebrity Do I Dress Like? Find Your Style Twin From One Photo",
+    title: "What Celebrity Do I Dress Like? Find Your Style Twin",
     description:
       "Upload a mirror selfie and find out which celebrity you dress like: Hailey Bieber, Zendaya, Sofia Richie or 37 others. Judged on your clothes, never your face. Free, no account needed.",
     eyebrow: "Style Twin",
@@ -99,7 +99,7 @@ export const TOOLS: ToolPage[] = [
   },
   {
     slug: "find-clothes-from-picture",
-    title: "Find Clothes From a Picture — Every Piece, Three Price Levels",
+    title: "Find Clothes From a Picture: Every Piece, Three Prices",
     description:
       "Upload a picture and RunwayTwin finds every piece of clothing in it: colour, fabric, cut, and where to buy it at high-street, mid-range or luxury prices. 3 free searches a month.",
     eyebrow: "Find clothes from a picture",

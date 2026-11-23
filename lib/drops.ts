@@ -155,3 +155,59 @@ export async function getDupeIndex() {
 }
 
 export const productHref = (p: Product) => `/clk?u=${encodeURIComponent(p.url)}&rid=drop_product_${p.tier || "x"}`;
+
+/** Real, checked shop links with a price (only these go into Product structured data). */
+export const shoppable = (list?: Product[]) => (list || []).filter((p) => p.verified && p.url && p.price_eur && p.price_eur > 0);
+
+/** Celebrity hubs built from Drop Radar data: every celebrity with their looks, newest first. */
+export type CelebHub = { slug: string; name: string; looks: Drop[]; latest: Drop };
+export async function getCelebHubs(): Promise<CelebHub[]> {
+  const map = new Map<string, CelebHub>();
+  for (const d of await getDrops(500)) {
+    const slug = slugOfCeleb(d.celebrity);
+    const hub = map.get(slug);
+    if (hub) hub.looks.push(d);
+    else map.set(slug, { slug, name: d.celebrity, looks: [d], latest: d });
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "en"));
+}
+/** A data hub page needs at least this many looks, so it says more than the look page itself. */
+export const HUB_MIN_LOOKS = 2;
+export async function getCelebHub(slug: string) {
+  return (await getCelebHubs()).find((h) => h.slug === slug) || null;
+}
+
+/** Piece-type roundups ("celebrity coats", "celebrity shoes") grouped from item categories. */
+export type PieceType = { slug: string; label: string; plural: string; keys: string[] };
+export const PIECE_TYPES: PieceType[] = [
+  { slug: "dresses", label: "Dresses", plural: "dresses", keys: ["dress", "gown"] },
+  { slug: "coats-and-jackets", label: "Coats & jackets", plural: "coats and jackets", keys: ["outerwear", "coat", "jacket", "blazer"] },
+  { slug: "tops", label: "Tops", plural: "tops", keys: ["top", "shirt", "blouse", "knitwear", "sweater"] },
+  { slug: "trousers-and-skirts", label: "Trousers & skirts", plural: "trousers, skirts and jeans", keys: ["bottom", "trouser", "pant", "skirt", "jean", "short"] },
+  { slug: "suits-and-jumpsuits", label: "Suits & jumpsuits", plural: "suits and jumpsuits", keys: ["suit", "jumpsuit", "set", "one-piece"] },
+  { slug: "shoes", label: "Shoes", plural: "shoes", keys: ["shoe", "footwear", "boot", "heel"] },
+  { slug: "bags", label: "Bags", plural: "bags", keys: ["bag", "handbag", "clutch"] },
+  { slug: "jewellery", label: "Jewellery", plural: "jewellery", keys: ["jewelry", "jewellery", "earring", "necklace"] },
+  { slug: "accessories", label: "Accessories", plural: "accessories", keys: ["accessory", "accessorie", "eyewear", "sunglasse", "hat", "belt", "glove"] },
+];
+export const PIECE_MIN_ITEMS = 4;
+const typeOf = (category: string) => {
+  const raw = (category || "").toLowerCase().trim();
+  const k = raw.replace(/s$/, "");
+  return PIECE_TYPES.find((t) => t.keys.includes(raw) || t.keys.includes(k)) || null;
+};
+export type PieceRow = { drop: Drop; item: DropItem; index: number };
+export async function getPieceTypes(): Promise<(PieceType & { rows: PieceRow[] })[]> {
+  const out = PIECE_TYPES.map((t) => ({ ...t, rows: [] as PieceRow[] }));
+  for (const d of await getDrops(500)) {
+    d.items.forEach((item, index) => {
+      const t = typeOf(item.category);
+      if (t) out.find((o) => o.slug === t.slug)!.rows.push({ drop: d, item, index });
+    });
+  }
+  return out.filter((t) => t.rows.length >= PIECE_MIN_ITEMS);
+}
+export async function getPieceType(slug: string) {
+  return (await getPieceTypes()).find((t) => t.slug === slug) || null;
+}
+export const pieceTypeOf = typeOf;

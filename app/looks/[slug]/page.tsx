@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDrop, getDrops, getEvents, appLookHref, tierShopHref, productHref, euro, fmtDate, slugOfCeleb, type Drop, type DropItem, type Product } from "@/lib/drops";
+import { getDrop, getDrops, getEvents, getCelebHub, HUB_MIN_LOOKS, pieceTypeOf, shoppable, appLookHref, tierShopHref, productHref, euro, fmtDate, slugOfCeleb, type Drop, type DropItem, type Product } from "@/lib/drops";
 import { getCeleb } from "@/lib/celebs";
+import { getArticle } from "@/lib/journal";
+import { fitTitle, clip, breadcrumbLd, productLd, ORG_REF } from "@/lib/seo";
 
 const BASE = "https://runwaytwin.com";
 export const revalidate = 3600;
@@ -15,15 +17,24 @@ export async function generateStaticParams() {
 
 const credited = (d: Drop) => d.items.filter((i) => i.brand && i.brand_confidence === "high");
 const titleOf = (d: Drop) => `${d.celebrity} at ${d.event}: every piece & where to buy it`;
+const evShort = (d: Drop) => d.event.split(",")[0].trim();
+const seoTitle = (d: Drop) =>
+  fitTitle([
+    `${d.celebrity} at ${d.event}: every piece & where to buy`,
+    `${d.celebrity} at ${evShort(d)}: every piece & where to buy`,
+    `${d.celebrity} at ${evShort(d)}: the outfit, piece by piece`,
+    `${d.celebrity} at ${evShort(d)}: outfit details`,
+    `${d.celebrity}'s ${evShort(d)} outfit`,
+  ]);
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const d = await getDrop(params.slug);
   if (!d) return { title: "Look not found", robots: { index: false } };
   const url = `${BASE}/looks/${d.slug}`;
   const brands = credited(d).map((i) => i.brand).filter((b, i, a) => a.indexOf(b) === i).slice(0, 3);
-  const description = `What ${d.celebrity} wore at ${d.event}${brands.length ? ` (${brands.join(", ")})` : ""}: all ${d.items.length} pieces identified${d.twin ? `, and how to get ${d.twin.score}% of the look for ${euro(d.twin.cost)}` : ""}.`;
+  const description = clip(`What ${d.celebrity} wore at ${evShort(d)}${brands.length ? ` (${brands.join(", ")})` : ""}: ${d.items.length} ${d.items.length === 1 ? "piece" : "pieces"} identified${d.twin ? `. Get ${d.twin.score}% of the look for ${euro(d.twin.cost)}` : ""}.`);
   return {
-    title: { absolute: `${titleOf(d)} | RunwayTwin` },
+    title: { absolute: seoTitle(d) },
     description,
     alternates: { canonical: url },
     openGraph: { title: titleOf(d), description, url, type: "article", publishedTime: d.published_at },
@@ -41,7 +52,7 @@ function Products({ list }: { list: Product[] }) {
           <div className="relative h-[150px] w-full bg-[#F5F0E8]">
             {p.image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={p.image} alt={p.title} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              <img src={p.image} alt={p.title} width={136} height={150} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center px-2 text-center text-[12px] font-semibold">{p.brand || p.shop}</div>
             )}
@@ -101,6 +112,11 @@ export default async function LookPage({ params }: { params: { slug: string } })
   if (!d) notFound();
   const url = `${BASE}/looks/${d.slug}`;
   const hub = getCeleb(slugOfCeleb(d.celebrity));
+  const dataHub = hub ? null : await getCelebHub(slugOfCeleb(d.celebrity));
+  const celebHref = hub ? `/style/${hub.slug}` : dataHub && dataHub.looks.length >= HUB_MIN_LOOKS ? `/style/${dataHub.slug}` : null;
+  const types = [...new Map(d.items.map((i) => pieceTypeOf(i.category)).filter(Boolean).map((t) => [t!.slug, t!])).values()];
+  const reads = ["how-to-judge-a-dupe-twin-score", "preloved-original-vs-dupe-cost-per-wear"].map(getArticle).filter(Boolean) as NonNullable<ReturnType<typeof getArticle>>[];
+  const offers = d.items.flatMap((_, i) => shoppable(d.products?.[String(i)]));
   const brands = credited(d).map((i) => `${i.brand} (${i.name})`);
   const others = (await getDrops(40)).filter((x) => x.slug !== d.slug).slice(0, 6);
   const lowTotal = d.totals?.high_street || 0;
@@ -134,21 +150,34 @@ export default async function LookPage({ params }: { params: { slug: string } })
       datePublished: d.published_at,
       dateModified: d.published_at,
       mainEntityOfPage: url,
-      author: { "@type": "Organization", name: "RunwayTwin", url: BASE },
-      publisher: { "@type": "Organization", name: "RunwayTwin", url: BASE },
+      author: ORG_REF,
+      publisher: ORG_REF,
       about: [{ "@type": "Person", name: d.celebrity }, { "@type": "Event", name: d.event, startDate: d.look_date }],
       citation: (d.sources || []).map((s) => ({ "@type": "CreativeWork", name: s.name, url: s.url })),
       mentions: credited(d).map((i) => ({ "@type": "Brand", name: i.brand })),
     },
-    {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: BASE },
-        { "@type": "ListItem", position: 2, name: "Celebrity looks", item: `${BASE}/looks` },
-        { "@type": "ListItem", position: 3, name: `${d.celebrity}, ${d.event}`, item: url },
-      ],
-    },
+    breadcrumbLd(
+      celebHref
+        ? [
+            { name: "Home", url: BASE },
+            { name: "Celebrity style", url: `${BASE}/style` },
+            { name: d.celebrity, url: `${BASE}${celebHref}` },
+            { name: evShort(d), url },
+          ]
+        : [
+            { name: "Home", url: BASE },
+            { name: "Celebrity looks", url: `${BASE}/looks` },
+            { name: `${d.celebrity}, ${evShort(d)}`, url },
+          ],
+    ),
+    ...(offers.length
+      ? [{
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: `Shop ${d.celebrity}'s look from ${evShort(d)}`,
+          itemListElement: offers.slice(0, 30).map((p, i) => ({ "@type": "ListItem", position: i + 1, item: productLd(p) })),
+        }]
+      : []),
     { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
   ];
 
@@ -158,7 +187,16 @@ export default async function LookPage({ params }: { params: { slug: string } })
       <header className="mx-auto max-w-3xl px-5 pt-12 pb-6">
         <nav aria-label="Breadcrumb" className="mb-6 text-xs text-neutral-500">
           <Link href="/" className="hover:underline">Home</Link> <span aria-hidden>›</span>{" "}
-          <Link href="/looks" className="hover:underline">Celebrity looks</Link> <span aria-hidden>›</span> <span>{d.celebrity}</span>
+          {celebHref ? (
+            <>
+              <Link href="/style" className="hover:underline">Celebrity style</Link> <span aria-hidden>›</span>{" "}
+              <Link href={celebHref} className="hover:underline">{d.celebrity}</Link> <span aria-hidden>›</span> <span>{evShort(d)}</span>
+            </>
+          ) : (
+            <>
+              <Link href="/looks" className="hover:underline">Celebrity looks</Link> <span aria-hidden>›</span> <span>{d.celebrity}</span>
+            </>
+          )}
         </nav>
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-[hsl(27_65%_42%)]">Drop Radar · {fmtDate(d.look_date)}</p>
         <h1 className="font-serif text-[34px] leading-[1.08] tracking-tight md:text-[48px]">What {d.celebrity} wore at {d.event}</h1>
@@ -214,6 +252,20 @@ export default async function LookPage({ params }: { params: { slug: string } })
         <nav className="mt-12 border-t border-neutral-200 pt-6 text-sm" aria-label="More looks">
           {ev && <p className="mb-4"><Link href={`/events/${ev.slug}`} className="font-semibold underline underline-offset-4">Everyone at {ev.name} {ev.year} →</Link></p>}
           {hub && <p className="mb-4"><Link href={`/style/${hub.slug}`} className="font-semibold underline underline-offset-4">{hub.name}&apos;s style formula →</Link></p>}
+          {!hub && celebHref && <p className="mb-4"><Link href={celebHref} className="font-semibold underline underline-offset-4">Every {d.celebrity} look we&apos;ve broken down →</Link></p>}
+          {types.length > 0 && (
+            <p className="mb-4 text-neutral-700">
+              Celebrity pieces by type:{" "}
+              {types.map((t, i) => (
+                <span key={t.slug}>{i > 0 ? " · " : ""}<Link href={`/pieces/${t.slug}`} className="underline underline-offset-4">{t.label}</Link></span>
+              ))}
+            </p>
+          )}
+          {reads.length > 0 && (
+            <ul className="mb-6 space-y-1">
+              {reads.map((a) => <li key={a.slug}><Link href={`/blog/${a.slug}`} className="underline underline-offset-4">{a.title}</Link></li>)}
+            </ul>
+          )}
           {others.length > 0 && (
             <>
               <p className="font-semibold">More celebrity looks this week</p>

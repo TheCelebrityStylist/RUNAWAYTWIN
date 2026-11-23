@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { clip } from "@/lib/seo";
 import Link from "next/link";
 import { ARTICLES } from "@/lib/journal";
 
@@ -14,7 +15,7 @@ import { ARTICLES } from "@/lib/journal";
 export const metadata: Metadata = {
   title: "Celebrity Style Guides & Outfit Formulas",
   description:
-    "Editorial, story-driven guides that decode celebrity signatures into wearable outfit formulas. Palettes, silhouettes, body-type notes, and copy-paste recipes.",
+    clip("Editorial, story-driven guides that decode celebrity signatures into wearable outfit formulas. Palettes, silhouettes, body-type notes, and copy-paste recipes."),
   alternates: { canonical: "https://runwaytwin.com/blog" },
   keywords: [
     "celebrity style guide",

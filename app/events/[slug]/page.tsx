@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getEvent, getEvents, euro, fmtDate } from "@/lib/drops";
+import { getEvent, getEvents, getCelebHubs, HUB_MIN_LOOKS, slugOfCeleb, euro, fmtDate } from "@/lib/drops";
+import { getCeleb } from "@/lib/celebs";
+import { getArticle } from "@/lib/journal";
+import { fitTitle, clip, ORG_REF } from "@/lib/seo";
 
 const BASE = "https://runwaytwin.com";
 export const revalidate = 3600;
@@ -17,13 +20,14 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const e = await getEvent(params.slug);
   if (!e) return { title: "Event not found", robots: { index: false } };
   const names = e.looks.slice(0, 4).map((d) => d.celebrity).join(", ");
-  const description = `${e.name} ${e.year} red carpet: ${names}${e.looks.length > 4 ? " and more" : ""}. Every outfit broken down with credited designers and close matches at three prices.`;
+  const description = clip(`${e.name} ${e.year}: ${names}${e.looks.length > 4 ? " and more" : ""}. Every outfit broken down, with credited designers and close matches at three prices.`);
   const url = `${BASE}/events/${e.slug}`;
   return {
-    title: { absolute: `${titleOf(e.name, e.year)} | RunwayTwin` },
+    title: { absolute: fitTitle([titleOf(e.name, e.year), `${e.name} ${e.year}: what everyone wore`, `${e.name} ${e.year} outfits`, `${e.name} outfits`]) },
     description,
     alternates: { canonical: url },
-    openGraph: { title: titleOf(e.name, e.year), description, url, type: "article", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
+    openGraph: { title: titleOf(e.name, e.year), description, url, type: "article", images: [{ url: `/looks/${e.looks[0].slug}/opengraph-image`, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title: titleOf(e.name, e.year), description },
   };
 }
 
@@ -31,6 +35,15 @@ export default async function EventPage({ params }: { params: { slug: string } }
   const e = await getEvent(params.slug);
   if (!e) notFound();
   const url = `${BASE}/events/${e.slug}`;
+  const hubs = await getCelebHubs();
+  const celebHref = (name: string) => {
+    const s = slugOfCeleb(name);
+    if (getCeleb(s)) return `/style/${s}`;
+    const h = hubs.find((x) => x.slug === s);
+    return h && h.looks.length >= HUB_MIN_LOOKS ? `/style/${s}` : null;
+  };
+  const reads = [/cfda/i.test(e.name) ? "cfda-awards-2026-dupe-index" : null, "where-to-spend-and-save-on-clothes", "how-to-judge-a-dupe-twin-score"]
+    .filter(Boolean).map((s) => getArticle(s as string)).filter(Boolean).slice(0, 2) as NonNullable<ReturnType<typeof getArticle>>[];
   const designers = [...new Set(e.looks.flatMap((d) => d.items.filter((i) => i.brand && i.brand_confidence === "high").map((i) => i.brand as string)))];
   const jsonLd = [
     {
@@ -39,8 +52,8 @@ export default async function EventPage({ params }: { params: { slug: string } }
       headline: titleOf(e.name, e.year),
       dateModified: e.latest,
       mainEntityOfPage: url,
-      author: { "@type": "Organization", name: "RunwayTwin", url: BASE },
-      publisher: { "@type": "Organization", name: "RunwayTwin", url: BASE },
+      author: ORG_REF,
+      publisher: ORG_REF,
       about: { "@type": "Event", name: `${e.name} ${e.year}` },
       mentions: e.looks.map((d) => ({ "@type": "Person", name: d.celebrity })),
     },
@@ -73,10 +86,20 @@ export default async function EventPage({ params }: { params: { slug: string } }
             <h2 className="mt-1 font-serif text-2xl"><Link href={`/looks/${d.slug}`} className="hover:underline">{d.celebrity}</Link></h2>
             {d.summary && <p className="mt-2 text-[15px] leading-7 text-neutral-700">{d.summary}</p>}
             {d.twin && <p className="mt-3 text-[13px]"><b>{d.twin.score}%</b> of the look for <b>{euro(d.twin.cost)}</b> · originals ~{euro(d.twin.originals)}</p>}
-            <Link href={`/looks/${d.slug}`} className="mt-4 inline-flex rounded-full bg-black px-5 py-2.5 text-[13px] font-semibold text-white">Every piece</Link>
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <Link href={`/looks/${d.slug}`} className="inline-flex rounded-full bg-black px-5 py-2.5 text-[13px] font-semibold text-white">Every piece</Link>
+              {celebHref(d.celebrity) && <Link href={celebHref(d.celebrity)!} className="text-[13px] underline underline-offset-4">More {d.celebrity} outfits</Link>}
+            </div>
           </li>
         ))}
       </ol>
+      <nav aria-label="Related" className="mt-12 border-t border-neutral-200 pt-6 text-sm">
+        <ul className="space-y-1">
+          {reads.map((a) => <li key={a.slug}><Link href={`/blog/${a.slug}`} className="underline underline-offset-4">{a.title}</Link></li>)}
+          <li><Link href="/looks" className="underline underline-offset-4">All celebrity looks this week</Link></li>
+          <li><Link href="/style" className="underline underline-offset-4">Celebrity outfits A–Z</Link></li>
+        </ul>
+      </nav>
     </div>
   );
 }

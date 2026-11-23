@@ -57,7 +57,7 @@ export const TOOL_ARTICLES: Article[] = [
   {
     slug: "clothing-size-conversion-eu-uk-us",
     title: "EU, UK, US and Italian clothing sizes: the conversion chart that matches the shops",
-    seoTitle: "Women's Clothing Size Conversion Chart: EU, UK, US, IT (+ Shoes)",
+    seoTitle: "Women's Size Conversion Chart: EU, UK, US, IT (+ Shoes)",
     description:
       "UK 8 is EU 36, US 4 and IT 40. A clean women's size conversion chart for clothing and shoes, checked against ASOS and Primark's own size guides, plus why your size changes between brands.",
     kicker: "Reference",

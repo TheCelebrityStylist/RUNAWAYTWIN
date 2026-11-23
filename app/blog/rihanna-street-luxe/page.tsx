@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { clip } from "@/lib/seo";
 import Link from "next/link";
 
 /* =========================================================================
@@ -11,9 +12,9 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    { absolute: "Rihanna Outfits: How to Get Her Street Luxe Style | RunwayTwin" },
+    { absolute: "Rihanna Outfits: How to Get Her Street Luxe Style" },
   description:
-    "Decode Rihanna’s streetwear signature into a wearable formula: oversized outerwear, crop + wide leg, bold accessories. Body-type notes and a copy-paste outfit recipe.",
+    clip("Decode Rihanna’s streetwear signature into a wearable formula: oversized outerwear, crop + wide leg, bold accessories. Body-type notes and a copy-paste outfit recipe."),
   alternates: {
     canonical: "https://runwaytwin.com/blog/rihanna-street-luxe",
   },

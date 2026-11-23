@@ -1,5 +1,6 @@
 // app/affiliate-disclosure/page.tsx
 import type { Metadata } from "next";
+import { clip } from "@/lib/seo";
 import Link from "next/link";
 
 /* =============================================================================
@@ -13,7 +14,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Affiliate Disclosure",
   description:
-    "Some outbound retailer links on RunwayTwin are affiliate links. If you purchase through them, we may earn a small commission at no extra cost to you. Taste and curation remain independent.",
+    clip("Some outbound retailer links on RunwayTwin are affiliate links. If you purchase through them, we may earn a small commission at no extra cost to you. Taste and curation remain independent."),
   alternates: { canonical: "https://runwaytwin.com/affiliate-disclosure" },
   openGraph: {
     title: "Affiliate Disclosure — RunwayTwin",

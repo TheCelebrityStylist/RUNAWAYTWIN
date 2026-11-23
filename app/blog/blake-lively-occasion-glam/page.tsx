@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { clip } from "@/lib/seo";
 import Link from "next/link";
 
 /* =========================================================================
@@ -12,9 +13,9 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    { absolute: "Blake Lively's Dress Style: How to Get Her Occasion Glam | RunwayTwin" },
+    { absolute: "Blake Lively's Dress Style: How to Get Her Occasion Glam" },
   description:
-    "Decode Blake Lively’s celebration dressing: sculpted fit, confident color, sparkle in the right places. A body-type aware formula with a copy-paste outfit recipe.",
+    clip("Decode Blake Lively’s celebration dressing: sculpted fit, confident color, sparkle in the right places. A body-type aware formula with a copy-paste outfit recipe."),
   alternates: {
     canonical: "https://runwaytwin.com/blog/blake-lively-occasion-glam",
   },

@@ -2,35 +2,60 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CELEBS, getCeleb, shopHref } from "@/lib/celebs";
-import { getDrops, euro, fmtDate } from "@/lib/drops";
+import { getDrops, getCelebHub, getCelebHubs, HUB_MIN_LOOKS, slugOfCeleb, euro, fmtDate } from "@/lib/drops";
+import { getArticle } from "@/lib/journal";
+import { fitTitle, clip, ORG_REF } from "@/lib/seo";
+import DataHub, { dataHubMeta } from "./DataHub";
 
 export const revalidate = 3600;
 
 const BASE = "https://runwaytwin.com";
 
-export const dynamicParams = false;
-export function generateStaticParams() {
-  return CELEBS.map((c) => ({ slug: c.slug }));
+/* Two kinds of celebrity page share /style/[slug]:
+   - editorial style formulas (lib/celebs.ts)
+   - data hubs built from Drop Radar looks, for anyone with at least HUB_MIN_LOOKS looks. */
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  const hubs = (await getCelebHubs()).filter((h) => h.looks.length >= HUB_MIN_LOOKS && !getCeleb(h.slug));
+  return [...CELEBS.map((c) => ({ slug: c.slug })), ...hubs.map((h) => ({ slug: h.slug }))];
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
+async function dataHubFor(slug: string) {
+  if (getCeleb(slug)) return null;
+  const h = await getCelebHub(slug);
+  return h && h.looks.length >= HUB_MIN_LOOKS ? h : null;
+}
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const c = getCeleb(params.slug);
-  if (!c) return {};
+  if (!c) {
+    const h = await dataHubFor(params.slug);
+    return h ? dataHubMeta(h) : { title: "Not found", robots: { index: false } };
+  }
   const url = `${BASE}/style/${c.slug}`;
   const title = `${c.name} Outfits: Her Style Formula & Where to Buy It`;
+  const description = clip(c.description);
   return {
-    title: { absolute: `${title} | RunwayTwin` },
-    description: c.description,
+    title: { absolute: fitTitle([title, `${c.name} Outfits: Style Formula & Where to Buy`, `${c.name} Outfits & Style Formula`]) },
+    description,
     alternates: { canonical: url },
-    openGraph: { title, description: c.description, url, type: "article", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
-    twitter: { card: "summary_large_image", title, description: c.description },
+    openGraph: { title, description, url, type: "article", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
 export default async function CelebPage({ params }: { params: { slug: string } }) {
   const c = getCeleb(params.slug);
-  if (!c) notFound();
-  const latest = (await getDrops(200)).filter((d) => d.celebrity.toLowerCase().includes(c.name.toLowerCase().split(" ").slice(-1)[0]) && d.celebrity.toLowerCase().startsWith(c.short.toLowerCase())).slice(0, 6);
+  if (!c) {
+    const h = await dataHubFor(params.slug);
+    if (!h) notFound();
+    return <DataHub hub={h} />;
+  }
+  const last = c.name.toLowerCase().split(" ").slice(-1)[0];
+  const latest = (await getDrops(500))
+    .filter((d) => slugOfCeleb(d.celebrity) === c.slug || (d.celebrity.toLowerCase().includes(last) && d.celebrity.toLowerCase().startsWith(c.short.toLowerCase())))
+    .slice(0, 6);
+  const reads = ["celebrity-style-archetypes-guide", "celebrity-capsule-wardrobe-12-pieces"].map(getArticle).filter(Boolean) as NonNullable<ReturnType<typeof getArticle>>[];
   const url = `${BASE}/style/${c.slug}`;
   const related = c.related.map(getCeleb).filter(Boolean) as NonNullable<ReturnType<typeof getCeleb>>[];
   const shop = shopHref(c.name);
@@ -42,8 +67,8 @@ export default async function CelebPage({ params }: { params: { slug: string } }
       headline: `${c.name} Outfits: Her Style Formula & Where to Buy It`,
       description: c.description,
       mainEntityOfPage: url,
-      author: { "@type": "Organization", name: "RunwayTwin", url: BASE },
-      publisher: { "@type": "Organization", name: "RunwayTwin", url: BASE },
+      author: ORG_REF,
+      publisher: ORG_REF,
       about: { "@type": "Person", name: c.name },
       dateModified: "2026-11-01",
     },
@@ -153,6 +178,15 @@ export default async function CelebPage({ params }: { params: { slug: string } }
           <aside className="mt-12 rounded-2xl border border-neutral-200 bg-[#FAF9F6] p-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">In-depth guide</p>
             <Link href={c.guide.href} className="mt-2 block font-serif text-xl hover:underline">{c.guide.label}</Link>
+          </aside>
+        )}
+
+        {reads.length > 0 && (
+          <aside className="mt-6 rounded-2xl border border-neutral-200 bg-white p-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">From the Journal</p>
+            <ul className="mt-2 space-y-2">
+              {reads.map((a) => <li key={a.slug}><Link href={`/blog/${a.slug}`} className="font-serif text-lg hover:underline">{a.title}</Link></li>)}
+            </ul>
           </aside>
         )}
 

@@ -1,5 +1,6 @@
 // app/about/page.tsx
 import type { Metadata } from "next";
+import { clip } from "@/lib/seo";
 import Link from "next/link";
 
 /* =============================================================================
@@ -15,7 +16,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "About RunwayTwin — the AI Celebrity Stylist",
   description:
-    "RunwayTwin turns celebrity inspiration into outfits you actually wear. Upload any outfit photo and shop every piece at high-street, mid-range or luxury prices.",
+    clip("RunwayTwin turns celebrity inspiration into outfits you actually wear. Upload any outfit photo and shop every piece at high-street, mid-range or luxury prices."),
   alternates: { canonical: "https://runwaytwin.com/about" },
   openGraph: {
     title: "About — RunwayTwin │ Your AI Celebrity Stylist",

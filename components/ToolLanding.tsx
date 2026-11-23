@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { fitTitle, clip } from "@/lib/seo";
 import { TOOLS, type ToolPage } from "@/lib/tools";
 import { CELEBS } from "@/lib/celebs";
 
@@ -8,8 +9,8 @@ const BASE = "https://runwaytwin.com";
 export function toolMetadata(t: ToolPage): Metadata {
   const url = `${BASE}/${t.slug}`;
   return {
-    title: { absolute: `${t.title} | RunwayTwin` },
-    description: t.description,
+    title: { absolute: fitTitle([t.title]) },
+    description: clip(t.description),
     alternates: { canonical: url },
     openGraph: { title: t.title, description: t.description, url, type: "website", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
     twitter: { card: "summary_large_image", title: t.title, description: t.description },

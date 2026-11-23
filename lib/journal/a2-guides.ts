@@ -61,7 +61,7 @@ export const GUIDE_ARTICLES: Article[] = [
   {
     slug: "how-to-judge-a-dupe-twin-score",
     title: "How to judge a dupe in 30 seconds: the Twin Score method",
-    seoTitle: "How to Tell if a Dupe Is Good: The Twin Score Method (5 Tests)",
+    seoTitle: "How to Tell if a Dupe Is Good: The Twin Score Method",
     description:
       "Most dupes fail on one of five things: silhouette, fabric, colour, hardware or proportion. Here is the scoring method RunwayTwin uses, and how to run it yourself on any product page.",
     kicker: "Method",

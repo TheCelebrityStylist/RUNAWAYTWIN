@@ -6,7 +6,7 @@ export const DATA_ARTICLES: Article[] = [
   {
     slug: "cfda-awards-2026-dupe-index",
     title: "The CFDA Awards 2026, recreated: €79,720 of red carpet for €3,950",
-    seoTitle: "CFDA Awards 2026 Looks Recreated for 4% of the Price | Dupe Index",
+    seoTitle: "CFDA Awards 2026 Looks Recreated for 4% of the Price",
     description:
       "We broke down 12 of the most-covered looks from the 2026 CFDA Fashion Awards, piece by piece. The originals cost €79,720. The best-value versions cost €3,950 and keep a median 57% of the look.",
     kicker: "The Dupe Index · Data",
@@ -77,7 +77,7 @@ export const DATA_ARTICLES: Article[] = [
   {
     slug: "where-to-spend-and-save-on-clothes",
     title: "Where to spend and where to save: what 38 red-carpet pieces say about dupes",
-    seoTitle: "Where to Spend vs Save on Clothes: What the Data Says About Dupes",
+    seoTitle: "Where to Spend vs Save on Clothes: What the Data Says",
     description:
       "We priced 38 celebrity pieces three ways. Cheap versions get 65% of the small pieces right but only 57% of the pieces that define a look. Here is where your money actually shows.",
     kicker: "The Dupe Index · Analysis",

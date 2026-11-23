@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { clip } from "@/lib/seo";
 import Link from "next/link";
 
 /* =========================================================================
@@ -12,9 +13,9 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
-    { absolute: "Zendaya's Red Carpet Style: How to Get Her Evening Glam Look | RunwayTwin" },
+    { absolute: "Zendaya's Red Carpet Style: How to Get Her Evening Glam" },
   description:
-    "Translate Zendaya’s red-carpet signature into a repeatable evening outfit recipe. Palette, silhouette, finishing touches—tailored tips for every body type.",
+    clip("Translate Zendaya’s red-carpet signature into a repeatable evening outfit recipe. Palette, silhouette, finishing touches—tailored tips for every body type."),
   alternates: {
     canonical: "https://runwaytwin.com/blog/zendaya-evening-glam",
   },

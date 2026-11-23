@@ -6,7 +6,7 @@ export const STYLE_ARTICLES: Article[] = [
   {
     slug: "preloved-original-vs-dupe-cost-per-wear",
     title: "Pre-loved original or new dupe? The cost-per-wear maths",
-    seoTitle: "Pre-Loved Designer vs Dupe: Cost Per Wear Calculator Explained",
+    seoTitle: "Pre-Loved Designer vs Dupe: Cost Per Wear Explained",
     description:
       "Cost per wear ignores the one number that changes everything: what you can sell it for afterwards. Here is the formula with resale built in, and when a second-hand original beats a new copy.",
     kicker: "Money",
@@ -105,7 +105,7 @@ export const STYLE_ARTICLES: Article[] = [
   {
     slug: "celebrity-capsule-wardrobe-12-pieces",
     title: "The 12-piece celebrity capsule: what the most copied wardrobes have in common",
-    seoTitle: "Celebrity Capsule Wardrobe: The 12 Pieces Every Style Icon Owns",
+    seoTitle: "Celebrity Capsule Wardrobe: The 12 Pieces Icons Own",
     description:
       "We compared the signature pieces of 12 of the most copied celebrity wardrobes. A long tailored coat appears in seven of them. Here are the 12 pieces that recur most, and how many icons share each.",
     kicker: "Analysis",
