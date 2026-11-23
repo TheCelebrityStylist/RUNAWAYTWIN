@@ -85,7 +85,7 @@ export function tierShopHref(item: DropItem, tier: "high_street" | "mid" | "luxu
   return `/clk?u=${enc(u)}&rid=drop_${tier}`;
 }
 
-export const euro = (n?: number | null) => (n ? `€${Math.round(n).toLocaleString("nl-NL")}` : "");
+export const euro = (n?: number | null) => (n ? `€${Math.round(n).toLocaleString("en-IE")}` : "");
 export const fmtDate = (d: string) => {
   try {
     return new Date(d + (d.length === 10 ? "T12:00:00Z" : "")).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
