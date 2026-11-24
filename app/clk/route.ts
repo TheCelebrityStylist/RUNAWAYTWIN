@@ -1,28 +1,28 @@
 import { NextResponse } from "next/server";
 
-/** Redirect wrapper. If AFFILIATE_BASE is set, we monetize; else we just pass-through. */
+/**
+ * Outbound shop click. Wraps the product URL in a Skimlinks redirect so the click can earn a commission.
+ * Skimlinks only sets its cookie when the visitor actually clicks through (same as Awin's own redirect).
+ * eBay Partner Network and existing affiliate links pass through untouched.
+ */
+const SKIM = process.env.SKIMLINKS_ID || "313588X1802335";
+const TRACKED = /[?&]campid=|rover\.ebay\.|[?&]mkcid=|awin1\.com|skimresources\.com/i;
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const u = url.searchParams.get("u");
-  const rid = url.searchParams.get("rid") || "";
-  const pid = url.searchParams.get("pid") || "";
+  const rid = (url.searchParams.get("rid") || "site").replace(/[^A-Za-z0-9_]/g, "_").slice(0, 50);
 
   if (!u || !/^https?:\/\//i.test(u)) {
     return NextResponse.json({ error: "invalid target" }, { status: 400 });
   }
 
-  const aff = process.env.AFFILIATE_BASE; // e.g. "https://go.skimresources.com/?id=XXXX&xs=1&url="
-  const target = aff ? `${aff}${encodeURIComponent(u)}` : u;
+  const target = SKIM && !TRACKED.test(u)
+    ? `https://go.skimresources.com/?id=${SKIM}&xs=1&url=${encodeURIComponent(u)}&xcust=${rid}`
+    : u;
 
-  // Optional: send click to a webhook/DB
-  const hook = process.env.CLICK_WEBHOOK;
-  if (hook) {
-    fetch(hook, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ u, rid, pid, ts: Date.now() }),
-    }).catch(() => {});
-  }
-
-  return NextResponse.redirect(target, { status: 302 });
+  const res = NextResponse.redirect(target, { status: 302 });
+  res.headers.set("X-Robots-Tag", "noindex, nofollow");
+  res.headers.set("Cache-Control", "no-store");
+  return res;
 }
