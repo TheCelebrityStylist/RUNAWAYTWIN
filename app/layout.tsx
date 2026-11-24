@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
+import AffiliateConsent, { CookieSettingsLink } from "@/components/AffiliateConsent";
 
 /* =========================================================================
    RunwayTwin — Root Layout (Global Header + Footer)
@@ -138,6 +139,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <li><Link className="hover:underline" href="/privacy">Privacy</Link></li>
                   <li><Link className="hover:underline" href="/terms">Terms</Link></li>
                   <li><Link className="hover:underline" href="/withdraw">Withdraw from contract here</Link></li>
+                  <li><CookieSettingsLink className="hover:underline" /></li>
                 </ul>
               </nav>
             </div>
@@ -147,6 +149,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
           </div>
         </footer>
+        <AffiliateConsent />
       </body>
     </html>
   );

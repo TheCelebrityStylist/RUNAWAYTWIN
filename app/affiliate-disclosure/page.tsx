@@ -146,8 +146,11 @@ export default function AffiliateDisclosurePage() {
           <article className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold tracking-tight">Privacy & cookies</h2>
             <p className="mt-2 text-sm leading-7 text-neutral-700">
-              Some affiliate programs use cookies to attribute a sale. For information on
-              what we collect and how we use it, read our{" "}
+              We work with Awin, Skimlinks and the eBay Partner Network. Skimlinks loads on
+              this site only after you accept affiliate cookies in the banner; you can change
+              that any time via &ldquo;Cookie settings&rdquo; in the footer. If you decline,
+              shop links still work, we just don&rsquo;t get credit. For what we collect and
+              how we use it, read our{" "}
               <Link href="/privacy" className="text-neutral-900 underline">
                 Privacy Policy
               </Link>
