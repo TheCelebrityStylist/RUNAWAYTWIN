@@ -205,6 +205,19 @@ export default async function LookPage({ params }: { params: { slug: string } })
         {d.palette?.length ? (
           <div className="mt-5 flex gap-1.5" aria-label="Colour palette">{d.palette.map((h) => <span key={h} title={h} className="h-6 w-6 rounded-full ring-1 ring-neutral-200" style={{ backgroundColor: h }} />)}</div>
         ) : null}
+        <div className="mt-6 flex flex-wrap gap-2 text-[13px] font-semibold">
+          <a
+            href={`https://www.pinterest.com/pin/create/button/?url=${encodeURIComponent(`${BASE}/looks/${d.slug}`)}&media=${encodeURIComponent(`${BASE}/looks/${d.slug}/story`)}&description=${encodeURIComponent(`${d.celebrity} at ${d.event}${d.twin ? `: ${d.twin.score}% of the look for ${euro(d.twin.cost)}` : ""}. Every piece at three prices on RunwayTwin.`)}`}
+            target="_blank" rel="noopener nofollow"
+            className="rounded-full bg-[#E60023] px-4 py-2 text-white hover:opacity-90"
+          >Save to Pinterest</a>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(`${d.celebrity}'s look at ${d.event}, every piece at three prices: ${BASE}/looks/${d.slug}`)}`}
+            target="_blank" rel="noopener nofollow"
+            className="rounded-full border border-neutral-300 px-4 py-2 text-neutral-800 hover:bg-neutral-50"
+          >Send on WhatsApp</a>
+          <a href={`/looks/${d.slug}/story`} target="_blank" rel="noopener" className="rounded-full border border-neutral-300 px-4 py-2 text-neutral-800 hover:bg-neutral-50">Story image</a>
+        </div>
       </header>
 
       {d.twin && (
